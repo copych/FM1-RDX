@@ -1,0 +1,78 @@
+{
+  "version": "Preview 2026.11.21",
+  "product": "FM-1_9900",
+  "files": {
+    ".gitattributes": {
+      "bytes": 8,
+      "sha256": "705fd4d6451a31d36b3df7de96f83f30ac976c9b4a6d1e51671d8e2f33e2d0da"
+    },
+    ".nojekyll": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "emu/app.js": {
+      "bytes": 259,
+      "sha256": "74ee9d39d5eaa77e6b9ac4c0d5a3d47479f701a942e1a76ab9dcfadde7f77f08"
+    },
+    "emu/app.wasm": {
+      "bytes": 234309,
+      "sha256": "9e5f736c19a953b9dba9e6609648583ad378337c9dbe75ba8fa761a1471c63b0"
+    },
+    "emu/app_worklet.js": {
+      "bytes": 176,
+      "sha256": "c34058663482ce620ea583b8623a8f68b969e4902d493a01385a477154260387"
+    },
+    "emu/index.html": {
+      "bytes": 46365,
+      "sha256": "a00bf850b2e7b342bf22f5639ea75fc458dbba160e7e0ab66481a0e54175896d"
+    },
+    "emu/parts/parts.js": {
+      "bytes": 2358,
+      "sha256": "52367c298b1e722df0d0a6e20997e13e81e52bedd184e0aace00db12550cb205"
+    },
+    "emu/parts/parts_worklet.js": {
+      "bytes": 2158,
+      "sha256": "2c59a1ba16a55dbf5b83e02509eb110207c4e27243b1a19fc75ade4e9f4a34c2"
+    },
+    "emu/parts/resample_worklet.js": {
+      "bytes": 2476,
+      "sha256": "09d197d27d0f743ca9c0ca2b8e32c3e1ce2a1b896582fda6bd940b26316f2287"
+    },
+    "emu/worklet.js": {
+      "bytes": 6490,
+      "sha256": "28548078a64d3df23d7ac974ad8dbefe2647777ed9729d3de0586e68fce1e512"
+    },
+    "firmware/Apache-2.0.txt": {
+      "bytes": 11558,
+      "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6"
+    },
+    "firmware/Barlow-OFL.txt": {
+      "bytes": 4470,
+      "sha256": "b4cc842153e834885f3f9385ce26de4e1213d3ffbe473a6c0519e5522a8e3608"
+    },
+    "firmware/BSD-2-Clause-micro-ecc.txt": {
+      "bytes": 1321,
+      "sha256": "fd0fcdaba5ad2a9ca9b051dd7db92b71a550ce8cd88c4aaae1a8edc564a71eec"
+    },
+    "firmware/fm1-rdx-preview-2026.11.21.fwsc": {
+      "bytes": 616059,
+      "sha256": "493ea7de6de2e9f8d7045befd51abcbfe7d7fbd7c7fc5f3b0444ec2a106b7582"
+    },
+    "firmware/MPL-2.0.txt": {
+      "bytes": 17099,
+      "sha256": "cde215e5b42363eb28ca2462c4558ff4807b38f383c537624c31e44657ac58f4"
+    },
+    "index.html": {
+      "bytes": 7123,
+      "sha256": "c463ef0409f41647a9e97e5ab281e325c8891553a1dcda71f58f4e8e5c0bfa4f"
+    },
+    "install/index.html": {
+      "bytes": 85936,
+      "sha256": "fe7d3d18d25fe0d3ad366870d0b15213a5ae4ec6eeabd79face38562386f7a2a"
+    },
+    "words/5a2ec875ad.json": {
+      "bytes": 977,
+      "sha256": "5a2ec875adac5bf076ffd56cc299163d556989c4e79727c98dbf6737fa937504"
+    }
+  }
+}
