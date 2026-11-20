@@ -1,0 +1,5 @@
+* text=auto eol=lf
+# Input hashes require the exact original bytes, including line endings.
+RDX_before_UAC/** -text
+*.syx -text
+*.png -text

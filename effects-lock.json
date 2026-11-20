@@ -1,0 +1,13 @@
+{
+  "source": "RDX_before_UAC",
+  "sha256": {
+    "fx_base.h": "3c7f4ed6a24d2d77361779356b29e8c5ff7ced1b2a8310bb35b070930bc37530",
+    "fx_distortion.h": "a9cfae2d69068398136782e398ea816429d8f78fc8fdfd5392a9b4d5c98960d3",
+    "fx_touch_wah.h": "f135dbc381d9de7bec8450d87feaf368dcf7df1998f84677e80086bd9045f515",
+    "fx_chorus.h": "e5c4a9a3f4572e16f46c16c2938d1f340ccc3935ec928fef8c28d6a4e903c0e0",
+    "fx_flanger.h": "154f3c4e78087cde70aab800a1248946997071717fe9988ff25e96e9141b993d",
+    "fx_phaser.h": "4fd412853d67b106552a0db77adbd245624411c3e682b80b2f375ba323db07a0",
+    "fx_delay.h": "cc10a504732cd4d10d709b43129d7f1eb2bd51c4d9463cede00379e150ade4fb",
+    "fx_reverb.h": "b20c1179ea8f71673f70794da93325e97002819dd639529d3066563a5f33f53a"
+  }
+}

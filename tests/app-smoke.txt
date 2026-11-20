@@ -1,0 +1,63 @@
+wait 600
+expect preset 1
+expect fx 1
+press SEL
+tap FX
+release SEL
+wait 30
+expect fx 0
+press SEL
+tap FX
+release SEL
+wait 30
+expect fx 1
+shot boot.png
+key 7 down
+wait 100
+expect key_mask 128
+expect peak_db_min -50
+wav digichord.wav
+wait 500
+wavstop
+key 7 up
+wait 20
+expect key_mask 0
+tap OCT+
+wait 20
+expect octave 1
+turn PRESET 1
+wait 20
+expect preset 2
+midi C0 00 00
+wait 20
+expect preset 0
+midi C0 7F 00
+wait 20
+expect preset 0
+midi 90 45 64
+wait 200
+peakreset
+wait 200
+expect peak_db_min -50
+midi B0 78 00
+wait 20
+peakreset
+wait 100
+expect peak_db_max -100
+# Channel 2 is ignored by the bring-up app.
+midi 91 45 64
+wait 100
+expect peak_db_max -100
+peakreset
+# A program change and note in the same block must preserve their ordering.
+midi C0 01 00
+midi 90 3C 64
+wait 300
+expect peak_db_min -50
+midi B0 78 00
+wait 20
+peakreset
+wait 30
+expect peak_db_max -100
+expect store_writes 0
+shot final.png

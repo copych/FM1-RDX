@@ -1,0 +1,14 @@
+{
+  "sha256": {
+    "RDX_before_UAC/src/GUI/UI_Display.h": "6086ffac659bc72c9159213adee7028c1b882ba9c28287adddd86708d56bf27b",
+    "RDX_before_UAC/src/GUI/font_mo.h": "7e85b036f4481c96896f2b99270e2f38aa3f3642b9965cd0ceef269949c0abba",
+    "RDX_before_UAC/src/GUI/bmp_fx.h": "14809497f4b64389fd46b20e5b721ae574268ed840b5ea6bcb718e8715c3b807",
+    "RDX_before_UAC/src/GUI/bmp_waves.h": "6604631c1b8246106b50311b77f4521a7b26be764f2ac28be6594b343da4c4e3",
+    "RDX_before_UAC/src/GUI/bmp_slider.h": "16a4b745241693779a39b50e3c8dc40e1d1d0f6a010905feef1a263ad6d704c8",
+    "RDX_before_UAC/src/GUI/bmp_curves.h": "1c4b3749c3de8590e0bd7fe3ba916bf2e985bec5e0e83dc232cd3e0bc323007a",
+    "RDX_before_UAC/src/GUI/UI_Algos.h": "474ec5c701ba3e01e204420402a40c9d5c9ba02a70dea121cad31dad33510ba6",
+    "RDX_before_UAC/src/GUI/RDX_Sliders.h": "d2cec5476c040281c0b4933f3af206d51f381b3141462fbfab68f27576f91a73",
+    "RDX_before_UAC/src/GUI/RDX_Graph.h": "69566cb40f3ce64d9b02ca2a72fd5969d059c79d618647726d32440701010fe9",
+    "RDX_before_UAC/RDX_GUI.h": "2017f6a5965382990e89c9d348ef581a40d664b160e6c2228b69900148526bf3"
+  }
+}

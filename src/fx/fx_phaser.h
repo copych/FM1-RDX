@@ -1,0 +1,332 @@
+// Adapted from the user snapshot; original notices below are retained.
+#pragma once
+#include "../core/misc.h"
+#include "fx_base.h"
+
+class FxPhaser : public FXBase {
+public:
+    FxPhaser() = default;
+
+    bool prepare(float* scratchFast, uint32_t scratchFastLen,
+                 float* scratchSlow, uint32_t scratchSlowLen,
+                 int sampleRate = SAMPLE_RATE)
+    {
+        sampleRate_ = sampleRate;
+
+        // Reset phaser
+        resetPhaser();
+
+        // Flanger remains untouched
+        if (scratchFastLen >= FLANGER_BUF_SIZE * 2) {
+            delayL_ = scratchFast;
+            delayR_ = scratchFast + FLANGER_BUF_SIZE;
+            flangerWritePos_ = 0;
+        }
+
+        prepared_ = true;
+        return true;
+    }
+
+    inline void processBlock(float* left, float* right, uint32_t frames) {
+        if (!prepared_) return;
+
+        setDepth(st.effects[slotId_][1] );
+        setRate(st.effects[slotId_][2] );
+        updatePhaserCoeffs(frames);
+        updateFlangerLFO(frames); 
+
+        for (uint32_t i = 0; i < frames; ++i) {
+            // Stereo 2-notch phaser
+            processPhaserSample(left[i], right[i]);
+            // Flanger
+            processFlangerSample(left[i], right[i]);
+        }
+    }
+
+    inline void reset() {
+        resetPhaser();
+        resetFlanger();
+    }
+
+    // Depth in semitones
+    inline void setDepth(uint8_t d) {
+        if (d == lastDepth_) return;  // no change
+        lastDepth_ = d;
+
+        // Phaser depth: semitones
+        phaserDepth_ = fclamp(d * 0.0498f + 0.061f, 0.f, 90.f);
+
+        // Flanger depth: seconds
+
+        float fHigh = 1000.0f * semitonesToRatio(phaserDepth_ * 0.5f);
+        float deltaF = fHigh - 995.0f;
+        float maxDelay = 1.f / deltaF; // seconds
+        flangerDepth_ = fclamp(maxDelay, 0.f, MAX_FLANGER_DEPTH);
+    }
+
+    inline void setRate(uint8_t r) {
+        if (r == lastRate_) return;  // no change
+        lastRate_ = r;
+
+        // Phaser LFO rate
+        phaserRate_ = LFO_SPEED[r] * 0.188f + 0.0936f;
+
+        // Flanger LFO rate
+        flangerRate_ = LFO_SPEED[r] * 0.5f;  // adjust multiplier if needed
+    }
+
+    // Temporary live-tuning interface for the Phaser Lab GUI.
+    // These are internal sound-portrait parameters only; LFO timing/depth is untouched.
+    enum TuneParam : uint8_t {
+        TUNE_PHASER_MIX = 0,
+        TUNE_PHASER_FB,
+        TUNE_FLANGER_MIX,
+        TUNE_FLANGER_DEPTH_SCALE,
+        TUNE_FLANGER_OFFSET_MS,
+        TUNE_COUNT
+    };
+
+    inline float getTuneParam(uint8_t p) const {
+        switch (p) {
+            case TUNE_PHASER_MIX:  return phaserMix_;
+            case TUNE_PHASER_FB:   return phaserFb_;
+            case TUNE_FLANGER_MIX:          return flangerMix_;
+            case TUNE_FLANGER_DEPTH_SCALE:  return flangerDepthScale_;
+            case TUNE_FLANGER_OFFSET_MS:    return flangerOffsetSec_ * 1000.f;
+            default:               return 0.f;
+        }
+    }
+
+    // Peak-hold diagnostics for Phaser Lab. Values are absolute float amplitudes.
+    // Input = before phaser, Internal = all-pass/feedback output before dry/wet mix,
+    // Phaser = phaser output, Flanger = final combined-effect output.
+    inline float peakInput() const          { return peakInput_; }
+    inline float peakInternal() const       { return peakInternal_; }
+    inline float peakPhaser() const         { return peakPhaser_; }
+    inline float peakFlanger() const        { return peakFlanger_; }
+
+    inline void resetPeakHold() {
+        peakInput_ = 0.f;
+        peakInternal_ = 0.f;
+        peakPhaser_ = 0.f;
+        peakFlanger_ = 0.f;
+    }
+
+    inline void adjustTuneParam(uint8_t p, int dir) {
+        switch (p) {
+            case TUNE_PHASER_MIX:
+                phaserMix_ = fclamp(phaserMix_ + dir * 0.01f, 0.f, 1.f);
+                break;
+            case TUNE_PHASER_FB:
+                phaserFb_ = fclamp(phaserFb_ + dir * 0.01f, 0.f, 0.95f);
+                break;
+            case TUNE_FLANGER_MIX:
+                flangerMix_ = fclamp(flangerMix_ + dir * 0.01f, 0.f, 1.f);
+                break;
+            case TUNE_FLANGER_DEPTH_SCALE:
+                flangerDepthScale_ = fclamp(flangerDepthScale_ + dir * 0.05f, 0.25f, 2.00f);
+                break;
+            case TUNE_FLANGER_OFFSET_MS:
+                flangerOffsetSec_ = fclamp(flangerOffsetSec_ + dir * 0.0001f, 0.f, 0.020f);
+                break;
+        }
+    }
+
+
+private:
+
+    // Temporary diagnostic peak holds. Written by audio processing, read by GUI.
+    volatile float peakInput_ = 0.f;
+    volatile float peakInternal_ = 0.f;
+    volatile float peakPhaser_ = 0.f;
+    volatile float peakFlanger_ = 0.f;
+
+    inline void trackPeak_(volatile float& peak, float a, float b) {
+        const float aa = fabsf(a);
+        const float ab = fabsf(b);
+        const float v = aa > ab ? aa : ab;
+        if (v > peak) peak = v;
+    }
+
+    uint8_t lastDepth_ = 0xFF;  // cache last MIDI value
+    uint8_t lastRate_  = 0xFF;
+
+    static constexpr int FLANGER_BUF_SIZE = 4096;
+    static constexpr float MAX_FLANGER_DEPTH = 0.03f;
+    float flangerDepth_ = 0.01f;  // mapped depth in seconds for flanger
+    float flangerRate_  = 0.25f;  // mapped LFO increment for flanger
+    float flangerMix_ = 0.53f;
+
+    // Phaser Lab calibration trims. They preserve the existing patch depth/rate mapping.
+    float flangerDepthScale_ = 0.15f;
+    float flangerOffsetSec_  = 0.0011f;
+
+    float phaserDepth_ = 0.75f;   // mapped depth for phaser
+    float phaserRate_  = 0.5f;   // mapped LFO increment for phaser
+    float phaserMix_   = 0.53f;
+    float phaserFb_     = 0.10f;
+
+    inline float triLFO(float phase) { 
+        phase = wrap01(phase); 
+        return 1.f - fabsf(2.f * phase - 1.f); 
+    }
+
+    RDX_Common& st = RDX_State::getState().workingPatch.common;
+    int sampleRate_ = SAMPLE_RATE;
+    bool prepared_ = false;
+
+    // --------------- Phaser ------------------
+    static constexpr int NUM_NOTCHES = 2;
+    float FREQ_LOW[NUM_NOTCHES] = { 90.f, 500.0f }; // known lower notch frequencies
+    float fNotch_[NUM_NOTCHES]{};
+    float z1L_[NUM_NOTCHES]{}, z1R_[NUM_NOTCHES]{};
+    float alpha_[NUM_NOTCHES]{};
+    float alphaTarget_[NUM_NOTCHES]{};
+    float prev_inL_ = 0.f, prev_outL_ = 0.f;
+    float prev_inR_ = 0.f, prev_outR_ = 0.f;
+    float feedbackL_ = 0.f, feedbackR_ = 0.f;    
+    float lfoPhase_ = 0.f;  // shared for left and right
+    float rate_ = 0.5f;
+    float depthSemitones_ = 24.f;
+
+    // --- Stereo Flanger ---
+    float* delayL_ = nullptr;
+    float* delayR_ = nullptr;
+    uint32_t flangerWritePos_ = 0;    
+    float flangerPhaseL_ = 0.f;
+    float flangerPhaseR_ = 0.5f; // 180° offset
+    uint32_t flangerWritePosL_ = 0;
+    uint32_t flangerWritePosR_ = 0;
+
+
+    inline void resetPhaser() {
+        for (int i = 0; i < NUM_NOTCHES; ++i) {
+            z1L_[i] = z1R_[i] = 0.f;
+        }
+        prev_inL_ = prev_outL_ = 0.f;
+        prev_inR_ = prev_outR_ = 0.f;
+        feedbackL_ = feedbackR_ = 0.f;
+        lfoPhase_ = 0.f;
+    }
+    
+    inline void updatePhaserCoeffs(uint32_t frames) {
+        // increment LFO
+        lfoPhase_ = wrap01(lfoPhase_ + phaserRate_ * frames / (float)sampleRate_);
+
+        float lfo = triLFO(lfoPhase_);
+
+        for (int i = 0; i < NUM_NOTCHES; ++i) {
+            fNotch_[i] = FREQ_LOW[i] * semitonesToRatio(depthSemitones_ * lfo);
+
+            float w = RDX_TWO_PI * fNotch_[i] / (float)sampleRate_;
+            alphaTarget_[i] = (1.f - w) / (1.f + w);
+            alpha_[i] += 0.15f * (alphaTarget_[i] - alpha_[i]);   // 0.1f–0.2f works well
+
+        }
+    }
+
+
+
+    inline void processPhaserSample(float& left, float& right) {
+        float yL = dcBlock(left,  prev_inL_, prev_outL_, DcTimeConst_);
+        yL += feedbackL_ * phaserFb_;
+
+        float yR = dcBlock(right, prev_inR_, prev_outR_, DcTimeConst_);
+        yR += feedbackR_ * phaserFb_;
+
+        for (int n = 0; n < 1; ++n) {
+            for (int i = 0; i < NUM_NOTCHES; ++i) {
+                // left
+                float tL = -alpha_[i] * yL + z1L_[i];
+                z1L_[i] = yL + alpha_[i] * tL;
+                yL = tL;
+
+                // right
+                float tR = -alpha_[i] * yR + z1R_[i];
+                z1R_[i] = yR + alpha_[i] * tR;
+                yR = tR;
+            }
+        }
+
+        feedbackL_ = yL;
+        feedbackR_ = yR;
+
+        left  = left  * (1.f - phaserMix_) + yL * phaserMix_;
+        right = right * (1.f - phaserMix_) + yR * phaserMix_;
+    }
+
+
+
+
+    // ---------------- flanger ----------------
+    inline void resetFlanger() {
+        if (!delayL_ || !delayR_) return;
+        // Arena is already zeroed before reset.
+        flangerWritePos_ = 0;
+        flangerPhaseL_ = 0.f;
+        flangerPhaseR_ = 0.5f;
+    }
+
+    inline void updateFlangerLFO(uint32_t frames) {
+        float inc = flangerRate_ * frames * DIV_SAMPLE_RATE;
+        flangerPhaseL_ = wrap01(flangerPhaseL_ + inc);
+        flangerPhaseR_ = wrap01(flangerPhaseR_ + inc);
+    }
+
+
+    inline void processFlangerSample(float& l, float& r) {
+        if (!delayL_ || !delayR_) return;
+        float lfoL = 0.6f * triLFO(flangerPhaseL_);
+        const float depthSamples = flangerDepth_ * flangerDepthScale_ * sampleRate_;
+        const float offsetSamples = flangerOffsetSec_ * sampleRate_;
+        float modL = offsetSamples + (0.1f + lfoL) * depthSamples;
+        float modR = offsetSamples + (0.7f - lfoL) * depthSamples;
+
+        // Compute fractional read index
+        float readPosL = flangerWritePosL_ - modL;
+        if (readPosL < 0.f) readPosL += FLANGER_BUF_SIZE;
+
+        // Integer + fractional part
+        uint32_t iL = (uint32_t)readPosL;
+        uint32_t iL2 = (iL + 1) & (FLANGER_BUF_SIZE - 1);   // only works if buf size is power of 2
+        float fracL = readPosL - (float)iL;
+
+        // Linear interpolation
+        float outL = delayL_[iL] * (1.f - fracL) + delayL_[iL2] * fracL;
+
+        // Compute fractional read index
+        float readPosR = flangerWritePosR_ - modR;
+        if (readPosR < 0.f) readPosR += FLANGER_BUF_SIZE;
+
+        // Integer + fractional part
+        uint32_t iR = (uint32_t)readPosR;
+        uint32_t iR2 = (iR + 1) & (FLANGER_BUF_SIZE - 1);   // only works if buf size is power of 2
+        float fracR = readPosR - (float)iR;
+
+        // Linear interpolation
+        float outR = delayR_[iR] * (1.f - fracR) + delayR_[iR2] * fracR;
+
+        delayL_[flangerWritePosL_] = l;
+        delayR_[flangerWritePosR_] = r;
+
+        l = l * (1.f - flangerMix_) + outL * flangerMix_;
+        r = r * (1.f - flangerMix_) + outR * flangerMix_;
+
+        flangerWritePosL_ = (flangerWritePosL_ + 1) % FLANGER_BUF_SIZE;
+        if (flangerWritePosL_ >= FLANGER_BUF_SIZE) flangerWritePosL_ -= FLANGER_BUF_SIZE;
+        flangerWritePosR_ = (flangerWritePosR_ + 1) % FLANGER_BUF_SIZE;
+        if (flangerWritePosR_ >= FLANGER_BUF_SIZE) flangerWritePosR_ -= FLANGER_BUF_SIZE;
+    }
+
+    inline  
+    float dcBlock(float x, float &x1, float &y1, float k)
+    {
+        float y = x - x1 + k * y1;
+        x1 = x;
+        y1 = y;
+        return y;
+    }
+
+    static constexpr float DcTimeConst_ = 0.996f;
+};
+

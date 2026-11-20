@@ -1,0 +1,15 @@
+{
+  "source": "RDX_before_UAC",
+  "sha256": {
+    "RDX_Types.h": "8920e3b4f3f0ab86e679d3b2d239200a9032f59925e333fd5876235e6fc10216",
+    "RDX_State.h": "a7a6e199de93864726f9174b2aedfc1319c22b39b106433a4f99ef7972119c6d",
+    "RDX_Constants.h": "3fdb956039545c3c90cd62f85e32da424dde883771e83272965ec710d307c760",
+    "RDX_Envelope.h": "d5658a527815bcf87fa2174347b1d2aa0721ccea50610034d1a0856577a67205",
+    "RDX_PEG.h": "b8bdabc4a729ec912c27b920c55e27a1fae09c74398a9e5f03c35d2abdf3e772",
+    "RDX_LFO.h": "276fe5cbaad77c39d6b2e56254b35d064737ed3f6414237c84ff72f45aa560a8",
+    "RDX_Operator.h": "0889002d10824c69aad0707df3362d8e69f944fe9b29b9f453bdca331fbbc9aa",
+    "RDX_Voice.h": "af06a66213e2fd45f07ee363dcab9bea4336d56ded1bddf67c09cffbebf62fec"
+  },
+  "fm1_base": "7932dff6f1474cc8c3420e0df75eb75879e47319",
+  "felucca_bsp": "f869dfa8dc3c081f040407e370d303349e4444d5"
+}

@@ -1,0 +1,10 @@
+build/
+.tools/
+firmware.json
+/app/web/emu/
+/app/web/words/
+*.log
+*.tmp
+.env
+.env.*
+/RDX_before_UAC/.ai-context/

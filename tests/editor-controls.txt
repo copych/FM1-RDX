@@ -1,0 +1,50 @@
+wait 600
+expect page 0
+expect operator 0
+tap EDIT
+wait 30
+expect page 1
+turn K1 -127
+wait 30
+expect op1_level 0
+turn K1 127
+wait 30
+expect op1_level 127
+tap SEL
+wait 30
+expect operator 1
+tap ENV
+wait 30
+expect page 15
+tap ENV
+wait 30
+expect page 16
+tap LFO
+wait 30
+expect page 9
+tap LFO
+wait 30
+expect page 10
+tap FX
+wait 30
+expect page 13
+tap FX
+wait 30
+expect page 14
+press SEL
+tap FX
+release SEL
+wait 30
+expect fx 0
+expect operator 1
+tap HOME
+wait 30
+expect page 0
+turn ALGO 127
+wait 30
+expect algorithm 11
+turn SELECT 19
+wait 30
+expect page 0
+expect store_writes 0
+shot editor-home.png
