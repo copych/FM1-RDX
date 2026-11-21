@@ -77,6 +77,9 @@ inline __attribute__((always_inline)) float rdxGainInv(float value) {
       .replace(/std::array<float,1025>/g,'RdxArray<float,1025>');
   }
   if(name==='RDX_Envelope.h') {
+    s=s.replace('#include "RDX_State.h"','#include "RDX_State.h"\n#include "rdx_profile_types.h"');
+    s=s.replace('    inline  __attribute__((always_inline, hot)) float processAEG()',
+      '    inline __attribute__((always_inline)) void profileAdvance(RdxEnvelopePoint* out){\n        out->level=processInternal();out->k=k_;out->c=c_;out->rising=rising_;\n    }\n    inline  __attribute__((always_inline, hot)) float processAEG()');
     s=s.replace(/mapLevel\(/g,'rdxEnvelopeGain(')
       .replace('k_ = V0 / currentL_;','k_ = 0.0f;')
       .replace('c_ = 0.0f;\n            }','c_ = V0;\n            }');
@@ -119,6 +122,7 @@ inline __attribute__((always_inline)) float rdxGainInv(float value) {
         'if ((int)waveform_ > 3) { // Square\n            value_ = evalWave(startPhase) * fadeInEnv_;');
   }
   if(name==='RDX_Voice.h') {
+    s=s.replace('//const float lfoNorm = lfoValue_ * MIDI_NORM;\n    for', '//const float lfoNorm = lfoValue_ * MIDI_NORM;\n    RDX_UNROLL4\n    for');
     s=s.replace('inline void init()', 'inline __attribute__((always_inline)) void init()')
       .replace('algorithm_ = a;', 'algorithm_ = a;\n    cacheRouting();')
       .replace('inline bool isActive() const', 'inline __attribute__((always_inline)) bool isActive() const')
@@ -144,6 +148,7 @@ inline __attribute__((always_inline)) float rdxGainInv(float value) {
       'portamentoInc_        = ctl_.portaTimeS > 0.0f ? 1.0f / (ctl_.portaTimeS * sampleRate_) : 1.0f;');
   }
   if(name==='RDX_Operator.h') {
+    s=s.replace('    inline void updateGain()', '    #include "rdx_operator_profile.inc"\n    inline void updateGain()');
     s=s.replace('    inline bool isActive() const', '    inline bool isAttacking() const {return params_.enable&&params_.outLevel&&env_.getStage()==RDX_Envelope::Stage::ATTACK;}\n    inline bool isActive() const');
     // Mute output without freezing the operator's envelope/phase state.
     s=s.replace('if (!params_.enable) return 0.f;','');

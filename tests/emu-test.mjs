@@ -68,3 +68,23 @@ turn(-127,200);emu.take('frame');emu.send({type:'buttons',mask:2});turn(3,40);em
 assert.deepEqual(screen(),slowScreen,'Three slow turns equal three precise level units');
 assert.notDeepEqual(fastScreen,slowScreen,'Fast and slow rotations produce different displayed values');
 console.log('PASS: WebAssembly fast/slow knob acceleration and SEL precision override.');
+button(1<<6); // HOME; diagnostic entry starts from normal rendering.
+for(let i=0;i<3;i++){
+  emu.send({type:'buttons',mask:2});emu.run(20);
+  emu.send({type:'buttons',mask:2|(1<<11)});emu.run(20);
+  emu.send({type:'buttons',mask:0});emu.run(20);
+}
+button(1<<7); // SAVE enables split diagnostic rendering.
+midi(0xc0,32);emu.run(150); // Program selection returns home and disables profiling.
+for(let i=0;i<3;i++){
+  emu.send({type:'buttons',mask:2});emu.run(20);
+  emu.send({type:'buttons',mask:2|(1<<11)});emu.run(20);
+  emu.send({type:'buttons',mask:0});emu.run(20);
+}
+button(1<<7);midi(0x90,69,110);
+const profiled=emu.record(700);assert(profiled.every(Number.isFinite)&&profiled.some(v=>Math.abs(v)>0.001),'Profile renderer plays finite audio');
+emu.send({type:'enc',role:0,n:1});emu.run(50);
+const fineProfiled=emu.record(200);assert(fineProfiled.every(Number.isFinite)&&fineProfiled.some(v=>Math.abs(v)>0.001),'Fine profile renderer plays finite audio');
+button(1<<6);const normalAgain=emu.record(100);assert(normalAgain.every(Number.isFinite)&&normalAgain.some(v=>Math.abs(v)>0.001),'HOME restores normal renderer on held note');
+midi(0xb0,120);emu.run(50);assert.equal(emu.run(20),0,'panic after profiling');
+console.log('PASS: WebAssembly profile entry, audio, preset-home exit, live return to normal and panic.');

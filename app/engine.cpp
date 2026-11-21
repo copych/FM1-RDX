@@ -1,6 +1,7 @@
 #include "engine_api.h"
 #include "editor_api.h"
 #include "../src/rdx_engine.cpp"
+#include "../src/rdx_profile.cpp"
 #include "../src/rdx_effects.cpp"
 #include "../src/rdx_budget.h"
 #if defined(RDX_FM1)
@@ -9,10 +10,32 @@ static uint32_t budget_ticks(){return plat_ticks24();}
 #else
 static uint32_t budget_ticks(){return 0;}
 #endif
+#include "benchmark.inc"
 static RdxBudget budget;
 static bool budget_dirty=true,budget_keep_limit,budget_sample_valid;
 static uint32_t synth_ticks;
 static uint32_t synth_peak,fx_peak;
+static volatile uint8_t detail_enabled;
+static uint32_t detail_parts[RENDER_PARTS_COUNT],detail_peak,detail_blocks,detail_voices;
+static uint32_t detail_fine[RENDER_FINE_PARTS_COUNT];
+extern "C" const char* rdx_build_label(void){
+#if defined(RDX_TEST_O3) && defined(RDX_TEST_UNROLL)
+    return "O3 U4";
+#elif defined(RDX_TEST_O3)
+    return "O3";
+#elif defined(RDX_TEST_UNROLL)
+    return "O2 U4";
+#else
+    return "O2";
+#endif
+}
+static uint32_t detail_ticks(){
+#ifdef PLAT_HOST
+    return 0;
+#else
+    return budget_ticks();
+#endif
+}
 
 // Explicit construction at boot, with static storage and no heap or C++ runtime.
 alignas(RdxEngine) static unsigned char storage[sizeof(RdxEngine)];
@@ -164,8 +187,21 @@ extern "C" void rdx_render(float* l,float* r) {
     const bool ready=effects->serviceClear();
     if(ready) {
         const uint32_t start=budget_ticks();
-        RDX_FAR(render_core)(engine,l,r);
+        uint32_t parts[RENDER_PARTS_COUNT],fine[RENDER_FINE_PARTS_COUNT];
+        if(detail_enabled)RdxProfile::render(*engine,l,r,parts,detail_ticks,detail_enabled==DETAIL_FINE?fine:nullptr);
+        else RDX_FAR(render_core)(engine,l,r);
         synth_ticks=budget_ticks()-start;
+        if(detail_enabled){
+            if(detail_blocks!=UINT32_MAX)++detail_blocks;
+#ifdef PLAT_HOST
+            const uint32_t measured=0;
+#else
+            const uint32_t measured=synth_ticks;
+#endif
+            if(measured>=detail_peak){detail_peak=measured;detail_voices=engine->renderedVoices();
+                for(uint32_t i=0;i<RENDER_PARTS_COUNT;++i)detail_parts[i]=parts[i];
+                for(uint32_t i=0;i<RENDER_FINE_PARTS_COUNT;++i)detail_fine[i]=detail_enabled==DETAIL_FINE?fine[i]:0;}
+        }
         if(synth_ticks>synth_peak)synth_peak=synth_ticks;
         budget_sample_valid=fade==PRESET_STEADY&&RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY;
         const uint32_t fx_start=budget_ticks();
@@ -193,6 +229,7 @@ extern "C" void rdx_render(float* l,float* r) {
     } else fade=PRESET_STEADY;
 }
 extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
+    if(detail_enabled)return; // Do not learn a normal voice budget from diagnostic execution.
     if(budget_dirty){uint8_t previous=budget.limit;budget.reset(now);if(budget_keep_limit)budget.limit=previous;budget_dirty=budget_keep_limit=false;}
     budget.observe(now,ticks,synth_ticks,engine->renderedVoices(),budget_sample_valid);
     engine->setVoiceLimit(budget.limit);
@@ -200,7 +237,16 @@ extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
 extern "C" void rdx_budget_overload(uint32_t now){budget.overload(now);engine->setVoiceLimit(budget.limit);}
 extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_t)engine->activeVoices()<<8)|((uint32_t)RdxEngine::voiceCapacity<<16);}
 extern "C" void rdx_cost_reset(void){synth_peak=fx_peak=0;}
-extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=budget.prediction(5);}
+extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=budget.prediction(RdxBudget::maximum);}
+extern "C" void rdx_detail_set(uint8_t on){detail_enabled=on>=DETAIL_MODES_COUNT?DETAIL_OFF:on;
+    if(detail_enabled){detail_peak=detail_blocks=detail_voices=0;
+        for(uint32_t i=0;i<RENDER_PARTS_COUNT;++i)detail_parts[i]=0;
+        for(uint32_t i=0;i<RENDER_FINE_PARTS_COUNT;++i)detail_fine[i]=0;}}
+extern "C" void rdx_detail_fine(uint32_t* out){for(uint32_t i=0;i<RENDER_FINE_PARTS_COUNT;++i)out[i]=detail_fine[i];}
+extern "C" void rdx_detail_profile(uint32_t* out){
+    for(uint32_t i=0;i<RENDER_PARTS_COUNT;++i)out[i]=detail_parts[i];
+    out[5]=detail_peak;out[6]=detail_blocks;out[7]=detail_enabled;out[8]=detail_voices;
+}
 extern "C" void rdx_editor_snapshot(EditorSnapshot* out) {
     const auto& p=fade==PRESET_FADE_OUT?pending_patch:RDX_State::getState().workingPatch;
     memcpy(out->patch,&p,150);

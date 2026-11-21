@@ -3,24 +3,25 @@ import path from 'node:path';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import {webcrypto,createHash} from 'node:crypto';
-const dir='build/site';
-const html=fs.readFileSync(`${dir}/install/index.html`,'utf8');
+const dir=process.argv[2]||'build/site';
+const installer=process.argv[3]||'install/index.html';
+const html=fs.readFileSync(`${dir}/${installer}`,'utf8');
 const script=html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
 const meta=JSON.parse(script.match(/const meta = (\{[^\n]*\});/)[1]);
-const raw=fs.readFileSync(path.resolve(dir,'install',meta.pkg));
+const raw=fs.readFileSync(path.resolve(dir,path.dirname(installer),meta.pkg));
 assert.equal(createHash('sha256').update(raw).digest('hex'),meta.sha256);
 assert.equal(meta.boot,null,'No bootloader package offered');
 assert(!html.includes('{{NAME}}'));
 assert(html.includes('hardware retesting is pending'));
 const manifest=JSON.parse(fs.readFileSync(`${dir}/manifest.json`));
 for(const [file,info] of Object.entries(manifest.files))assert.equal(createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex'),info.sha256,file);
-for(const file of ['index.html','install/index.html','emu/index.html']){
+for(const file of ['index.html',installer,'emu/index.html']){
  const page=fs.readFileSync(`${dir}/${file}`,'utf8');
  for(const m of page.matchAll(/\b(?:href|src)="([^"#]+)"/g)){
   if(/^(?:https?:|data:|#)/.test(m[1]))continue;
   const p=path.resolve(dir,path.dirname(file),m[1]);
   // Upstream backup links are intentionally hidden when meta.backup is false.
-  if(m[1]==='../backup/'&&file==='install/index.html')continue;
+  if(m[1]==='../backup/'&&file===installer)continue;
   assert(fs.existsSync(p),`${file}: missing ${m[1]}`);
  }
 }

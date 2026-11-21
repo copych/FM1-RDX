@@ -1,0 +1,24 @@
+wait 600
+press SEL
+tap REC
+release SEL
+expect timing 1
+press SEL
+tap REC
+release SEL
+expect timing 2
+expect bench_selection 0
+turn SELECT -1
+expect bench_selection 14
+turn SELECT 2
+expect bench_selection 1
+tap SAVE
+wait 12000
+expect bench_case 15
+shot benchmark.png
+tap SAVE
+wait 30
+expect bench_case 0
+tap HOME
+expect timing 0
+expect store_writes 0

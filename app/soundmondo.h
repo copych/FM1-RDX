@@ -52,6 +52,9 @@ static void sm_voice(uint8_t device,const uint8_t* patch){
     sm_block(device,0x0f,0x0f,0,0,0);
 }
 void app_loop(void){
+    gui_collect(0);
+    if(timing_page!=4)core_mode=CORE_TEST_OFF;
+    if(!gui_pending)core_test_tick();
     uint32_t session=plat_usb_session(),now=plat_ms();
     if(session!=sm_session){uint32_t f=plat_lock();sm_reset();plat_unlock(f);}
     if(sm_bulk_open&&now-sm_bulk_ms>2000u)sm_bulk_open=0;

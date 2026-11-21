@@ -40,15 +40,16 @@ int main(){
         for(int n=100;n<108;++n)engine.noteOn(n,127);
         for(int b=0;b<100;++b)block(engine);CHECK(engine.activeVoices()==8);
     }
-    RdxBudget budget;budget.reset(0);
+    RdxBudget budget;budget.reset(0);CHECK(budget.limit==6);
     for(unsigned ms=0;ms<10000;ms+=3)budget.observe(ms,12000,10000,2,true);
-    CHECK(budget.limit==8);
-    budget.observe(10001,RdxBudget::target+1,10000,8,true);CHECK(budget.limit==7);
-    budget.overload(10002);CHECK(budget.limit==6);
+    CHECK(budget.limit==6);
+    CHECK(budget.prediction(6)==32000u);
+    budget.observe(10001,RdxBudget::target+1,10000,6,true);CHECK(budget.limit==5);
+    budget.overload(10002);CHECK(budget.limit==4);
     for(unsigned i=0;i<20;++i)budget.overload(10003+i);CHECK(budget.limit==1);
-    budget.reset(0);for(unsigned ms=0;ms<20000;ms+=3)budget.observe(ms,100,0,0,true);CHECK(budget.limit==4); // no idle extrapolation
+    budget.reset(0);for(unsigned ms=0;ms<20000;ms+=3)budget.observe(ms,100,0,0,true);CHECK(budget.limit==6); // no idle extrapolation
     budget.observe(20000,45000,40000,2,true);CHECK(budget.limit==2); // predict full occupancy, not just current chord
-    budget.reset(0xfffffff0u);budget.observe(1600,12000,10000,2,true);CHECK(budget.limit==5); // timer wrap
-    budget.reset(0);for(unsigned ms=0;ms<10000;ms+=3)budget.observe(ms,12000,10000,2,false);CHECK(budget.limit==4); // transitions excluded
+    budget.reset(0xfffffff0u);budget.limit=4;budget.observe(1600,12000,10000,2,true);CHECK(budget.limit==5); // timer wrap recovery
+    budget.reset(0);for(unsigned ms=0;ms<10000;ms+=3)budget.observe(ms,12000,10000,2,false);CHECK(budget.limit==6); // transitions excluded
     std::puts("PASS: eight voices, admission/retirement/release/sustain/slow-attack/idle skipping and predictive budget limits/recovery/wrap");
 }

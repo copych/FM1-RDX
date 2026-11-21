@@ -3,6 +3,7 @@
 private:
     uint8_t route2_=0,route1_=0,route0_=0,carriers_=1;
 public:
+    #include "rdx_voice_profile.inc"
     void cacheRouting(){
         static constexpr uint8_t routes[12][4]={
             {1,4,2,1},{0,12,2,1},{0,4,10,1},{1,8,6,1},

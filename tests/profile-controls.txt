@@ -1,0 +1,31 @@
+wait 600
+press SEL
+tap REC
+tap REC
+tap REC
+release SEL
+expect timing 3
+expect profile_enabled 0
+tap SAVE
+expect profile_enabled 1
+key 7 down
+wait 600
+expect profile_blocks 1
+shot profile.png
+tap SAVE
+expect profile_enabled 0
+expect profile_blocks 1
+turn SELECT 1
+expect profile_fine 1
+tap SAVE
+expect profile_enabled 2
+wait 600
+shot fine-profile.png
+turn SELECT 1
+expect profile_fine 0
+expect profile_enabled 1
+tap HOME
+expect timing 0
+expect profile_enabled 0
+key 7 up
+expect store_writes 0

@@ -1,5 +1,12 @@
 #pragma once
 #include <stdint.h>
+#if defined(RDX_TEST_UNROLL) && defined(__clang__)
+#define RDX_UNROLL4 _Pragma("clang loop unroll_count(4)")
+#elif defined(RDX_TEST_UNROLL) && defined(__GNUC__)
+#define RDX_UNROLL4 _Pragma("GCC unroll 4")
+#else
+#define RDX_UNROLL4
+#endif
 #if defined(RDX_FM1) && !defined(PLAT_HOST)
 #define RDX_RAM_CODE __attribute__((section(".app_ram"),noinline))
 template<class Fn> inline __attribute__((always_inline)) Fn rdx_far(Fn fn){Fn volatile held=fn;return held;}

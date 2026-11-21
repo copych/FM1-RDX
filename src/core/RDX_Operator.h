@@ -83,6 +83,7 @@ public:
         return params_.enable ? sample : 0.0f;
     }
 
+    #include "rdx_operator_profile.inc"
     inline void updateGain() {
         outGain_ = rdxGain(params_.outLevel * velogain_) * scaling_;
     }

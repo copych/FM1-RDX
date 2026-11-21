@@ -1,5 +1,6 @@
 #include "engine_api.h"
 #include "editor_api.h"
+#include "benchmark.h"
 #include "../src/rdx_encoder.h"
 
 enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENTS_COUNT };
@@ -18,7 +19,13 @@ static uint8_t editor_redraw;
 // Audio owns the counters. UI copies/resets only under interrupt exclusion.
 static struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} timing;
 static uint8_t timing_page;
+static uint8_t bench_selection;
+static uint8_t bench_started;
+static uint8_t profile_fine;
 static volatile uint8_t preset_home_requested;
+#include "core_test.h"
+#include "gui_worker.h"
+static uint8_t core_selection=CORE_TEST_IDLE;
 #include "soundmondo.h"
 static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;rdx_budget_overload(plat_ms());}
@@ -28,7 +35,8 @@ static void timing_reset(void){
 }
 static RdxEncoderMotion knob_motion[4];
 static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
-static void preset_home(void){editor_page=EDITOR_HOME;timing_page=0;editor_redraw=1;reset_knob_motion();}
+static void detail_set(uint8_t on){uint32_t f=plat_lock();rdx_detail_set(on);plat_unlock(f);}
+static void preset_home(void){editor_page=EDITOR_HOME;timing_page=0;detail_set(0);editor_redraw=1;reset_knob_motion();}
 static uint8_t wrap_selection(uint8_t at,int32_t move,uint8_t count){
     int32_t next=((int32_t)at+move)%count;if(next<0)next+=count;return (uint8_t)next;
 }
@@ -80,10 +88,15 @@ void app_init(void) {
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;save_notice_until=0;
     editor_redraw=1;
     reset_knob_motion();
-    timing_page=0;preset_home_requested=0;timing_reset();
+    timing_page=0;bench_started=bench_selection=profile_fine=0;preset_home_requested=0;timing_reset();
     sm_reset();
+    core_test_init();
 }
 void app_panic(void) {
+    // All platform app_panic entry points are CPU0 main-loop update/recovery.
+    gui_collect(1);gui_ready=0;
+    core_mode=CORE_TEST_OFF;
+    if(core_pending){plat_cpu2_wait();core_pending=0;}
     uint32_t f=plat_lock();
     rdx_panic();event_read=event_write;panic_requested=0;
     plat_unlock(f);
@@ -145,13 +158,19 @@ void app_input_only(void) {
     uint32_t pressed=buttons&~buttons_before;
     uint32_t released=buttons_before&~buttons;
     if((pressed&(1u<<B_REC))&&(buttons&(1u<<B_SEL))){
-        selector_used=1;timing_page=!timing_page;editor_redraw=1;timing_draw=0;
+        selector_used=1;timing_page=(timing_page+1u)%6u;detail_set(0);editor_redraw=1;timing_draw=0;
         if(timing_page)lcd_fill(0,0,240,240,C_BLACK);
         pressed&=~(1u<<B_REC);
     }
     if(timing_page){
-        if(pressed&(1u<<B_SAVE))timing_reset();
-        if(pressed&(1u<<B_HOME)){timing_page=0;editor_redraw=1;}
+        if(pressed&(1u<<B_SAVE)){
+            if(timing_page==2){rdx_bench_start();bench_started=1;}
+            else if(timing_page==3){uint32_t p[9],f=plat_lock();rdx_detail_profile(p);rdx_detail_set(p[7]?DETAIL_OFF:profile_fine?DETAIL_FINE:DETAIL_COARSE);plat_unlock(f);}
+            else if(timing_page==4){core_mode=core_mode?CORE_TEST_OFF:core_selection;core_done=core_errors=core_late=core_roundtrip=0;timing_reset();}
+            else if(timing_page==5){timing_reset();gui_jobs=gui_errors=gui_peak=0;}
+            else timing_reset();timing_draw=0;
+        }
+        if(pressed&(1u<<B_HOME)){timing_page=0;detail_set(0);editor_redraw=1;}
         // Keep keyboard/preset processing below; consume page/edit controls.
         pressed&=(1u<<B_HOME)|(1u<<B_OCTDN)|(1u<<B_OCTUP);
     }
@@ -174,6 +193,13 @@ void app_input_only(void) {
     }
     if(pressed&(1u<<B_SAVE))save_notice_until=plat_ms()+2000u;
     int32_t move=plat_enc(EN_SELECT);
+    if(move&&timing_page==5){gui_enabled=!gui_enabled;editor_redraw=1;timing_draw=0;}
+    if(move&&timing_page==4){core_selection=core_selection==CORE_TEST_IDLE?CORE_TEST_BUSY:CORE_TEST_IDLE;timing_draw=0;}
+    if(move&&timing_page==3){
+        profile_fine=wrap_selection(profile_fine,clamp(move,-127,127),2);uint32_t p[9],f=plat_lock();rdx_detail_profile(p);
+        rdx_detail_set(p[7]?(profile_fine?DETAIL_FINE:DETAIL_COARSE):DETAIL_OFF);plat_unlock(f);timing_draw=0;
+    }
+    if(move&&timing_page==2){bench_selection=wrap_selection(bench_selection,clamp(move,-127,127),BENCH_CASES_COUNT);timing_draw=0;}
     if(move&&!timing_page){
         if(buttons&(1u<<B_SEL))selector_used=1;
         select_in_menu(clamp(move,-127,127));
@@ -216,7 +242,7 @@ void app_input_only(void) {
     keys_before=keys;buttons_before=buttons;
 }
 void app_say(const char* a,const char* b) {(void)a;(void)b;}
-void app_ui_init(void) {rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}
+void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}
 static void draw_text_row(uint32_t y,const felucca_font_t* font,const char* text,uint16_t color) {
     for(uint32_t band=0;band<font->h;band+=8u) {
         uint32_t height=font->h-band;if(height>8u)height=8u;
@@ -241,6 +267,91 @@ static void timing_format(char* out,const char* fmt,uint32_t a,uint32_t b,const 
 }
 void app_frame(void) {
     app_input_only();
+    if(!gui_collect(0))return;
+    if(timing_page==5){
+        uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
+        uint32_t f=plat_lock(),peak=timing.peak,cost[3];rdx_cost_profile(cost);plat_unlock(f);char row[40];
+        draw_text_row(4,&FONT_M,"GUI CORE SPLIT",C_WHITE);
+        timing_format(row,"UI CPU%lu JOBS %lu",gui_last_core,gui_jobs,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"ERR %lu FAULT %lu",gui_errors,plat_cpu2_gave_up(),"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"GUI %lu us STK %lu",(gui_peak+23u)/24u,plat_cpu2_stack(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
+        timing_format(row,"XRUN %lu / %lu s",plat_xruns()-timing_xruns,(now-timing_started)/1000u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
+        draw_text_row(174,&FONT_B,gui_failed?"WORKER FAILED / CPU0":gui_enabled?"SELECT: CPU1 GUI":"SELECT: CPU0 GUI",C_WHITE);
+        draw_text_row(198,&FONT_B,"SAVE RESET / HOME TEST",C_HI);
+        draw_text_row(216,&FONT_B,"AUDIO + IO ON CPU0",C_GRAY);return;
+    }
+    if(timing_page==4){
+        uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
+        uint32_t f=plat_lock(),peak=timing.peak,over=timing.over90,cost[3];rdx_cost_profile(cost);plat_unlock(f);char row[40];
+        draw_text_row(4,&FONT_M,"CONTROL CORE TEST",C_WHITE);
+        timing_format(row,"CORE %lu FAULT %lu",plat_cpu2_on(),plat_cpu2_gave_up(),"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"OK %lu ERR %lu",core_done,core_errors,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"ROUND %lu ms LATE %lu",core_roundtrip,core_late,"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
+        timing_format(row,"XRUN %lu >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(150,&FONT_B,row,C_WHITE);
+        timing_format(row,"%s / %lu s",(now-timing_started)/1000u,0,core_mode==CORE_TEST_BUSY?"BUSY":core_mode==CORE_TEST_IDLE?"IDLE":"OFF");draw_text_row(174,&FONT_B,row,C_WHITE);
+        draw_text_row(198,&FONT_B,core_selection==CORE_TEST_BUSY?"SELECT: BUSY / SAVE RUN":"SELECT: IDLE / SAVE RUN",C_HI);
+#ifdef PLAT_HOST
+        draw_text_row(216,&FONT_B,"HOST: SIMULATED CORE",C_GRAY);
+#else
+        draw_text_row(216,&FONT_B,"SAVE STOP/RESET / HOME",C_GRAY);
+#endif
+        return;
+    }
+    if(timing_page==3){
+        uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<500u)return;timing_draw=now;
+        uint32_t p[9],fine[4],f=plat_lock();rdx_detail_profile(p);rdx_detail_fine(fine);plat_unlock(f);char row[40];
+        if(profile_fine){
+            draw_text_row(4,&FONT_M,"FINE RENDER",C_WHITE);
+            timing_format(row,"ENV STEP %lu us",(fine[0]+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+            timing_format(row,"ENV GAIN %lu us",(fine[1]+23u)/24u,0,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+            timing_format(row,"PITCH %lu  WAVE %lu us",(fine[2]+23u)/24u,(fine[3]+23u)/24u,"");draw_text_row(98,&FONT_B,row,C_WHITE);
+            timing_format(row,"MOD %lu  MIX %lu us",(p[1]+23u)/24u,(p[4]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
+            timing_format(row,"TOTAL %lu us VOICES %lu",(p[5]+23u)/24u,p[8],"");draw_text_row(150,&FONT_B,row,C_WHITE);
+            draw_text_row(174,&FONT_B,p[7]?"ON / SAVE: STOP":"OFF / SAVE: START",C_HI);
+            draw_text_row(198,&FONT_B,"SELECT: COARSE / HOME",C_WHITE);
+#ifdef PLAT_HOST
+            draw_text_row(216,&FONT_B,"HOST: NO TIMING",C_GRAY);
+#else
+            draw_text_row(216,&FONT_B,"WORST TOTAL BLOCK",C_GRAY);
+#endif
+            return;
+        }
+        draw_text_row(4,&FONT_M,"RENDER PROFILE",C_WHITE);
+        timing_format(row,"PREP %lu  MOD %lu us",(p[0]+23u)/24u,(p[1]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"ENV %lu  OPS %lu us",(p[2]+23u)/24u,(p[3]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"MIX %lu  TOTAL %lu us",(p[4]+23u)/24u,(p[5]+23u)/24u,"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"VOICES %lu BLOCKS %lu",p[8],p[6],"");draw_text_row(124,&FONT_B,row,C_WHITE);
+        draw_text_row(150,&FONT_B,p[7]?"ON / SAVE: STOP":"OFF / SAVE: START",C_HI);
+        draw_text_row(174,&FONT_B,"WORST TOTAL BLOCK",C_GRAY);
+        draw_text_row(198,&FONT_B,"SELECT: FINE / HOME",C_WHITE);
+#ifdef PLAT_HOST
+        draw_text_row(216,&FONT_B,"HOST: NO TIMING",C_GRAY);
+#else
+        draw_text_row(216,&FONT_B,"SPLIT PATH / IRQ ON",C_GRAY);
+#endif
+        return;
+    }
+    if(timing_page==2){
+        rdx_bench_tick();
+        uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<200u)return;timing_draw=now;
+        uint32_t result[4];rdx_bench_result(bench_selection,result);char row[40];
+        draw_text_row(4,&FONT_M,"DSP BENCHMARK",C_WHITE);
+        draw_text_row(46,&FONT_B,rdx_bench_name(bench_selection),C_WHITE);
+        timing_format(row,"MIN %lu MAX %lu ticks",result[0],result[1],"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"MIN %lu ns / op",result[0]*1000u/(24u*256u),0,"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"CASE %lu/15 REP %lu",result[2],result[3],"");draw_text_row(124,&FONT_B,row,C_WHITE);
+        draw_text_row(150,&FONT_B,!bench_started?"SAVE: START":result[2]>=BENCH_CASES_COUNT?"DONE / SAVE: RERUN":"RUNNING / SAVE: RERUN",C_HI);
+        draw_text_row(174,&FONT_B,"SELECT: RESULT",C_WHITE);
+        draw_text_row(198,&FONT_B,"256 OPS / IRQ ON",C_GRAY);
+#ifdef PLAT_HOST
+        draw_text_row(216,&FONT_B,"HOST: NO TIMING",C_GRAY);
+#else
+        draw_text_row(216,&FONT_B,"24MHz TICKS / HOME EXIT",C_GRAY);
+#endif
+        return;
+    }
     if(timing_page){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<500u)return;timing_draw=now;
         uint32_t f=plat_lock();
@@ -250,37 +361,45 @@ void app_frame(void) {
         draw_text_row(4,&FONT_M,"AUDIO TIMING",C_WHITE);
         timing_format(row,"APP MAX %lu us",(peak+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
         timing_format(row,"SYN %lu  FX %lu us",(cost[0]+23u)/24u,(cost[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"5V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"6V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
         timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,&FONT_B,row,C_WHITE);
         timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,&FONT_B,row,C_WHITE);
         f=plat_lock();uint32_t voices=rdx_voice_status();plat_unlock(f);
-        timing_format(row,"VOICES %lu/%lu  MAX 8",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
+        timing_format(row,"VOICES %lu/%lu  MAX 6",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
         draw_text_row(198,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
         uint32_t khz=plat_cpu_khz();
-        timing_format(row,khz?"D2902us CLK %lu MHz":"D2902us CLK ?",khz/1000u,0,"");draw_text_row(216,&FONT_B,row,C_GRAY);return;
+        timing_format(row,khz?"%s CLK %lu MHz":"%s CLK ?",khz/1000u,0,rdx_build_label());draw_text_row(216,&FONT_B,row,C_GRAY);return;
     }
     uint32_t lock=plat_lock();rdx_editor_snapshot(&editor_view);plat_unlock(lock);
     static uint32_t last_revision=0,last_fx=99;static uint8_t last_page=255,last_op=255,last_tune=255,last_notice=255;
     uint8_t notice=save_notice_until&&plat_ms()<save_notice_until;
     if(!editor_redraw&&last_revision==editor_view.revision&&last_fx==editor_view.fx&&last_page==editor_page&&last_op==editor_op&&last_tune==editor_tune&&last_notice==notice)return;
+    if(gui_ready&&(gui_request.page!=editor_page||gui_request.op!=editor_op||gui_request.tune!=editor_tune))gui_ready=0;
+    if(!gui_ready){
+        gui_start(&editor_view,editor_page,editor_op,editor_tune);
+        if(!gui_ready)return;
+    }
+    // A completed immutable snapshot may be one frame old. Display it, then
+    // revision comparison schedules the newer state on the next frame.
+    editor_view=gui_request.view;gui_ready=0;
     editor_redraw=0;
     last_revision=editor_view.revision;last_fx=editor_view.fx;last_page=editor_page;last_op=editor_op;last_tune=editor_tune;last_notice=notice;
     // Each strip below includes its background. Never blank the whole LCD
     // before drawing: the physical panel exposes that intermediate black frame.
     draw_text_row(4,&FONT_M,rdx_editor_title(editor_page),C_WHITE);
-    const uint8_t* pixels=rdx_editor_draw(&editor_view,editor_page,editor_op,editor_tune);
+    const uint8_t* pixels=gui_reply.pixels;
     for(uint32_t y=0;y<120;y+=8) {
         cv_begin(240,8,C_BLACK);
         for(uint32_t row=0;row<8;++row)for(uint32_t x=0;x<240;++x) {
-            uint32_t sx=x*128u/240u,sy=(y+row)*64u/120u;
-            if((pixels[(sy>>3)*128u+sx]>>(sy&7u))&1u)cv_pset(x,row,C_WHITE);
+            uint32_t at=(y+row)*240u+x;
+            if((pixels[at>>3]>>(at&7u))&1u)cv_pset(x,row,C_WHITE);
         }
         cv_blit(0,44u+y);
     }
     cv_begin(240,8,C_BLACK);cv_blit(0,174);
     for(uint32_t band=0;band<FONT_B.h;band+=8u) {
         cv_begin(240,8,C_BLACK);
-        for(uint8_t k=0;k<4;++k)cv_text(k*60u+3u,-(int32_t)band,&FONT_B,rdx_editor_label(editor_page,k),C_HI);
+        for(uint8_t k=0;k<4;++k)cv_text(k*60u+3u,-(int32_t)band,&FONT_B,gui_reply.labels[k],C_HI);
         cv_blit(0,184u+band);
     }
     char status[30]="OP 1  FX ON";status[3]=(char)('1'+editor_op);
@@ -292,6 +411,18 @@ void app_frame(void) {
 int app_expect(const char* what,int* got) {
     if(!strcmp(what,"preset"))*got=(int)preset;
     else if(!strcmp(what,"timing"))*got=timing_page;
+    else if(!strcmp(what,"core_mode"))*got=core_mode;
+    else if(!strcmp(what,"core_ok"))*got=core_done>0;
+    else if(!strcmp(what,"core_errors"))*got=core_errors;
+    else if(!strcmp(what,"gui_enabled"))*got=gui_enabled;
+    else if(!strcmp(what,"gui_jobs"))*got=gui_jobs>0;
+    else if(!strcmp(what,"gui_core"))*got=gui_last_core;
+    else if(!strcmp(what,"gui_errors"))*got=gui_errors;
+    else if(!strcmp(what,"bench_selection"))*got=bench_selection;
+    else if(!strcmp(what,"bench_case")){uint32_t r[4];rdx_bench_result(0,r);*got=r[2];}
+    else if(!strcmp(what,"profile_enabled")){uint32_t p[9];rdx_detail_profile(p);*got=p[7];}
+    else if(!strcmp(what,"profile_fine"))*got=profile_fine;
+    else if(!strcmp(what,"profile_blocks")){uint32_t p[9];rdx_detail_profile(p);*got=p[6]>0;}
     else if(!strcmp(what,"voice_limit"))*got=rdx_voice_status()&255u;
     else if(!strcmp(what,"voice_active"))*got=(rdx_voice_status()>>8)&255u;
     else if(!strcmp(what,"voice_capacity"))*got=(rdx_voice_status()>>16)&255u;

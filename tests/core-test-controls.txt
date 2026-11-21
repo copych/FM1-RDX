@@ -1,0 +1,28 @@
+wait 600
+press SEL
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+expect timing 4
+expect core_mode 0
+tap SAVE
+wait 100
+expect core_mode 1
+expect core_ok 1
+expect core_errors 0
+tap SAVE
+expect core_mode 0
+turn SELECT 1
+tap SAVE
+wait 100
+expect core_mode 2
+expect core_ok 1
+expect core_errors 0
+shot core-test.png
+tap SAVE
+expect core_mode 0
+tap HOME
+expect timing 0
+expect store_writes 0

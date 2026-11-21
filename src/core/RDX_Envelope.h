@@ -3,6 +3,7 @@
 #include "rdx_platform.h"
 #include "RDX_Constants.h"
 #include "RDX_State.h"
+#include "rdx_profile_types.h"
 
 class  RDX_Envelope {
 public:
@@ -29,6 +30,9 @@ public:
         c_ = 0.0f;
     }
 
+    inline __attribute__((always_inline)) void profileAdvance(RdxEnvelopePoint* out){
+        out->level=processInternal();out->k=k_;out->c=c_;out->rising=rising_;
+    }
     inline  __attribute__((always_inline, hot)) float processAEG() {
         float v = processInternal();
         if (rising_) {

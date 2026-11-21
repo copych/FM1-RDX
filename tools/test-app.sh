@@ -16,6 +16,14 @@ mkdir -p build/encoder-controls
 app/build/host/rdx_host tests/encoder-controls.txt build/encoder-controls
 mkdir -p build/timing-controls
 app/build/host/rdx_host tests/timing-controls.txt build/timing-controls
+mkdir -p build/benchmark-controls
+app/build/host/rdx_host tests/benchmark-controls.txt build/benchmark-controls
+mkdir -p build/profile-controls
+app/build/host/rdx_host tests/profile-controls.txt build/profile-controls
+mkdir -p build/core-test-controls
+app/build/host/rdx_host tests/core-test-controls.txt build/core-test-controls
+mkdir -p build/gui-split-controls
+app/build/host/rdx_host tests/gui-split-controls.txt build/gui-split-controls
 mkdir -p build/preset-home
 app/build/host/rdx_host tests/preset-home.txt build/preset-home
 mkdir -p build/select-context

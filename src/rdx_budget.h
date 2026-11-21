@@ -5,9 +5,10 @@ class RdxBudget {
 public:
     static constexpr uint32_t deadline=128u*24000000u/44100u;
     static constexpr uint32_t target=deadline*85u/100u;
-    uint8_t limit=4;
+    static constexpr uint8_t maximum=6;
+    uint8_t limit=maximum;
     uint32_t prediction(uint8_t voices) const {return voiceCost_?fixedCost_+voiceCost_*voices:0;}
-    void reset(uint32_t now){limit=4;voiceCost_=fixedCost_=0;changed_=now;}
+    void reset(uint32_t now){limit=maximum;voiceCost_=fixedCost_=0;changed_=now;}
     void overload(uint32_t now){if(limit>1)--limit;changed_=now;}
     void observe(uint32_t now,uint32_t app,uint32_t synth,uint8_t voices,bool valid){
         if(app>target){overload(now);return;}
@@ -21,7 +22,7 @@ public:
         uint8_t safe=limit;
         while(safe>1&&fixedCost_+voiceCost_*safe>target)--safe;
         if(safe<limit){limit=safe;changed_=now;return;}
-        if(limit<8&&now-changed_>=1500u&&fixedCost_+voiceCost_*(limit+1u)<target-deadline/20u){
+        if(limit<maximum&&now-changed_>=1500u&&fixedCost_+voiceCost_*(limit+1u)<target-deadline/20u){
             ++limit;changed_=now;
         }
     }

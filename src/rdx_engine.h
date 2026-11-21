@@ -24,6 +24,7 @@ public:
     static uint32_t presetCount();
     static bool presetPatch(uint32_t index, RDX_Patch& patch);
 private:
+    friend struct RdxProfile;
     void updateDerived();
     int cheapestVoice(bool skipRetiring);
     RDX_Voice voices_[voiceCapacity];

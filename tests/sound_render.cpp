@@ -24,6 +24,10 @@ static FXBase* selected[2];
 static RDX_Voice voices[4];
 #else
 #include "rdx_engine.h"
+#ifdef RDX_PROFILE_COMPARE
+#include "rdx_profile.h"
+static uint32_t profile_clock(){return 0;}
+#endif
 #include "rdx_effects.h"
 static RdxEngine engine;
 static RdxEffects effects;
@@ -90,7 +94,16 @@ int main(int argc,char** argv) {
                 }
 #else
                 if(b==0)engine.noteOn(60,100);
+#ifdef RDX_PROFILE_COMPARE
+                uint32_t parts[RENDER_PARTS_COUNT];
+#ifdef RDX_FINE_COMPARE
+                uint32_t fine[RENDER_FINE_PARTS_COUNT];RdxProfile::render(engine,left,right,parts,profile_clock,fine);
+#else
+                RdxProfile::render(engine,left,right,parts,profile_clock);
+#endif
+#else
                 engine.renderBlock(left,right);
+#endif
 #endif
             }
             for(int i=0;i<128;++i){out[2*i]=left[i];out[2*i+1]=right[i];}

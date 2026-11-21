@@ -156,6 +156,7 @@ inline  __attribute__((always_inline)) void updateMods() {
     const float pitchBend = ctl_.pitchbendSemitones;
     const float pmMult = lfoValue_ * pmDepth_;
     //const float lfoNorm = lfoValue_ * MIDI_NORM;
+    RDX_UNROLL4
     for (int i = 0; i < 4; ++i) {
         float phaseMod = 0.f;
         phaseMod += peg_value * pegEnable_[i];

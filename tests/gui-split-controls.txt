@@ -1,0 +1,35 @@
+wait 600
+expect gui_enabled 1
+expect gui_jobs 1
+expect gui_core 1
+expect gui_errors 0
+press SEL
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+expect timing 5
+shot gui-split.png
+turn SELECT 1
+expect gui_enabled 0
+tap SAVE
+tap HOME
+wait 100
+expect gui_core 0
+expect gui_errors 0
+press SEL
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+turn SELECT -1
+expect gui_enabled 1
+tap HOME
+wait 100
+expect gui_core 1
+expect gui_errors 0
+expect store_writes 0
