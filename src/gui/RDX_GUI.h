@@ -191,6 +191,8 @@ class RDX_GUI {
       ui_display().drawTextBytes(4, 10, patch_.common.voiceName, 10);
 
       ui_display().setTextScale(UITextScale::X1);
+      if(ui_preset_index()==0) ui_display().drawText(2, 0, "INIT PATCH");
+      else {
       ui_display().drawText(2, 0, "Bank  -");
 
       uint8_t m, l;
@@ -201,6 +203,7 @@ class RDX_GUI {
       ui_display().drawText(2 + 6 * 5, 0, t);
       ui_snprintf(t, sizeof(t), "%d", l);
       ui_display().drawText(2 + 6 * 7, 0, t);
+      }
 
       ui_display().setBrush(UIDisplayBrush::DOTTED);
       ui_display().drawHLine(0, 28, 128);

@@ -30,10 +30,12 @@ wait 20
 expect preset 2
 midi C0 00 00
 wait 20
-expect preset 0
+expect preset 1
+expect bank 1
+expect patch 1
 midi C0 7F 00
 wait 20
-expect preset 0
+expect preset 1
 midi 90 45 64
 wait 200
 peakreset

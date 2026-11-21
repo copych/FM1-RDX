@@ -9,7 +9,7 @@ static UiPhaserView phaser;
 static uint8_t tune_selection;
 static unsigned preset_index;
 UiRamDisplay& ui_display(){return *screen;}
-unsigned ui_preset_index(){return preset_index+1;}
+unsigned ui_preset_index(){return preset_index;}
 extern "C" void rdx_editor_boot(void) {
     screen=new(display_storage) UiRamDisplay;
     gui=new(gui_storage) RDX_GUI(view_patch);gui->begin();

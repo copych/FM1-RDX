@@ -17,6 +17,10 @@ static bool effects_on=true;
 enum ePresetFade {PRESET_STEADY,PRESET_FADE_OUT,PRESET_FADE_IN,PRESET_FADES_COUNT};
 static ePresetFade fade;
 static uint32_t destination=1;
+// MoDemLead's source distortion drive is intentionally hot. Trim only the
+// final output (-12.04 dB), retaining its operator/FX drive and patch bytes.
+static float preset_gain=1.0f;
+static float output_trim(){return destination==10u?0.25f:1.0f;}
 static RDX_Patch pending_patch,edited_patch;
 static uint32_t editor_revision;
 static bool editor_pending,editor_dirty,editor_error;
@@ -37,6 +41,7 @@ static void event(DeferredEvent e) {
 }
 extern "C" void rdx_boot(void) {
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
+    preset_gain=1.0f;
     editor_revision=1;editor_pending=editor_dirty=editor_error=false;
     engine=new(storage) RdxEngine;
     effects=new(effects_storage) RdxEffects;
@@ -53,6 +58,7 @@ extern "C" void rdx_sustain(uint8_t v) {pedal_down=v!=0;event({DEFER_SUSTAIN,0,v
 extern "C" void rdx_panic(void) {
     if(fade==PRESET_FADE_OUT) {
         engine->applyPatch(pending_patch);
+        preset_gain=output_trim();
     }
     fade=PRESET_STEADY;deferred_count=0;pedal_down=false;
     engine->panic();
@@ -89,6 +95,7 @@ extern "C" void rdx_render(float* l,float* r) {
         engine->renderBlock(l,r);
         if(effects_on)effects->process(l,r);
     } else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;
+    for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){l[i]*=preset_gain;r[i]*=preset_gain;}
     // A pending change can replace an arena still being prepared. Keep new
     // notes frozen until the new effect state is ready, then fade in.
     if(!ready && fade!=PRESET_FADE_OUT)return;
@@ -99,6 +106,7 @@ extern "C" void rdx_render(float* l,float* r) {
     }
     if(fade==PRESET_FADE_OUT) {
         engine->applyPatch(pending_patch);
+        preset_gain=output_trim();
         effects->begin(pending_patch);
         engine->sustain(pedal_before);
         for(uint32_t i=0;i<deferred_count;++i)dispatch(deferred[i]);

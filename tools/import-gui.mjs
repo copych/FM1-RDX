@@ -33,9 +33,11 @@ s=s.replace('case Page::HOME:\n        default:',`case Page::FX1: drawEffect_(0)
         case Page::PEG_LEVELS: drawEnvelope_(true,true); break;
         case Page::HOME:
         default:`);
-const labStart=s.indexOf('    inline void drawPhaserLab_()');
-const labEnd=s.indexOf('    RDX_Patch& patch_;',labStart);
-s=s.slice(0,labStart)+`    inline void drawEnvelope_(bool pitch,bool levels) {
+s=s.replace('ui_display().drawText(2, 0, "Bank  -");','if(ui_preset_index()==0) ui_display().drawText(2, 0, "INIT PATCH");\n      else {\n      ui_display().drawText(2, 0, "Bank  -");')
+ .replace('ui_display().drawText(2 + 6 * 7, 0, t);','ui_display().drawText(2 + 6 * 7, 0, t);\n      }');
+const updatedLabStart=s.indexOf('    inline void drawPhaserLab_()');
+const labEnd=s.indexOf('    RDX_Patch& patch_;',updatedLabStart);
+s=s.slice(0,updatedLabStart)+`    inline void drawEnvelope_(bool pitch,bool levels) {
       ui_display().setTextScale(UITextScale::X1);
       const uint8_t* r=pitch?patch_.common.pegRate:patch_.ops[selectedOp_].egRate;
       const uint8_t* l=pitch?patch_.common.pegLevel:patch_.ops[selectedOp_].egLevel;

@@ -1,0 +1,32 @@
+wait 600
+expect preset 1
+expect bank 1
+expect patch 1
+midi C0 07 00
+wait 80
+expect preset 8
+expect bank 1
+expect patch 8
+midi C0 08 00
+wait 80
+expect preset 9
+expect bank 2
+expect patch 1
+midi C0 1F 00
+wait 80
+expect preset 32
+expect bank 4
+expect patch 8
+midi C0 20 00
+wait 80
+expect preset 0
+expect bank 0
+expect patch 0
+shot init.png
+turn PRESET 1
+wait 80
+expect preset 1
+expect bank 1
+expect patch 1
+shot bank-1-patch-1.png
+expect store_writes 0

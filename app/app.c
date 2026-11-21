@@ -61,7 +61,8 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         if((st&240u)==144u)rdx_note_on((uint8_t)d1,(uint8_t)d2);
         else if((st&240u)==128u)rdx_note_off((uint8_t)d1);
         else if((st&240u)==192u && d1<rdx_preset_count()) {
-            preset=(int32_t)d1;rdx_preset_request(d1);
+            // Programs 0..31 are bank sounds 1..32; program 32 is Init.
+            preset=d1==32u?0:(int32_t)d1+1;rdx_preset_request((uint32_t)preset);
         }
         else if((st&240u)==176u) {
             if(d1==64u)rdx_sustain(d2>=64u);
@@ -145,8 +146,8 @@ void app_frame(void) {
     if(!editor_redraw&&last_revision==editor_view.revision&&last_fx==editor_view.fx&&last_page==editor_page&&last_op==editor_op&&last_tune==editor_tune&&last_notice==notice)return;
     editor_redraw=0;
     last_revision=editor_view.revision;last_fx=editor_view.fx;last_page=editor_page;last_op=editor_op;last_tune=editor_tune;last_notice=notice;
-    // Clear title/footers without allocating a framebuffer.
-    for(uint32_t y=0;y<240;y+=8){cv_begin(240,8,C_BLACK);cv_blit(0,y);}
+    // Each strip below includes its background. Never blank the whole LCD
+    // before drawing: the physical panel exposes that intermediate black frame.
     draw_text_row(4,&FONT_M,rdx_editor_title(editor_page),C_WHITE);
     const uint8_t* pixels=rdx_editor_draw(&editor_view,editor_page,editor_op,editor_tune);
     for(uint32_t y=0;y<120;y+=8) {
@@ -171,6 +172,8 @@ void app_frame(void) {
 #ifdef PLAT_HOST
 int app_expect(const char* what,int* got) {
     if(!strcmp(what,"preset"))*got=(int)preset;
+    else if(!strcmp(what,"bank"))*got=preset?((int)preset-1)/8+1:0;
+    else if(!strcmp(what,"patch"))*got=preset?((int)preset-1)%8+1:0;
     else if(!strcmp(what,"octave"))*got=(int)octave;
     else if(!strcmp(what,"key_mask"))*got=(int)keys_before;
     else if(!strcmp(what,"fx"))*got=(int)rdx_fx_status();
