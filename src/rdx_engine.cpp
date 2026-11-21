@@ -68,6 +68,7 @@ bool RdxEngine::updatePatch(const RDX_Patch& p) {
 }
 void RdxEngine::updateDerived() {
     auto& s=RDX_State::getState();const auto& p=s.workingPatch;
+    mono_=p.common.monoPoly!=RDX_MODE_POLY;
     s.controls.portaTimeS=AM_DEPTH[p.common.portaTime]*2.5f;
     for(int i=0;i<4;++i) {
         const auto& op=p.ops[i];
@@ -165,7 +166,7 @@ void RdxEngine::renderBlock(float* left,float* right) {
         for(uint32_t i=0;i<DMA_BUFFER_LEN;++i) left[i]=right[i]=0.0f;
         return;
     }
-    const bool mono=RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY;
+    const bool mono=mono_;
     uint8_t slots[voiceCapacity];int count=0;
     for(int v=0;v<(mono?1:voiceCapacity);++v)if(voices_[v].isActive()){
         slots[count++]=(uint8_t)v;voices_[v].updateLfo();
@@ -178,7 +179,7 @@ void RdxEngine::renderBlock(float* left,float* right) {
             // A budget reduction fades the selected voice over 32 samples.
             // The slot stays in this bounded block list, silent after retirement.
             if(v==255)continue;
-            float value=mono?voices_[v].step<true>():voices_[v].step<false>();
+            float value=mono?voices_[v].stepRouted<true>():voices_[v].stepRouted<false>();
             if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}
             sample+=value;
         }

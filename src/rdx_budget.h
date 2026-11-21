@@ -6,6 +6,7 @@ public:
     static constexpr uint32_t deadline=128u*24000000u/44100u;
     static constexpr uint32_t target=deadline*85u/100u;
     uint8_t limit=4;
+    uint32_t prediction(uint8_t voices) const {return voiceCost_?fixedCost_+voiceCost_*voices:0;}
     void reset(uint32_t now){limit=4;voiceCost_=fixedCost_=0;changed_=now;}
     void overload(uint32_t now){if(limit>1)--limit;changed_=now;}
     void observe(uint32_t now,uint32_t app,uint32_t synth,uint8_t voices,bool valid){

@@ -45,19 +45,19 @@ struct LevelLUT { std::array<float,192> forward; std::array<float,192> inverse; 
 constexpr LevelLUT levelLUT = {{{${array(forward)}}}, {{${array(inverse)}}}, ${literal(max)}};
 constexpr float LEVEL_LUT_MAX = levelLUT.maxValue;
 constexpr float envelopeGain[3057]={${array(Array.from({length:3057},(_,i)=>sourceGain(i/16)))}};
-inline float rdxEnvelopeGain(float level) {
+inline __attribute__((always_inline)) float rdxEnvelopeGain(float level) {
     const float x=fclamp(level,0.0f,191.0f)*16.0f;
     const int i=(int)x;
     if(i==3056)return envelopeGain[3056];
     return envelopeGain[i]+(x-i)*(envelopeGain[i+1]-envelopeGain[i]);
 }
-inline float rdxGain(float level) {
+inline __attribute__((always_inline)) float rdxGain(float level) {
     level = fclamp(level, 0.0f, 191.0f);
     int i = (int)level;
     if (i == 191) return levelLUT.forward[191];
     return levelLUT.forward[i] + (level-i)*(levelLUT.forward[i+1]-levelLUT.forward[i]);
 }
-inline float rdxGainInv(float value) {
+inline __attribute__((always_inline)) float rdxGainInv(float value) {
     float scaled = fclamp(value / LEVEL_LUT_MAX * 191.0f, 0.0f, 191.0f);
     int i = (int)scaled;
     if (i == 191) return levelLUT.inverse[191];
@@ -87,12 +87,24 @@ inline float rdxGainInv(float value) {
         const bool was=gate_;gate_=g;
         if(g&&!was){
             if(stage_==Stage::IDLE||stage_==Stage::RELEASE)currentL_=0.0f;
-            enterStage(Stage::ATTACK);
-        } else if(!g&&was&&stage_!=Stage::IDLE&&stage_!=Stage::RELEASE)enterStage(Stage::RELEASE);
+            RDX_FAR(controlStage)(this,Stage::ATTACK);
+        } else if(!g&&was&&stage_!=Stage::IDLE&&stage_!=Stage::RELEASE)RDX_FAR(controlStage)(this,Stage::RELEASE);
     }
 \n`+s.slice(b);
+    s=s.replace('inline void reset()','inline __attribute__((always_inline)) void reset()')
+      .replace('inline void enterStage(Stage s)', 'static RDX_RAM_CODE void controlStage(RDX_Envelope* self,Stage s){self->enterStage(s);}\n    RDX_RAM_CODE void enterStage(Stage s)')
+      .replace('inline void advanceStage()', 'RDX_RAM_CODE void advanceStage()');
+  }
+  if(name==='RDX_PEG.h') {
+    const a=s.indexOf('    inline void gate(bool g)'),b=s.indexOf('    inline void reset()',a);
+    s=s.slice(0,a)+s.slice(a,b).replace(/enterStage\(/g,'RDX_FAR(controlStage)(this,')+s.slice(b);
+    s=s.replace('inline void reset()','inline __attribute__((always_inline)) void reset()')
+      .replace('inline void enterStage(Stage s)', 'static RDX_RAM_CODE void controlStage(RDX_PEG* self,Stage s){self->enterStage(s);}\n    RDX_RAM_CODE void enterStage(Stage s)')
+      .replace('inline void advanceStage()', 'RDX_RAM_CODE void advanceStage()')
+      .replace('inline float stageTarget(Stage s) const', 'RDX_RAM_CODE float stageTarget(Stage s) const');
   }
   if(name==='RDX_LFO.h') {
+    s=s.replace('inline void updateState()', 'inline __attribute__((always_inline)) void updateState()');
     s=s.replace('delay_ = DELAY_TIME_MS[delayParam] * 0.001f;', 'delay_ = delayParam ? DELAY_TIME_MS[delayParam] * 0.001f : 0.0f;');
     const a=s.indexOf('        // --- delay / fade-in ---');
     const b=s.indexOf('        float startPhase',a);
@@ -107,6 +119,11 @@ inline float rdxGainInv(float value) {
         'if ((int)waveform_ > 3) { // Square\n            value_ = evalWave(startPhase) * fadeInEnv_;');
   }
   if(name==='RDX_Voice.h') {
+    s=s.replace('inline void init()', 'inline __attribute__((always_inline)) void init()')
+      .replace('algorithm_ = a;', 'algorithm_ = a;\n    cacheRouting();')
+      .replace('inline bool isActive() const', 'inline __attribute__((always_inline)) bool isActive() const')
+      .replace('    inline void cacheParams()', '#include "rdx_voice_routing.inc"\n\n    inline void cacheParams()')
+      .replace(/^\s*algorithm_\s*= patch_\.common\.algorithm;/m, '$&\n        cacheRouting();');
     s=s.replace('    inline float calcScore() {',`    inline bool isAttacking() const {
         unsigned mask=1u;
         if(algorithm_==5||algorithm_==6)mask=3u;
@@ -131,7 +148,7 @@ inline float rdxGainInv(float value) {
     // Mute output without freezing the operator's envelope/phase state.
     s=s.replace('if (!params_.enable) return 0.f;','');
     s=s.replace('return fbAcc_ * outGain_ * env_.processAEG();','const float sample=fbAcc_ * outGain_ * env_.processAEG();\n        return params_.enable ? sample : 0.0f;');
-    s=s.replace('if(phase_>1.0f) phase_ -= 1.0f;', 'phase_ = wrap01(phase_);');
+    s=s.replace('if(phase_>1.0f) phase_ -= 1.0f;', 'phase_ = wrapPositive01(phase_);');
     s=s.replace(': idx_(idx),\n          params_(RDX_State::getState().workingPatch.ops[idx])',
       ': params_(RDX_State::getState().workingPatch.ops[idx]), idx_(idx)');
   }

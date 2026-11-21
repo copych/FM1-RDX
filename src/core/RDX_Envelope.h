@@ -19,7 +19,7 @@ public:
         if (need_reset) reset();
     }
 
-    inline void reset() {
+    inline __attribute__((always_inline)) void reset() {
         currentL_ = 0.0f;
         targetL_  = 1.0f;
         stage_    = Stage::IDLE;
@@ -68,8 +68,8 @@ public:
         const bool was=gate_;gate_=g;
         if(g&&!was){
             if(stage_==Stage::IDLE||stage_==Stage::RELEASE)currentL_=0.0f;
-            enterStage(Stage::ATTACK);
-        } else if(!g&&was&&stage_!=Stage::IDLE&&stage_!=Stage::RELEASE)enterStage(Stage::RELEASE);
+            RDX_FAR(controlStage)(this,Stage::ATTACK);
+        } else if(!g&&was&&stage_!=Stage::IDLE&&stage_!=Stage::RELEASE)RDX_FAR(controlStage)(this,Stage::RELEASE);
     }
 
     inline Stage getStage() const { return stage_; }
@@ -81,7 +81,8 @@ public:
 private:
 
     RDX_Common& common_ = RDX_State::getState().workingPatch.common;
-    inline void enterStage(Stage s) {
+    static RDX_RAM_CODE void controlStage(RDX_Envelope* self,Stage s){self->enterStage(s);}
+    RDX_RAM_CODE void enterStage(Stage s) {
         targetL_ = levelIndices_[static_cast<int>(s)];
         stage_  = s;
 
@@ -129,7 +130,7 @@ private:
   //   Serial.printf("enter stage %d rising %d k %f c %f curL %f newL %f \r\n", s, rising_, k_, c_, currentL_, targetL_);
     }
 
-    inline void advanceStage() {
+    RDX_RAM_CODE void advanceStage() {
       
   //    Serial.printf("from stage %d ", stage_);
         switch (stage_) {           

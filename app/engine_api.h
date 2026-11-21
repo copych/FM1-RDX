@@ -16,6 +16,8 @@ void rdx_render(float* left, float* right);
 void rdx_budget_observe(uint32_t ticks,uint32_t now);
 void rdx_budget_overload(uint32_t now);
 uint32_t rdx_voice_status(void);
+void rdx_cost_reset(void);
+void rdx_cost_profile(uint32_t* ticks3);
 int rdx_patch_valid(const uint8_t* patch150);
 void rdx_patch_export(uint8_t* patch150);
 void rdx_patch_import(const uint8_t* patch150);

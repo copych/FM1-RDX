@@ -73,7 +73,7 @@ public:
 
         // Advance own oscillator phase by note + PEG/LFO modulation
         phase_ = (phase_ + phaseInc_ * semitonesToRatio(phaseModSemitones));
-        phase_ = wrap01(phase_);
+        phase_ = wrapPositive01(phase_);
 
         // Sine lookup and feedback state update
         fbAcc_  = sin01(lookupPhase);

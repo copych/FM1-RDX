@@ -13,7 +13,7 @@
 
 class  RDX_Voice {
 public:
-inline void init() {
+inline __attribute__((always_inline)) void init() {
     for (auto& op : ops_) op.reset();
     peg_.reset();
 
@@ -111,6 +111,7 @@ inline void setJustAllocated() { justAllocated_ = true; }
 
 inline void setAlgorithm(uint8_t a) {
     algorithm_ = a;
+    cacheRouting();
 }
 
 inline void noteOff() {
@@ -176,7 +177,7 @@ inline  __attribute__((always_inline)) void updateMods() {
 
     
 
-	inline bool isActive() const {
+	inline __attribute__((always_inline)) bool isActive() const {
         switch(algorithm_) {
             case 5:
             case 6:
@@ -365,8 +366,11 @@ inline  __attribute__((always_inline)) void updateMods() {
         }
     }
 
+#include "rdx_voice_routing.inc"
+
     inline void cacheParams() {
         algorithm_          = patch_.common.algorithm;
+        cacheRouting();
         pmDepth_            = PM_DEPTH[patch_.common.lfoPMD];
         lfo_.setWaveform((RDX_LFO::Waveform)patch_.common.lfoWave);
         lfo_.setRate(patch_.common.lfoSpeed);

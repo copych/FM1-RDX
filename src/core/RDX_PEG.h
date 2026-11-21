@@ -50,13 +50,13 @@ public:
         gate_ = g; 
         if (g && !was) {
             if (stage_ == Stage::IDLE) current_ = CENTER; 
-            enterStage(Stage::ATTACK);
+            RDX_FAR(controlStage)(this,Stage::ATTACK);
         } else if (!g && was) {
-            if (stage_ != Stage::IDLE && stage_ != Stage::RELEASE) enterStage(Stage::RELEASE);
+            if (stage_ != Stage::IDLE && stage_ != Stage::RELEASE) RDX_FAR(controlStage)(this,Stage::RELEASE);
         }
     }
  
-    inline void reset() {
+    inline __attribute__((always_inline)) void reset() {
         current_ = CENTER;
         border_ = CENTER;
         stage_ = Stage::IDLE;
@@ -70,7 +70,8 @@ public:
     inline bool isGateOn() const { return gate_; }
 
 private:
-    inline void enterStage(Stage s) {
+    static RDX_RAM_CODE void controlStage(RDX_PEG* self,Stage s){self->enterStage(s);}
+    RDX_RAM_CODE void enterStage(Stage s) {
         stage_  = s; 
         border_ = stageTarget(s)  ;
         float speed;
@@ -104,7 +105,7 @@ private:
         }
     }
 
-    inline void advanceStage() {
+    RDX_RAM_CODE void advanceStage() {
         switch (stage_) {
             case Stage::ATTACK: 
                 enterStage(gate_ ? Stage::DECAY1 : Stage::RELEASE); 
@@ -128,7 +129,7 @@ private:
         } 
     }
 
-    inline float stageTarget(Stage s) const {
+    RDX_RAM_CODE float stageTarget(Stage s) const {
         switch (s) {
             case Stage::ATTACK:  return levelTargets_[0];
             case Stage::DECAY1:  return levelTargets_[1];

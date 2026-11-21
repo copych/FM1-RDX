@@ -12,10 +12,12 @@ static uint32_t budget_ticks(){return 0;}
 static RdxBudget budget;
 static bool budget_dirty=true,budget_keep_limit,budget_sample_valid;
 static uint32_t synth_ticks;
+static uint32_t synth_peak,fx_peak;
 
 // Explicit construction at boot, with static storage and no heap or C++ runtime.
 alignas(RdxEngine) static unsigned char storage[sizeof(RdxEngine)];
 static RdxEngine* engine;
+static RDX_RAM_CODE void render_core(RdxEngine* synth,float* left,float* right){synth->renderBlock(left,right);}
 alignas(RdxEffects) static unsigned char effects_storage[sizeof(RdxEffects)];
 static RdxEffects* effects;
 #if defined(RDX_FM1) && !defined(PLAT_HOST)
@@ -63,6 +65,7 @@ static void event(DeferredEvent e) {
 extern "C" void rdx_boot(void) {
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
     budget.reset(0);budget_dirty=true;budget_keep_limit=false;budget_sample_valid=false;synth_ticks=0;
+    synth_peak=fx_peak=0;
     preset_gain=1.0f;
     external_patch=false;memset(system_metadata,0,32);system_metadata[6]=1;system_metadata[7]=64;system_metadata[9]=120;system_metadata[10]=20;system_metadata[11]=system_metadata[12]=system_metadata[13]=1;
     midi_rx=1;midi_control=modulation=0;midi_volume=expression=127;bend=0;performance_gain=1.0f;
@@ -161,10 +164,13 @@ extern "C" void rdx_render(float* l,float* r) {
     const bool ready=effects->serviceClear();
     if(ready) {
         const uint32_t start=budget_ticks();
-        engine->renderBlock(l,r);
+        RDX_FAR(render_core)(engine,l,r);
         synth_ticks=budget_ticks()-start;
+        if(synth_ticks>synth_peak)synth_peak=synth_ticks;
         budget_sample_valid=fade==PRESET_STEADY&&RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY;
+        const uint32_t fx_start=budget_ticks();
         if(effects_on)effects->process(l,r);
+        const uint32_t fx_ticks=budget_ticks()-fx_start;if(fx_ticks>fx_peak)fx_peak=fx_ticks;
     } else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;
     for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){performance_gain+=(performance_target-performance_gain)*0.004f;
         const float gain=preset_gain*performance_gain;l[i]*=gain;r[i]*=gain;}
@@ -193,6 +199,8 @@ extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
 }
 extern "C" void rdx_budget_overload(uint32_t now){budget.overload(now);engine->setVoiceLimit(budget.limit);}
 extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_t)engine->activeVoices()<<8)|((uint32_t)RdxEngine::voiceCapacity<<16);}
+extern "C" void rdx_cost_reset(void){synth_peak=fx_peak=0;}
+extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=budget.prediction(5);}
 extern "C" void rdx_editor_snapshot(EditorSnapshot* out) {
     const auto& p=fade==PRESET_FADE_OUT?pending_patch:RDX_State::getState().workingPatch;
     memcpy(out->patch,&p,150);

@@ -6,7 +6,7 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
-**Latest preview:** up to **eight adaptive voices**, with Soundmondo compatibility, USB recording and the WobbleBass LFO fix retained. Polyphony starts at four and can rise while you play if measured processing headroom allows. Hold SEL and press REC for Audio Timing: **VOICES active/limit** shows the current allowance; SAVE resets timing measurements.
+**Latest preview:** a compact DSP kernel now runs from audio RAM, with up to **eight adaptive voices**, Soundmondo compatibility, USB recording and the WobbleBass fix retained. Hardware speed improvement is being measured. Polyphony starts at four and can rise while you play if processing headroom allows. Hold SEL and press REC for Audio Timing: **VOICES active/limit** shows the allowance; **SYN/FX** show separate peak processing times and **5V** estimates five-voice cost. SAVE resets timing peaks.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 

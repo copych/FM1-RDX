@@ -23,7 +23,7 @@ static volatile uint8_t preset_home_requested;
 static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;rdx_budget_overload(plat_ms());}
 static void timing_reset(void){
-    uint32_t f=plat_lock();memset(&timing,0,sizeof(timing));plat_unlock(f);
+    uint32_t f=plat_lock();memset(&timing,0,sizeof(timing));rdx_cost_reset();plat_unlock(f);
     timing_started=plat_ms();timing_xruns=plat_xruns();timing_draw=0;
 }
 static RdxEncoderMotion knob_motion[4];
@@ -244,19 +244,20 @@ void app_frame(void) {
     if(timing_page){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<500u)return;timing_draw=now;
         uint32_t f=plat_lock();
-        uint32_t peak=timing.peak,control=timing.control_peak,render=timing.render_peak,output=timing.output_peak,over=timing.over90;
+        uint32_t peak=timing.peak,over=timing.over90,cost[3];rdx_cost_profile(cost);
         plat_unlock(f);
         char row[40];
         draw_text_row(4,&FONT_M,"AUDIO TIMING",C_WHITE);
         timing_format(row,"APP MAX %lu us",(peak+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"CTRL %lu  DSP %lu",(control+23u)/24u,(render+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"OUT %lu us  CPU %lu%%",(output+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"SYN %lu  FX %lu us",(cost[0]+23u)/24u,(cost[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"5V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
         timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,&FONT_B,row,C_WHITE);
         timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,&FONT_B,row,C_WHITE);
         f=plat_lock();uint32_t voices=rdx_voice_status();plat_unlock(f);
         timing_format(row,"VOICES %lu/%lu  MAX 8",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
         draw_text_row(198,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
-        draw_text_row(216,&FONT_B,"DEADLINE 2902 us",C_GRAY);return;
+        uint32_t khz=plat_cpu_khz();
+        timing_format(row,khz?"D2902us CLK %lu MHz":"D2902us CLK ?",khz/1000u,0,"");draw_text_row(216,&FONT_B,row,C_GRAY);return;
     }
     uint32_t lock=plat_lock();rdx_editor_snapshot(&editor_view);plat_unlock(lock);
     static uint32_t last_revision=0,last_fx=99;static uint8_t last_page=255,last_op=255,last_tune=255,last_notice=255;

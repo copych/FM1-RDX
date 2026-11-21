@@ -49,7 +49,7 @@ public:
     inline void setWaveform(Waveform wf) { waveform_ = wf; }
 
     // --- call once per audio block ---
-    inline void updateState() {
+    inline __attribute__((always_inline)) void updateState() {
         // Reference p.7: delay is a wait before modulation begins.
         if(delaySamples_>0){delaySamples_-=DMA_BUFFER_LEN;value_=increment_=0.0f;return;}
         const float startGain=fadeInEnv_;

@@ -20,5 +20,6 @@ void app_loop(void);
 #define APP_SYSEX
 #define APP_LOOP
 #define APP_OVERLOAD app_overload
+#define APP_CPU_KHZ
 #define APP_HOST_EXPECT
 int app_expect(const char*,int*);

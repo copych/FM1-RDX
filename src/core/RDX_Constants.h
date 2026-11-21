@@ -3494,19 +3494,19 @@ constexpr float envelopeGain[3057]={-4.656612873e-10f,
 1.610568619e+1f,
 1.614955902e+1f,
 1.619355011e+1f};
-inline float rdxEnvelopeGain(float level) {
+inline __attribute__((always_inline)) float rdxEnvelopeGain(float level) {
     const float x=fclamp(level,0.0f,191.0f)*16.0f;
     const int i=(int)x;
     if(i==3056)return envelopeGain[3056];
     return envelopeGain[i]+(x-i)*(envelopeGain[i+1]-envelopeGain[i]);
 }
-inline float rdxGain(float level) {
+inline __attribute__((always_inline)) float rdxGain(float level) {
     level = fclamp(level, 0.0f, 191.0f);
     int i = (int)level;
     if (i == 191) return levelLUT.forward[191];
     return levelLUT.forward[i] + (level-i)*(levelLUT.forward[i+1]-levelLUT.forward[i]);
 }
-inline float rdxGainInv(float value) {
+inline __attribute__((always_inline)) float rdxGainInv(float value) {
     float scaled = fclamp(value / LEVEL_LUT_MAX * 191.0f, 0.0f, 191.0f);
     int i = (int)scaled;
     if (i == 191) return levelLUT.inverse[191];
@@ -4691,7 +4691,7 @@ inline  __attribute__((always_inline)) float sin01(float phase) {
     float idxf = phase * SINLUT_SIZE;
     int idx    = (int)idxf ;
     float frac = idxf - (float)idx;
-    // Float wrapping can round a tiny negative phase up to exactly 1.
+    // Float wrapping can round a tiny negative phase up to exactly 1.f
     // Keep the interpolation pair in the periodic table, including that seam.
     idx &= SINLUT_SIZE - 1;
     float s0   = sinTable[idx];

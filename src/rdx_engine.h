@@ -18,7 +18,7 @@ public:
     void sustain(bool down);
     void allNotesOff();
     void panic();
-    void renderBlock(float* left, float* right);
+    RDX_RAM_CODE void renderBlock(float* left, float* right);
     static RDX_Patch initPatch();
     static bool validPatch(const RDX_Patch& patch);
     static uint32_t presetCount();
@@ -35,4 +35,5 @@ private:
     uint8_t heldCount_ = 0;
     float outputGain_ = 0.1f;
     bool ready_ = false;
+    bool mono_ = false;
 };
