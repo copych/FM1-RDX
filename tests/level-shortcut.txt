@@ -1,0 +1,30 @@
+wait 600
+expect page 0
+turn K1 -127
+wait 30
+expect page 1
+expect op1_level 0
+tap HOME
+turn K2 -127
+wait 30
+expect page 1
+expect op2_level 0
+tap HOME
+turn K3 -127
+wait 30
+expect page 1
+expect op3_level 0
+tap HOME
+turn K4 -127
+wait 30
+expect page 1
+expect op4_level 0
+shot level-shortcut.png
+tap ENV
+wait 30
+expect page 15
+turn K1 1
+wait 30
+expect page 15
+expect op1_level 0
+expect store_writes 0

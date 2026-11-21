@@ -17,6 +17,8 @@ The sounds are arranged as **four banks of eight**, starting with **1–1 DigiCh
 3. Turn **PRESET** to try another sound. Drag a knob up or down, scroll over it, or focus it and use the arrow keys.
 4. Use **MASTER** for volume and **OCT− / OCT+** to change octave.
 
+From Home, turning **K1–K4** opens the operator Level screen and changes that operator's level immediately. Inside an editor page, the knobs edit the parameters shown on that page.
+
 The large screen beside or below the instrument mirrors its display so you can read the editor comfortably. On a phone, landscape orientation gives the controls more room. If you hear nothing, check **Mute**, MASTER and your device volume, then click Switch on again if your browser paused audio.
 
 ## Shape the sound

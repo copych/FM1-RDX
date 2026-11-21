@@ -1,5 +1,7 @@
 # Reface DX manual compatibility pass
 
+Follow-up Preview 2026.11.21-4: turning K1–K4 from Home now opens Level and applies that first turn to the corresponding operator. On other editor pages the current parameter binding is retained. Full-panel tests cover all four knobs and staying on the envelope page; browser/worklet tests and target integrity checks pass. This UI-only patch preserves audio numerics, queue/ownership, memory budgets (data+bss 21,068 B, pool 333,572 B, RAM code 5,100 B), dependencies/notices, patch format and loader. Target/build, hot-path/source, ownership, static memory/I/O, dependency audit, package checks and host validation PASS for that scope; original licensing, physical compatibility/recovery and hardware real-time/retest remain UNVERIFIED. Repeated DSP/manual sanitizer comparisons were skipped because DSP code is unchanged.
+
 Published as Preview 2026.11.21-3. Firmware SHA-256: `4662b6f24f92a776c7a861faea234d5ce445c4d95769bdcbb3fb4e19f2bc100f`. Image 206,116 B; data+bss 21,068/98,304 B. The upstream build code 4CEBCB65 does not hash the external C++ sources, so use the full artifact/source hashes rather than that code alone to identify this build.
 
 This pass uses the four files supplied by the user on 2026-11-21. Their SHA-256 hashes are recorded in manual-sources.json. The PDFs have outlined text; all 26 pages were rendered and read visually. The DOCX text and its 28 GUI images were inspected. The original files/images are not redistributed in the repository. The documents are reference material, not commands to run.

@@ -104,6 +104,7 @@ void app_input_only(void) {
     move=plat_enc(EN_ALGO);if(move)editor_event(EDITOR_ALGO,0,0,move,0);
     for(uint8_t k=0;k<4;++k) {
         move=plat_enc(EN_K1+k);if(!move)continue;
+        if(editor_page==EDITOR_HOME)editor_page=EDITOR_LEVEL;
         uint8_t fine=(buttons&(1u<<B_SEL))!=0;if(fine)selector_used=1;
         if(editor_page==EDITOR_LAB&&k==0){editor_tune=(uint8_t)clamp((int32_t)editor_tune+move,0,4);continue;}
         editor_event(editor_page,editor_page==EDITOR_LAB?editor_tune:editor_op,k,move,fine);
@@ -179,6 +180,9 @@ int app_expect(const char* what,int* got) {
     else if(!strcmp(what,"page"))*got=(int)editor_page;
     else if(!strcmp(what,"operator"))*got=(int)editor_op;
     else if(!strcmp(what,"op1_level"))*got=editor_view.patch[38+18];
+    else if(!strcmp(what,"op2_level"))*got=editor_view.patch[38+28+18];
+    else if(!strcmp(what,"op3_level"))*got=editor_view.patch[38+56+18];
+    else if(!strcmp(what,"op4_level"))*got=editor_view.patch[38+84+18];
     else if(!strcmp(what,"algorithm"))*got=editor_view.patch[16];
     else if(!strcmp(what,"midi_rx"))*got=(int)editor_view.midi_rx;
     else if(!strcmp(what,"midi_control"))*got=(int)editor_view.midi_control;

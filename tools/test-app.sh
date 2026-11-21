@@ -10,3 +10,5 @@ mkdir -p build/bank-controls
 app/build/host/rdx_host tests/bank-controls.txt build/bank-controls
 mkdir -p build/manual-controls
 app/build/host/rdx_host tests/manual-controls.txt build/manual-controls
+mkdir -p build/level-shortcut
+app/build/host/rdx_host tests/level-shortcut.txt build/level-shortcut

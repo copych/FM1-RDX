@@ -43,6 +43,7 @@ page = page.replace('<div class="bar">', '''<aside class="help" style="margin:16
   <strong>OCT− / OCT+</strong> transpose. <strong>SELECT</strong> browses all 21 editor pages;
   <strong>K1–K4</strong> edit the displayed parameters. Tap <strong>SEL</strong> to select an operator;
   hold it while turning a frequency knob for fine tuning.</p>
+  <p>From <strong>Home</strong>, turning <strong>K1–K4</strong> opens the operator Level screen and changes that operator's level immediately.</p>
   <p><strong>EDIT</strong>, <strong>ENV</strong>, <strong>LFO</strong> and <strong>FX</strong> cycle their pages.
   <strong>GLO</strong> cycles voice and MIDI settings. On MIDI, K1 selects the receive channel and K2 enables FM control CCs.
   <strong>ENV</strong> also reaches per-operator pitch-EG switches. <strong>REC</strong> opens Phaser Lab.
