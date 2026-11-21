@@ -61,7 +61,7 @@
 <body>
 <main>
   <button type="button" class="lang" id="lang" lang="ja">日本語</button>
-  <nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>Experimental preview · 2026.11.21-3</strong><br>The first preview boots and plays on an FM-1. This update follows the Reface manuals more closely: MIDI controllers, pitch-EG switches, release behavior and note priority; hardware retesting is pending. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><strong>After installation, close this tab before opening a DAW or MIDI app.</strong> This releases the USB MIDI port for the other app.</p><p><a href="../firmware/fm1-rdx-preview-2026.11.21-3.fwsc" download>Download this preview firmware</a></p>
+  <nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>Experimental preview · 2026.11.21-4</strong><br>The first preview boots and plays on an FM-1. This update follows the Reface manuals more closely: MIDI controllers, pitch-EG switches, release behavior and note priority; hardware retesting is pending. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><strong>After installation, close this tab before opening a DAW or MIDI app.</strong> This releases the USB MIDI port for the other app.</p><p><a href="../firmware/fm1-rdx-preview-2026.11.21-4.fwsc" download>Download this preview firmware</a></p>
   <p data-t="intro">Connect the FM-1 by USB, then press Install. It works in Chrome or Edge; the browser asks once to allow MIDI: allow it.</p>
   <p data-t="warn">Do not unplug the USB cable while writing. After installation, close this tab before opening a DAW or MIDI app so it can access the MIDI port.</p>
   <p class="small" data-t="direct"></p>
@@ -1113,7 +1113,7 @@ const log = (t) => {
   if (atEnd) el.scrollTop = el.scrollHeight;
 };
 let image = null, boot = null, res = null;
-const meta = {"version":"Preview 2026.11.21-3","product":"FM-1_9900","pkg":"../firmware/fm1-rdx-preview-2026.11.21-3.fwsc","sha256":"4662b6f24f92a776c7a861faea234d5ce445c4d95769bdcbb3fb4e19f2bc100f","backup":false,"res":null,"boot":null};
+const meta = {"version":"Preview 2026.11.21-4","product":"FM-1_9900","pkg":"../firmware/fm1-rdx-preview-2026.11.21-4.fwsc","sha256":"ab8f1940720c4b35d03fc5b620d657c13225399de192f017cd7b7a674c2a5f88","backup":false,"res":null,"boot":null};
 /* the firmware's own steps around an install (its site's install_app script, or none): before(midi, ui) runs before
    anything is written, may ask (ui.ask) and returns its state, or false to stop there; after(midi, ui, state) once
    the new firmware has started (it waits for it itself). A failure in after is said, the install stays done */
