@@ -1,5 +1,5 @@
 {
-  "version": "Preview 2026.11.21-10",
+  "version": "Preview 2026.11.21-11",
   "product": "FM-1_9900",
   "files": {
     ".gitattributes": {
@@ -11,20 +11,28 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "emu/app.js": {
-      "bytes": 259,
-      "sha256": "74ee9d39d5eaa77e6b9ac4c0d5a3d47479f701a942e1a76ab9dcfadde7f77f08"
+      "bytes": 304,
+      "sha256": "9597c291397b5582b4cd573ef62e869e544f824344c889f34e5dfe0bcb2ae4c0"
     },
     "emu/app.wasm": {
-      "bytes": 240280,
-      "sha256": "c20f7d90ec729dc518cd3471b240fd975d611ea728deb9e0387da3b053ec8dd1"
+      "bytes": 247594,
+      "sha256": "b2d3d9c85039e3eec7e7db4ee704584a27218c8c5c8455a91bd8e612d028b567"
     },
     "emu/app_worklet.js": {
-      "bytes": 176,
-      "sha256": "c34058663482ce620ea583b8623a8f68b969e4902d493a01385a477154260387"
+      "bytes": 210,
+      "sha256": "9bfc501df0336e45a25ee43e2f1f54b9126c95197a1c253346cf3a8fce55082e"
     },
     "emu/index.html": {
       "bytes": 46859,
       "sha256": "d616c83ad1b5659c739388abeaa37ed27c482545e0ec50e33f2ead212c3c691d"
+    },
+    "emu/parts/midi.js": {
+      "bytes": 4527,
+      "sha256": "373e5e39ec578844a78a9db4a49359b4b5a61b6b845ebdb8d060d99fe10cbfbc"
+    },
+    "emu/parts/midi_worklet.js": {
+      "bytes": 3830,
+      "sha256": "b0bbcf9e46cc59dedc4046cfac14ab46d6deb45a26fcb1f1f795d56eb832f76d"
     },
     "emu/parts/parts.js": {
       "bytes": 2358,
@@ -57,6 +65,10 @@
     "firmware/fm1-rdx-preview-2026.11.21-10.fwsc": {
       "bytes": 616059,
       "sha256": "1b69c55df672ecbdee7656df9041225c0340ff63c763026fafa9fe3cecde6353"
+    },
+    "firmware/fm1-rdx-preview-2026.11.21-11.fwsc": {
+      "bytes": 616059,
+      "sha256": "d1bd931b24626b586d81d5e532744c8c49c1a91f34da1e774d2574b3429c7d1b"
     },
     "firmware/fm1-rdx-preview-2026.11.21-2.fwsc": {
       "bytes": 616059,
@@ -104,7 +116,7 @@
     },
     "install/index.html": {
       "bytes": 86272,
-      "sha256": "28257f2b0a0f56802786247b9e6dcd7b65964f4547186682d39fcaae9367e62c"
+      "sha256": "36da9d9236468b50a176f8e9260c33a239a221f076b828eb1f046979f6bebc4a"
     },
     "words/5a2ec875ad.json": {
       "bytes": 977,
