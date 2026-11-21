@@ -19,6 +19,7 @@ static uint8_t editor_redraw;
 static struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} timing;
 static uint8_t timing_page;
 static volatile uint8_t preset_home_requested;
+#include "soundmondo.h"
 static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;}
 static void timing_reset(void){
@@ -80,6 +81,7 @@ void app_init(void) {
     editor_redraw=1;
     reset_knob_motion();
     timing_page=0;preset_home_requested=0;timing_reset();
+    sm_reset();
 }
 void app_panic(void) {
     uint32_t f=plat_lock();
@@ -90,6 +92,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     uint32_t i,pkt;int port;
     if(n!=APP_BLOCK) {for(i=0;i<n*2u;++i)lr[i]=0;return;}
     const uint32_t t0=plat_ticks24();
+    sm_audio();
     if(panic_requested) {rdx_panic();event_read=event_write;panic_requested=0;}
     for(i=0;i<32u && event_read!=event_write;++i) {
         rdx_event_t e=events[event_read&31u];++event_read;

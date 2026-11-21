@@ -6,7 +6,7 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
-**Latest preview:** corrected LFO fade-in removes reproduced steps in isolated WobbleBass operator 1. USB recording is available at 44.1 kHz stereo/16-bit PCM. Polyphony remains four voices; adaptive budgeting is pending. Hold SEL and press REC for Audio Timing; SAVE resets measurements.
+**Latest preview:** experimental Soundmondo compatibility, including Reface identity and voice load/capture. The WobbleBass LFO fix and USB recording remain. Polyphony remains four voices; adaptive budgeting is pending. Hold SEL and press REC for Audio Timing; SAVE resets measurements.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 
@@ -59,9 +59,13 @@ MIDI receives on channel 1 by default. Press **GLO** twice for MIDI settings: **
 
 With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; operators 2, 3 and 4 use CC102–107, 108–113 and 114–119. Each group controls level, feedback amount, feedback type, frequency mode, coarse frequency and fine frequency, in that order.
 
-To record over USB, select **FM1-RDX prototype** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
+To record over USB, select **FM1-RDX reface DX** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
 
-Built-in keys currently use a fixed velocity. Live SysEx, permanent patch saving and phrase looping are not available yet. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited effect combinations exceed the available memory; the synth rejects those combinations and displays a memory-limit message.
+For **Soundmondo**, install the latest preview, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. This is tested against the protocol and original voice files, with live Soundmondo hardware testing still pending. Downloaded voices replace the current RAM edit buffer; switching presets or restarting discards them. Soundmondo can capture the current voice without writing it to the FM-1's flash.
+
+The browser emulator's **MIDI ports** control can exchange MIDI/SysEx with a selected port. It does not create an operating-system MIDI device for Soundmondo.
+
+Built-in keys currently use a fixed velocity. Permanent patch saving and phrase looping are not available yet. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited or imported effect combinations exceed the available memory; the synth rejects those combinations. SysEx support targets the Reface voice edit buffer, not a full Yamaha system/looper implementation.
 
 ## Feedback
 

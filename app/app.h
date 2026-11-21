@@ -15,6 +15,10 @@ void app_frame(void);
 void app_input_only(void);
 void app_say(const char*,const char*);
 void app_overload(void);
+int app_sysex(const uint8_t*,uint32_t);
+void app_loop(void);
+#define APP_SYSEX
+#define APP_LOOP
 #define APP_OVERLOAD app_overload
 #define APP_HOST_EXPECT
 int app_expect(const char*,int*);

@@ -20,7 +20,9 @@ static uint32_t destination=1;
 // MoDemLead's source distortion drive is intentionally hot. Trim only the
 // final output (-12.04 dB), retaining its operator/FX drive and patch bytes.
 static float preset_gain=1.0f;
-static float output_trim(){return destination==10u?0.25f:1.0f;}
+static bool external_patch;
+static uint8_t system_metadata[32];
+static float output_trim(){return !external_patch&&destination==10u?0.25f:1.0f;}
 static RDX_Patch pending_patch,edited_patch;
 static uint32_t editor_revision;
 static bool editor_pending,editor_dirty,editor_error;
@@ -49,6 +51,7 @@ static void event(DeferredEvent e) {
 extern "C" void rdx_boot(void) {
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
     preset_gain=1.0f;
+    external_patch=false;memset(system_metadata,0,32);system_metadata[6]=1;system_metadata[7]=64;system_metadata[9]=120;system_metadata[10]=20;system_metadata[11]=system_metadata[12]=system_metadata[13]=1;
     midi_rx=1;midi_control=modulation=0;midi_volume=expression=127;bend=0;performance_gain=1.0f;
     editor_revision=1;editor_pending=editor_dirty=editor_error=false;
     engine=new(storage) RdxEngine;
@@ -105,8 +108,17 @@ extern "C" uint32_t rdx_preset_count(void) {return RdxEngine::presetCount();}
 extern "C" void rdx_preset_request(uint32_t i) {
     if(i>=RdxEngine::presetCount())return;
     RdxEngine::presetPatch(i,pending_patch);editor_pending=false;editor_dirty=editor_error=false;++editor_revision;
-    destination=i;fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
+    external_patch=false;destination=i;fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
 }
+extern "C" int rdx_patch_valid(const uint8_t* bytes){RDX_Patch p;memcpy(&p,bytes,150);return RdxEngine::validPatch(p)&&RdxEffects::required(p)<=RdxEffects::arenaFloats;}
+extern "C" void rdx_patch_export(uint8_t* bytes){memcpy(bytes,editor_pending?&edited_patch:fade==PRESET_FADE_OUT?&pending_patch:&RDX_State::getState().workingPatch,150);}
+extern "C" void rdx_patch_import(const uint8_t* bytes){
+    memcpy(&pending_patch,bytes,150);editor_pending=false;external_patch=true;editor_dirty=true;editor_error=false;++editor_revision;
+    fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
+}
+extern "C" void rdx_patch_edit(const uint8_t* bytes){RDX_Patch p;memcpy(&p,bytes,150);stage_edit(p);}
+extern "C" void rdx_system_export(uint8_t* bytes){memcpy(bytes,system_metadata,32);bytes[1]=midi_rx?midi_rx-1:16;bytes[14]=midi_control;}
+extern "C" void rdx_system_import(const uint8_t* bytes){memcpy(system_metadata,bytes,32);midi_rx=bytes[1]==16?0:bytes[1]+1;midi_control=bytes[14]!=0;++editor_revision;}
 extern "C" void rdx_preset_name(uint32_t i,char* name) {
     RDX_Patch p{};
     if(RdxEngine::presetPatch(i,p))memcpy(name,p.common.voiceName,10);

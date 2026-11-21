@@ -20,3 +20,9 @@ mkdir -p build/preset-home
 app/build/host/rdx_host tests/preset-home.txt build/preset-home
 mkdir -p build/select-context
 app/build/host/rdx_host tests/select-context.txt build/select-context
+if node --version >/dev/null 2>&1; then
+    node tools/prepare-soundmondo-test.mjs
+else
+    sh tools/node-wsl.sh tools/prepare-soundmondo-test.mjs
+fi
+app/build/host/rdx_host build/soundmondo-controls.txt build/soundmondo-controls

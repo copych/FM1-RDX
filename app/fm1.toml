@@ -2,13 +2,14 @@ name = "RDX"
 # Provisional local development identity. Reserve a unique ID before release.
 id_prefix = "FM-1_99"
 usb_manufacturer = "FM1-RDX"
-usb_product = "FM1-RDX prototype"
+usb_product = "FM1-RDX reface DX"
 o2 = ["engine.cpp", "editor.cpp"]
 o2_cflags = ["-std=c++1z", "-fno-exceptions", "-fno-rtti", "-fno-threadsafe-statics", "-DRDX_FM1"]
 ble = false
 usb_audio_in = true
 usb_audio_out = false
 companion = false
+emu = ["midi"]
 words = "words.tsv"
 tagline = "Reface DX inspired RDX port prototype"
 description = "Four-voice synth prototype with both source effect slots. Panel keys and USB/TRS MIDI input."
