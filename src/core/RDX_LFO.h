@@ -52,6 +52,7 @@ public:
     inline void updateState() {
         // Reference p.7: delay is a wait before modulation begins.
         if(delaySamples_>0){delaySamples_-=DMA_BUFFER_LEN;value_=increment_=0.0f;return;}
+        const float startGain=fadeInEnv_;
         fadeInEnv_+=fadeInIncrement_;if(fadeInEnv_>1.0f)fadeInEnv_=1.0f;
 
         float startPhase = phase_;
@@ -85,14 +86,14 @@ public:
         }
 
         // --- Normal continuous waveforms ---
-        float v0 = evalWave(startPhase);
+        float v0 = evalWave(startPhase) * startGain;
         float v1 = evalWave(endPhase) * fadeInEnv_;
 
         if ((int)waveform_ > 3) { // Square
-            value_ = v0 * fadeInEnv_;
+            value_ = evalWave(startPhase) * fadeInEnv_;
             increment_ = 0.f;
         } else {
-            value_ = v0 * fadeInEnv_;
+            value_ = v0;
             increment_ = (v1 - v0) / float(DMA_BUFFER_LEN);
         }
 

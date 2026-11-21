@@ -98,8 +98,13 @@ inline float rdxGainInv(float value) {
     const b=s.indexOf('        float startPhase',a);
     s=s.slice(0,a)+`        // Reference p.7: delay is a wait before modulation begins.
         if(delaySamples_>0){delaySamples_-=DMA_BUFFER_LEN;value_=increment_=0.0f;return;}
+        const float startGain=fadeInEnv_;
         fadeInEnv_+=fadeInIncrement_;if(fadeInEnv_>1.0f)fadeInEnv_=1.0f;
 \n`+s.slice(b);
+    s=s.replace('float v0 = evalWave(startPhase);','float v0 = evalWave(startPhase) * startGain;')
+      .replace(/value_ = v0 \* fadeInEnv_;/g,'value_ = v0;')
+      .replace('if ((int)waveform_ > 3) { // Square\n            value_ = v0;',
+        'if ((int)waveform_ > 3) { // Square\n            value_ = evalWave(startPhase) * fadeInEnv_;');
   }
   if(name==='RDX_Voice.h') {
     s=s.replace('    inline float calcScore() {',`    inline bool isAttacking() const {

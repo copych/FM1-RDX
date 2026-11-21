@@ -6,7 +6,7 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
-**Latest preview:** USB recording at 44.1 kHz stereo/16-bit PCM and a fix for a sine-table boundary bug found while investigating WobbleBass. Polyphony remains four voices; adaptive budgeting is pending. Hold SEL and press REC for Audio Timing; SAVE resets measurements.
+**Latest preview:** corrected LFO fade-in removes reproduced steps in isolated WobbleBass operator 1. USB recording is available at 44.1 kHz stereo/16-bit PCM. Polyphony remains four voices; adaptive budgeting is pending. Hold SEL and press REC for Audio Timing; SAVE resets measurements.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 
