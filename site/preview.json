@@ -1,6 +1,6 @@
 {
-  "version": "Preview 2026.11.22-20",
+  "version": "Preview 2026.11.22-21",
   "product": "FM-1_9900",
-  "firmwareSha256": "17276db79f5e86fb620b4bbad8802a793627f24ed2bd0aed682bb2f0206db782",
-  "wasmSha256": "22bb6e5dca14ac9f0c430504ba511cd5999d4ce0b3971de8616b5205f5d3a4ca"
+  "firmwareSha256": "655e04a8c1fcfc16e64c8c8e94ac4d0c45d62684b1d6b110103b31e84b06787a",
+  "wasmSha256": "eeef77556162b5fe0298d1632165d49540065a867eb9ecd379673a28b4f4b83c"
 }

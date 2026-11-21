@@ -1,0 +1,38 @@
+wait 600
+expect control_core 1
+expect control_errors 0
+midi 90 3C 64
+wait 100
+expect control_midi 1
+expect voice_active 1
+midi E0 00 60
+midi B0 01 40
+midi 80 3C 00
+wait 3000
+expect voice_active 0
+press SEL
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+expect timing 5
+tap SAVE
+wait 300
+expect control_core 1
+expect control_drops 0
+shot audio-isolation.png
+turn SELECT 1
+wait 100
+expect control_core 0
+tap HOME
+wait 100
+midi 90 3C 64
+wait 100
+expect voice_active 1
+midi B0 78 00
+wait 100
+expect voice_active 0
+expect control_errors 0
+expect store_writes 0

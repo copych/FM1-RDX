@@ -21,17 +21,21 @@ static void sm_audio(void){
     }
 }
 static void sm_current(uint8_t* patch){
+    if(control_active){memcpy(patch,control_request.patch,150);return;}
     uint32_t f=plat_lock();if(sm_patch_pending)memcpy(patch,sm_patch,150);else rdx_patch_export(patch);plat_unlock(f);
 }
 static void sm_current_system(uint8_t* data){
+    if(control_active){memcpy(data,control_request.system,32);return;}
     uint32_t f=plat_lock();if(sm_system_pending)memcpy(data,sm_system,32);else rdx_system_export(data);plat_unlock(f);
 }
 static int sm_publish(const uint8_t* patch,int full){
     if(!rdx_patch_valid(patch))return 0;
+    if(control_active){memcpy(control_reply.patch,patch,150);memcpy(control_request.patch,patch,150);control_reply.patch_full=control_reply.patch_full||full;control_reply.patch_pending=1;return 1;}
     uint32_t f=plat_lock();memcpy(sm_patch,patch,150);sm_patch_full=(sm_patch_pending&&sm_patch_full)||full;sm_patch_pending=1;plat_unlock(f);return 1;
 }
 static int sm_publish_system(const uint8_t* data){
     if(data[1]>16||data[14]>1)return 0;
+    if(control_active){memcpy(control_reply.system,data,32);memcpy(control_request.system,data,32);control_reply.system_pending=1;return 1;}
     uint32_t f=plat_lock();memcpy(sm_system,data,32);sm_system_pending=1;plat_unlock(f);return 1;
 }
 static void sm_queue(const uint8_t* frame,uint32_t n){
@@ -52,9 +56,7 @@ static void sm_voice(uint8_t device,const uint8_t* patch){
     sm_block(device,0x0f,0x0f,0,0,0);
 }
 void app_loop(void){
-    gui_collect(0);
     if(timing_page!=4)core_mode=CORE_TEST_OFF;
-    if(!gui_pending)core_test_tick();
     uint32_t session=plat_usb_session(),now=plat_ms();
     if(session!=sm_session){uint32_t f=plat_lock();sm_reset();plat_unlock(f);}
     if(sm_bulk_open&&now-sm_bulk_ms>2000u)sm_bulk_open=0;
@@ -66,7 +68,7 @@ void app_loop(void){
     if(plat_sysex_room()<((n+2u)/3u)*3u)return;
     if(!plat_sysex_send(sm_tx+sm_tx_read,n)){sm_tx_read=end+1;sm_tx_ms=now;}
 }
-int app_sysex(const uint8_t* p,uint32_t n){
+static int control_sysex(const uint8_t* p,uint32_t n){
     if(n>640u)return 0;
     if(n==4&&p[0]==0x7e&&p[2]==6&&p[3]==1){
         const uint8_t reply[]={0xf0,0x7e,0x7f,6,2,0x43,0,0x41,0x53,6,3,0,0,0x7f,0xf7};

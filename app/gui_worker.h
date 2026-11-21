@@ -59,11 +59,13 @@ static void gui_start(const EditorSnapshot* view,uint8_t page,uint8_t op,uint8_t
     gui_request.view=*view;gui_request.page=page;gui_request.op=op;gui_request.tune=tune;
     gui_request.sequence=++gui_sequence;gui_request_hash=gui_hash(&gui_request,sizeof gui_request);
     gui_ready=0;plat_cpu2_sync();gui_sent=plat_ms();
-    if(gui_enabled&&!gui_failed&&plat_cpu2_on()){
+#ifndef RDX_CONTROL_ISOLATED
+    if(plat_core()==0&&gui_enabled&&!gui_failed&&plat_cpu2_on()){
         if(plat_cpu2_run(gui_job,0)){gui_pending=1;return;}
         // Another diagnostic may still be draining. Do not share the GUI with it.
         // Synthetic jobs do not touch GUI state; this frame can run locally.
     }
+#endif
     gui_job(0);gui_last_core=gui_reply.core;gui_ready=gui_reply.valid;
     if(gui_ready){++gui_jobs;if(gui_reply.ticks>gui_peak)gui_peak=gui_reply.ticks;}
 }

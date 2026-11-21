@@ -3,9 +3,9 @@
 #include "benchmark.h"
 #include "../src/rdx_encoder.h"
 
-enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENTS_COUNT };
+enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENTS_COUNT };
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
-static rdx_event_t events[32];
+static rdx_event_t events[128];
 static volatile uint32_t event_read,event_write,panic_requested;
 static uint32_t keys_before,buttons_before;
 static int32_t octave;
@@ -17,25 +17,29 @@ static uint32_t save_notice_until;
 static EditorSnapshot editor_view;
 static uint8_t editor_redraw;
 // Audio owns the counters. UI copies/resets only under interrupt exclusion.
-static struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} timing;
+typedef struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} RdxTiming;
+static RdxTiming timing;
 static uint8_t timing_page;
 static uint8_t bench_selection;
 static uint8_t bench_started;
 static uint8_t profile_fine;
 static volatile uint8_t preset_home_requested;
+#include "control_bridge.h"
 #include "core_test.h"
+#define RDX_CONTROL_ISOLATED 1
 #include "gui_worker.h"
 static uint8_t core_selection=CORE_TEST_IDLE;
 #include "soundmondo.h"
 static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;rdx_budget_overload(plat_ms());}
 static void timing_reset(void){
+    if(control_active){control_reply.reset_timing=1;timing_started=plat_ms();timing_xruns=control_request.xruns;timing_draw=0;return;}
     uint32_t f=plat_lock();memset(&timing,0,sizeof(timing));rdx_cost_reset();plat_unlock(f);
     timing_started=plat_ms();timing_xruns=plat_xruns();timing_draw=0;
 }
 static RdxEncoderMotion knob_motion[4];
 static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
-static void detail_set(uint8_t on){uint32_t f=plat_lock();rdx_detail_set(on);plat_unlock(f);}
+static void detail_set(uint8_t on){if(control_active){control_detail(on);return;}uint32_t f=plat_lock();rdx_detail_set(on);plat_unlock(f);}
 static void preset_home(void){editor_page=EDITOR_HOME;timing_page=0;detail_set(0);editor_redraw=1;reset_knob_motion();}
 static uint8_t wrap_selection(uint8_t at,int32_t move,uint8_t count){
     int32_t next=((int32_t)at+move)%count;if(next<0)next+=count;return (uint8_t)next;
@@ -69,16 +73,18 @@ static int continuous_parameter(uint8_t page,uint8_t knob){
 // Main loop producer; interrupt consumer. plat_lock supplies the platform's
 // interrupt exclusion. Full queues deliberately panic and discard the batch.
 static void event_push(uint8_t type,uint8_t note,uint8_t velocity) {
+    if(control_active){control_push((rdx_event_t){type,note,velocity,0,0});return;}
     uint32_t f=plat_lock(),w=event_write;
-    if(w-event_read==32u) panic_requested=1;
-    else {events[w&31u]=(rdx_event_t){type,note,velocity};event_write=w+1u;}
+    if(w-event_read==128u) panic_requested=1;
+    else {events[w&127u]=(rdx_event_t){type,note,velocity,0,0};event_write=w+1u;}
     plat_unlock(f);
 }
 static void editor_event(uint8_t page,uint8_t op,uint8_t control,int32_t delta,uint8_t fine) {
     if(delta>127)delta=127;if(delta<-127)delta=-127;
+    if(control_active){control_push((rdx_event_t){EVENT_EDITOR,page,op,(uint8_t)(control|(fine?128u:0u)),(int16_t)delta});return;}
     uint32_t f=plat_lock(),w=event_write;
-    if(w-event_read==32u)panic_requested=1;
-    else {events[w&31u]=(rdx_event_t){EVENT_EDITOR,page,op,(uint8_t)(control|(fine?128u:0u)),(int16_t)delta};event_write=w+1u;}
+    if(w-event_read==128u)panic_requested=1;
+    else {events[w&127u]=(rdx_event_t){EVENT_EDITOR,page,op,(uint8_t)(control|(fine?128u:0u)),(int16_t)delta};event_write=w+1u;}
     plat_unlock(f);
 }
 void app_init(void) {
@@ -102,34 +108,21 @@ void app_panic(void) {
     plat_unlock(f);
 }
 void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
-    uint32_t i,pkt;int port;
+    uint32_t i;
     if(n!=APP_BLOCK) {for(i=0;i<n*2u;++i)lr[i]=0;return;}
     const uint32_t t0=plat_ticks24();
     sm_audio();
     if(panic_requested) {rdx_panic();event_read=event_write;panic_requested=0;}
     for(i=0;i<32u && event_read!=event_write;++i) {
-        rdx_event_t e=events[event_read&31u];++event_read;
+        rdx_event_t e=events[event_read&127u];++event_read;
         if(e.type==EVENT_ON)rdx_note_on(e.note,e.velocity);
         else if(e.type==EVENT_OFF)rdx_note_off(e.note);
         else if(e.type==EVENT_PANIC)rdx_panic();
         else if(e.type==EVENT_PRESET)rdx_preset_request(e.note);
         else if(e.type==EVENT_FX)rdx_fx_toggle();
         else if(e.type==EVENT_EDITOR)rdx_editor_adjust(e.note,e.velocity,e.control&127u,e.delta,(e.control&128u)!=0);
-    }
-    // Bound MIDI work even when the sender continuously fills its ring.
-    for(i=0;i<32u && plat_midi_in(&pkt,&port);++i) {
-        uint32_t st=(pkt>>8)&255u,d1=(pkt>>16)&127u,d2=(pkt>>24)&127u;
-        uint32_t channel=rdx_midi_receive_channel();
-        if(channel&&(st&15u)!=channel-1u)continue;
-        if((st&240u)==144u)rdx_note_on((uint8_t)d1,(uint8_t)d2);
-        else if((st&240u)==128u)rdx_note_off((uint8_t)d1);
-        else if((st&240u)==192u && d1<rdx_preset_count()) {
-            // Programs 0..31 are bank sounds 1..32; program 32 is Init.
-            preset=d1==32u?0:(int32_t)d1+1;rdx_preset_request((uint32_t)preset);
-            preset_home_requested=1;
-        }
-        else if((st&240u)==224u)rdx_pitch_bend((uint16_t)(d1|(d2<<7)));
-        else if((st&240u)==176u)rdx_control_change((uint8_t)d1,(uint8_t)d2);
+        else if(e.type==EVENT_BEND)rdx_pitch_bend((uint16_t)e.delta);
+        else if(e.type==EVENT_CC)rdx_control_change(e.note,e.velocity);
     }
     const uint32_t t1=plat_ticks24();
     rdx_render(left,right);
@@ -150,8 +143,36 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(timing.blocks!=UINT32_MAX)++timing.blocks;
     rdx_budget_observe(t3-t0,plat_ms());
 }
-void app_input_only(void) {
-    uint32_t home_lock=plat_lock();uint8_t go_home=preset_home_requested;preset_home_requested=0;plat_unlock(home_lock);
+// Worker callbacks consume captured input and engine snapshots only.
+static void control_blit(uint32_t x,uint32_t y){
+    // Publish CPU1's RAM canvas before starting peripheral DMA reads.
+    plat_cpu2_sync();cv_blit(x,y);
+}
+static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t color){
+    if(x>=240u||y>=240u||!w||!h)return;
+    if(w>240u-x)w=240u-x;if(h>240u-y)h=240u-y;
+    for(uint32_t row=0;row<h;row+=8u){uint32_t n=h-row;if(n>8u)n=8u;cv_begin(w,n,color);control_blit(x,y+row);}
+}
+#define cv_blit control_blit
+#define lcd_fill control_fill
+#define plat_lock control_lock
+#define plat_unlock control_unlock
+#define plat_keys control_keys
+#define plat_buttons control_buttons
+#define plat_enc control_enc
+#define rdx_editor_snapshot control_snapshot
+#define rdx_cost_profile control_cost
+#define rdx_detail_profile control_profile
+#define rdx_detail_fine control_fine
+#define rdx_detail_set control_detail
+#define rdx_voice_status control_voices
+#define rdx_fx_status control_fx
+#define plat_xruns control_xruns
+#define plat_cpu_pct control_cpu
+#define plat_cpu_khz control_khz
+#define timing control_request.timing
+static void control_input(void) {
+    uint8_t go_home=control_request.home;control_request.home=0;
     if(go_home)preset_home();
     const uint8_t previous_page=editor_page,previous_op=editor_op;
     uint32_t k,keys=plat_keys(),buttons=plat_buttons();
@@ -167,7 +188,7 @@ void app_input_only(void) {
             if(timing_page==2){rdx_bench_start();bench_started=1;}
             else if(timing_page==3){uint32_t p[9],f=plat_lock();rdx_detail_profile(p);rdx_detail_set(p[7]?DETAIL_OFF:profile_fine?DETAIL_FINE:DETAIL_COARSE);plat_unlock(f);}
             else if(timing_page==4){core_mode=core_mode?CORE_TEST_OFF:core_selection;core_done=core_errors=core_late=core_roundtrip=0;timing_reset();}
-            else if(timing_page==5){timing_reset();gui_jobs=gui_errors=gui_peak=0;}
+            else if(timing_page==5){timing_reset();gui_jobs=gui_errors=gui_peak=0;control_jobs=control_peak=control_midi_count=control_drops=0;}
             else timing_reset();timing_draw=0;
         }
         if(pressed&(1u<<B_HOME)){timing_page=0;detail_set(0);editor_redraw=1;}
@@ -216,7 +237,7 @@ void app_input_only(void) {
         if(editor_page==EDITOR_LAB&&k==0){editor_tune=(uint8_t)clamp((int32_t)editor_tune+move,0,4);reset_knob_motion();continue;}
         int accelerate=continuous_parameter(editor_page,k)&&!fine;
 #ifdef PLAT_HOST
-        if(plat_host_exact)accelerate=0; // host "spin" explicitly requests exact steps
+        if(control_request.exact)accelerate=0; // host "spin" explicitly requests exact steps
 #endif
         move=rdx_encoder_delta(&knob_motion[k],move,now,accelerate);
         editor_event(editor_page,editor_page==EDITOR_LAB?editor_tune:editor_op,k,move,fine);
@@ -241,8 +262,6 @@ void app_input_only(void) {
     }
     keys_before=keys;buttons_before=buttons;
 }
-void app_say(const char* a,const char* b) {(void)a;(void)b;}
-void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}
 static void draw_text_row(uint32_t y,const felucca_font_t* font,const char* text,uint16_t color) {
     for(uint32_t band=0;band<font->h;band+=8u) {
         uint32_t height=font->h-band;if(height>8u)height=8u;
@@ -265,21 +284,20 @@ static void timing_format(char* out,const char* fmt,uint32_t a,uint32_t b,const 
         else out[n++]=*fmt++;
     }out[n]=0;
 }
-void app_frame(void) {
-    app_input_only();
-    if(!gui_collect(0))return;
+static void control_frame(void) {
+    control_input();
     if(timing_page==5){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
         uint32_t f=plat_lock(),peak=timing.peak,cost[3];rdx_cost_profile(cost);plat_unlock(f);char row[40];
-        draw_text_row(4,&FONT_M,"GUI CORE SPLIT",C_WHITE);
-        timing_format(row,"UI CPU%lu JOBS %lu",gui_last_core,gui_jobs,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"ERR %lu FAULT %lu",gui_errors,plat_cpu2_gave_up(),"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"GUI %lu us STK %lu",(gui_peak+23u)/24u,plat_cpu2_stack(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        draw_text_row(4,&FONT_M,"AUDIO ISOLATION",C_WHITE);
+        timing_format(row,"CTL CPU%lu JOBS %lu",control_last_core,control_jobs,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"ERR %lu FAULT %lu",control_errors,plat_cpu2_gave_up(),"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"CTL %lu us STK %lu",(control_peak+23u)/24u,plat_cpu2_stack(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
         timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
         timing_format(row,"XRUN %lu / %lu s",plat_xruns()-timing_xruns,(now-timing_started)/1000u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
-        draw_text_row(174,&FONT_B,gui_failed?"WORKER FAILED / CPU0":gui_enabled?"SELECT: CPU1 GUI":"SELECT: CPU0 GUI",C_WHITE);
+        draw_text_row(174,&FONT_B,control_failed?"FAILED / CPU0 CONTROL":gui_enabled?"SELECT: CPU1 CONTROL":"SELECT: CPU0 CONTROL",C_WHITE);
         draw_text_row(198,&FONT_B,"SAVE RESET / HOME TEST",C_HI);
-        draw_text_row(216,&FONT_B,"AUDIO + IO ON CPU0",C_GRAY);return;
+        timing_format(row,"MIDI %lu DROP %lu",control_midi_count,control_drops,"");draw_text_row(216,&FONT_B,row,C_GRAY);return;
     }
     if(timing_page==4){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -407,6 +425,28 @@ void app_frame(void) {
     if(editor_view.dirty){uint32_t n=0;while(status[n])++n;status[n]='*';status[n+1]=0;}
     draw_text_row(216,&FONT_B,notice?"RAM ONLY - NOT SAVED":editor_view.error?"FX MEMORY LIMIT":status,C_GRAY);
 }
+#undef plat_lock
+#undef plat_unlock
+#undef plat_keys
+#undef plat_buttons
+#undef plat_enc
+#undef rdx_editor_snapshot
+#undef rdx_cost_profile
+#undef rdx_detail_profile
+#undef rdx_detail_fine
+#undef rdx_detail_set
+#undef rdx_voice_status
+#undef rdx_fx_status
+#undef plat_xruns
+#undef plat_cpu_pct
+#undef plat_cpu_khz
+#undef timing
+#undef cv_blit
+#undef lcd_fill
+void app_say(const char* a,const char* b) {(void)a;(void)b;}
+void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}
+
+#include "control_dispatch.h"
 #ifdef PLAT_HOST
 int app_expect(const char* what,int* got) {
     if(!strcmp(what,"preset"))*got=(int)preset;
@@ -418,6 +458,10 @@ int app_expect(const char* what,int* got) {
     else if(!strcmp(what,"gui_jobs"))*got=gui_jobs>0;
     else if(!strcmp(what,"gui_core"))*got=gui_last_core;
     else if(!strcmp(what,"gui_errors"))*got=gui_errors;
+    else if(!strcmp(what,"control_core"))*got=control_last_core;
+    else if(!strcmp(what,"control_errors"))*got=control_errors;
+    else if(!strcmp(what,"control_drops"))*got=control_drops;
+    else if(!strcmp(what,"control_midi"))*got=control_midi_count>0;
     else if(!strcmp(what,"bench_selection"))*got=bench_selection;
     else if(!strcmp(what,"bench_case")){uint32_t r[4];rdx_bench_result(0,r);*got=r[2];}
     else if(!strcmp(what,"profile_enabled")){uint32_t p[9];rdx_detail_profile(p);*got=p[7];}
