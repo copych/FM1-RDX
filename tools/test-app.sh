@@ -14,3 +14,5 @@ mkdir -p build/level-shortcut
 app/build/host/rdx_host tests/level-shortcut.txt build/level-shortcut
 mkdir -p build/encoder-controls
 app/build/host/rdx_host tests/encoder-controls.txt build/encoder-controls
+mkdir -p build/timing-controls
+app/build/host/rdx_host tests/timing-controls.txt build/timing-controls

@@ -14,5 +14,7 @@ void app_ui_init(void);
 void app_frame(void);
 void app_input_only(void);
 void app_say(const char*,const char*);
+void app_overload(void);
+#define APP_OVERLOAD app_overload
 #define APP_HOST_EXPECT
 int app_expect(const char*,int*);

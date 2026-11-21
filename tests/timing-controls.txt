@@ -1,0 +1,19 @@
+wait 600
+press SEL
+tap REC
+release SEL
+wait 600
+expect timing 1
+expect operator 0
+turn K1 -127
+turn SELECT 3
+expect page 0
+tap SAVE
+wait 600
+expect timing 1
+shot timing.png
+tap HOME
+wait 30
+expect timing 0
+expect page 0
+expect store_writes 0

@@ -15,6 +15,15 @@ static uint8_t editor_page,editor_op,editor_tune,selector_used;
 static uint32_t save_notice_until;
 static EditorSnapshot editor_view;
 static uint8_t editor_redraw;
+// Audio owns the counters. UI copies/resets only under interrupt exclusion.
+static struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} timing;
+static uint8_t timing_page;
+static uint32_t timing_started,timing_xruns,timing_draw;
+void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;}
+static void timing_reset(void){
+    uint32_t f=plat_lock();memset(&timing,0,sizeof(timing));plat_unlock(f);
+    timing_started=plat_ms();timing_xruns=plat_xruns();timing_draw=0;
+}
 static RdxEncoderMotion knob_motion[4];
 static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
 static int continuous_parameter(uint8_t page,uint8_t knob){
@@ -52,6 +61,7 @@ void app_init(void) {
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;save_notice_until=0;
     editor_redraw=1;
     reset_knob_motion();
+    timing_page=0;timing_reset();
 }
 void app_panic(void) {
     uint32_t f=plat_lock();
@@ -61,6 +71,7 @@ void app_panic(void) {
 void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     uint32_t i,pkt;int port;
     if(n!=APP_BLOCK) {for(i=0;i<n*2u;++i)lr[i]=0;return;}
+    const uint32_t t0=plat_ticks24();
     if(panic_requested) {rdx_panic();event_read=event_write;panic_requested=0;}
     for(i=0;i<32u && event_read!=event_write;++i) {
         rdx_event_t e=events[event_read&31u];++event_read;
@@ -85,7 +96,9 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         else if((st&240u)==224u)rdx_pitch_bend((uint16_t)(d1|(d2<<7)));
         else if((st&240u)==176u)rdx_control_change((uint8_t)d1,(uint8_t)d2);
     }
+    const uint32_t t1=plat_ticks24();
     rdx_render(left,right);
+    const uint32_t t2=plat_ticks24();
     const float target=(float)(master_q12>4096u ? 4096u : master_q12)*(1.0f/4096.0f);
     for(i=0;i<n;++i) {
         master_gain+=(target-master_gain)*0.004f;
@@ -94,12 +107,29 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         lr[2u*i]=(int32_t)(l*master_gain*8388607.0f);
         lr[2u*i+1u]=(int32_t)(r*master_gain*8388607.0f);
     }
+    const uint32_t t3=plat_ticks24();
+    timing.last=t3-t0;if(timing.last>timing.peak)timing.peak=timing.last;
+    if(t1-t0>timing.control_peak)timing.control_peak=t1-t0;
+    if(t2-t1>timing.render_peak)timing.render_peak=t2-t1;
+    if(t3-t2>timing.output_peak)timing.output_peak=t3-t2;
+    if(timing.blocks!=UINT32_MAX)++timing.blocks;
 }
 void app_input_only(void) {
     const uint8_t previous_page=editor_page,previous_op=editor_op;
     uint32_t k,keys=plat_keys(),buttons=plat_buttons();
     uint32_t pressed=buttons&~buttons_before;
     uint32_t released=buttons_before&~buttons;
+    if((pressed&(1u<<B_REC))&&(buttons&(1u<<B_SEL))){
+        selector_used=1;timing_page=!timing_page;editor_redraw=1;timing_draw=0;
+        if(timing_page)lcd_fill(0,0,240,240,C_BLACK);
+        pressed&=~(1u<<B_REC);
+    }
+    if(timing_page){
+        if(pressed&(1u<<B_SAVE))timing_reset();
+        if(pressed&(1u<<B_HOME)){timing_page=0;editor_redraw=1;}
+        // Keep keyboard/preset processing below; consume page/edit controls.
+        pressed&=(1u<<B_HOME)|(1u<<B_OCTDN)|(1u<<B_OCTUP);
+    }
     if((pressed|released)&(1u<<B_SEL))reset_knob_motion();
     if(pressed&(1u<<B_SEL))selector_used=0;
     if((released&(1u<<B_SEL))&&!selector_used)editor_op=(uint8_t)((editor_op+1u)%4u);
@@ -119,12 +149,13 @@ void app_input_only(void) {
     }
     if(pressed&(1u<<B_SAVE))save_notice_until=plat_ms()+2000u;
     int32_t move=plat_enc(EN_SELECT);
-    if(move){move=clamp(move,-127,127);int32_t p=((int32_t)editor_page+move)%EDITOR_PAGES_COUNT;if(p<0)p+=EDITOR_PAGES_COUNT;editor_page=(uint8_t)p;}
-    move=plat_enc(EN_ALGO);if(move)editor_event(EDITOR_ALGO,0,0,move,0);
+    if(move&&!timing_page){move=clamp(move,-127,127);int32_t p=((int32_t)editor_page+move)%EDITOR_PAGES_COUNT;if(p<0)p+=EDITOR_PAGES_COUNT;editor_page=(uint8_t)p;}
+    move=plat_enc(EN_ALGO);if(move&&!timing_page)editor_event(EDITOR_ALGO,0,0,move,0);
     if(previous_page!=editor_page||previous_op!=editor_op)reset_knob_motion();
     const uint32_t now=plat_ms();
     for(uint8_t k=0;k<4;++k) {
         move=plat_enc(EN_K1+k);if(!move)continue;
+        if(timing_page)continue;
         move=clamp(move,-127,127);
         if(editor_page==EDITOR_HOME)editor_page=EDITOR_LEVEL;
         uint8_t fine=(buttons&(1u<<B_SEL))!=0;if(fine)selector_used=1;
@@ -166,8 +197,37 @@ static void draw_text_row(uint32_t y,const felucca_font_t* font,const char* text
         cv_blit(0,y+band);
     }
 }
+// Bounded UI-only formatter; target has no snprintf.
+static void timing_format(char* out,const char* fmt,uint32_t a,uint32_t b,const char* text){
+    uint32_t n=0,arg=0;
+    while(*fmt&&n<39u){
+        if(fmt[0]=='%'&&fmt[1]=='l'&&fmt[2]=='u'){
+            char digits[10];uint32_t count=0,v=arg++?b:a;
+            do{digits[count++]=(char)('0'+v%10u);v/=10u;}while(v);
+            while(count&&n<39u)out[n++]=digits[--count];fmt+=3;
+        }else if(fmt[0]=='%'&&fmt[1]=='s'){
+            while(*text&&n<39u)out[n++]=*text++;fmt+=2;
+        }else if(fmt[0]=='%'&&fmt[1]=='%'){out[n++]='%';fmt+=2;}
+        else out[n++]=*fmt++;
+    }out[n]=0;
+}
 void app_frame(void) {
     app_input_only();
+    if(timing_page){
+        uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<500u)return;timing_draw=now;
+        uint32_t f=plat_lock();
+        uint32_t peak=timing.peak,control=timing.control_peak,render=timing.render_peak,output=timing.output_peak,over=timing.over90;
+        plat_unlock(f);
+        char row[40];
+        draw_text_row(4,&FONT_M,"AUDIO TIMING",C_WHITE);
+        timing_format(row,"APP MAX %lu us",(peak+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"CTRL %lu  DSP %lu",(control+23u)/24u,(render+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"OUT %lu us  CPU %lu%%",(output+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,&FONT_B,row,C_WHITE);
+        timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,&FONT_B,row,C_WHITE);
+        draw_text_row(184,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
+        draw_text_row(216,&FONT_B,"DEADLINE 2902 us",C_GRAY);return;
+    }
     uint32_t lock=plat_lock();rdx_editor_snapshot(&editor_view);plat_unlock(lock);
     static uint32_t last_revision=0,last_fx=99;static uint8_t last_page=255,last_op=255,last_tune=255,last_notice=255;
     uint8_t notice=save_notice_until&&plat_ms()<save_notice_until;
@@ -200,6 +260,7 @@ void app_frame(void) {
 #ifdef PLAT_HOST
 int app_expect(const char* what,int* got) {
     if(!strcmp(what,"preset"))*got=(int)preset;
+    else if(!strcmp(what,"timing"))*got=timing_page;
     else if(!strcmp(what,"bank"))*got=preset?((int)preset-1)/8+1:0;
     else if(!strcmp(what,"patch"))*got=preset?((int)preset-1)%8+1:0;
     else if(!strcmp(what,"octave"))*got=(int)octave;
