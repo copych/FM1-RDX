@@ -16,3 +16,5 @@ mkdir -p build/encoder-controls
 app/build/host/rdx_host tests/encoder-controls.txt build/encoder-controls
 mkdir -p build/timing-controls
 app/build/host/rdx_host tests/timing-controls.txt build/timing-controls
+mkdir -p build/preset-home
+app/build/host/rdx_host tests/preset-home.txt build/preset-home

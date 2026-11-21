@@ -18,6 +18,7 @@ static uint8_t editor_redraw;
 // Audio owns the counters. UI copies/resets only under interrupt exclusion.
 static struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} timing;
 static uint8_t timing_page;
+static volatile uint8_t preset_home_requested;
 static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;}
 static void timing_reset(void){
@@ -26,6 +27,7 @@ static void timing_reset(void){
 }
 static RdxEncoderMotion knob_motion[4];
 static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
+static void preset_home(void){editor_page=EDITOR_HOME;timing_page=0;editor_redraw=1;reset_knob_motion();}
 static int continuous_parameter(uint8_t page,uint8_t knob){
     switch(page){
       case EDITOR_HOME:case EDITOR_LEVEL:case EDITOR_FEEDBACK:case EDITOR_FREQ:case EDITOR_OP2:case EDITOR_LFO3:
@@ -62,7 +64,7 @@ void app_init(void) {
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;save_notice_until=0;
     editor_redraw=1;
     reset_knob_motion();
-    timing_page=0;timing_reset();
+    timing_page=0;preset_home_requested=0;timing_reset();
 }
 void app_panic(void) {
     uint32_t f=plat_lock();
@@ -93,6 +95,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         else if((st&240u)==192u && d1<rdx_preset_count()) {
             // Programs 0..31 are bank sounds 1..32; program 32 is Init.
             preset=d1==32u?0:(int32_t)d1+1;rdx_preset_request((uint32_t)preset);
+            preset_home_requested=1;
         }
         else if((st&240u)==224u)rdx_pitch_bend((uint16_t)(d1|(d2<<7)));
         else if((st&240u)==176u)rdx_control_change((uint8_t)d1,(uint8_t)d2);
@@ -116,6 +119,8 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(timing.blocks!=UINT32_MAX)++timing.blocks;
 }
 void app_input_only(void) {
+    uint32_t home_lock=plat_lock();uint8_t go_home=preset_home_requested;preset_home_requested=0;plat_unlock(home_lock);
+    if(go_home)preset_home();
     const uint8_t previous_page=editor_page,previous_op=editor_op;
     uint32_t k,keys=plat_keys(),buttons=plat_buttons();
     uint32_t pressed=buttons&~buttons_before;
@@ -170,7 +175,7 @@ void app_input_only(void) {
     }
     const int32_t step=plat_enc(EN_PRESET);
     if(step) {
-        reset_knob_motion();
+        preset_home();
         uint32_t f=plat_lock();
         preset=clamp(preset+step,0,(int32_t)rdx_preset_count()-1);
         event_push(EVENT_PRESET,(uint8_t)preset,0);

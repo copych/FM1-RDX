@@ -19,6 +19,8 @@ The sounds are arranged as **four banks of eight**, starting with **1–1 DigiCh
 
 From Home, turning **K1–K4** opens the operator Level screen and changes that operator's level immediately. Inside an editor page, the knobs edit the parameters shown on that page.
 
+Choosing a preset with PRESET or a MIDI program change returns the display to Home.
+
 Turn slowly for one-unit steps, or keep turning quickly to cover the range faster (up to 8×). Reverse direction or pause to return to small steps. **Hold SEL** to keep precise steps; on frequency controls it also selects fine tuning. Presets, pages, switches and type selectors remain stepwise.
 
 The large screen beside or below the instrument mirrors its display so you can read the editor comfortably. On a phone, landscape orientation gives the controls more room. If you hear nothing, check **Mute**, MASTER and your device volume, then click Switch on again if your browser paused audio.

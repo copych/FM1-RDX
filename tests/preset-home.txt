@@ -1,0 +1,28 @@
+wait 600
+tap ENV
+expect page 15
+turn PRESET 1
+wait 80
+expect preset 2
+expect page 0
+tap FX
+expect page 13
+midi C0 02 00
+wait 80
+expect preset 3
+expect page 0
+press SEL
+tap REC
+release SEL
+expect timing 1
+midi C0 03 00
+wait 80
+expect timing 0
+expect page 0
+expect preset 4
+tap ENV
+midi C0 7F 00
+wait 80
+expect page 15
+expect preset 4
+expect store_writes 0
