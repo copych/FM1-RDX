@@ -61,9 +61,9 @@
 <body>
 <main>
   <button type="button" class="lang" id="lang" lang="ja">日本語</button>
-  <nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>Experimental preview · 2026.11.21</strong><br>Ready for hardware testing. Software checks pass; physical FM-1 testing is pending. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><a href="../firmware/fm1-rdx-preview-2026.11.21.fwsc" download>Download this preview firmware</a></p>
+  <nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>Experimental preview · 2026.11.21-2</strong><br>The first preview boots and plays on an FM-1. This update fixes display redraws, bank numbering and MoDemLead volume; hardware retesting is pending. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><a href="../firmware/fm1-rdx-preview-2026.11.21-2.fwsc" download>Download this preview firmware</a></p>
   <p data-t="intro">Connect the FM-1 by USB, then press Install. It works in Chrome or Edge; the browser asks once to allow MIDI: allow it.</p>
-  <p data-t="warn">Do not unplug the USB cable while writing.</p>
+  <p data-t="warn">Do not unplug the USB cable while writing. After installation, close this tab before opening a DAW or MIDI app so it can access the MIDI port.</p>
   <p class="small" data-t="direct"></p>
   <p class="small"><span data-t="brick"></span>
     <a href="https://github.com/hugelton/felucca-bsp/tree/main/tools" data-t="bricklink">recovering an FM-1 that won't start</a></p>
@@ -1113,7 +1113,7 @@ const log = (t) => {
   if (atEnd) el.scrollTop = el.scrollHeight;
 };
 let image = null, boot = null, res = null;
-const meta = {"version":"Preview 2026.11.21","product":"FM-1_9900","pkg":"../firmware/fm1-rdx-preview-2026.11.21.fwsc","sha256":"493ea7de6de2e9f8d7045befd51abcbfe7d7fbd7c7fc5f3b0444ec2a106b7582","backup":false,"res":null,"boot":null};
+const meta = {"version":"Preview 2026.11.21-2","product":"FM-1_9900","pkg":"../firmware/fm1-rdx-preview-2026.11.21-2.fwsc","sha256":"309f440c80e0350f96dcc67ee382daef793e891e362f68f05346d0fe93ab0509","backup":false,"res":null,"boot":null};
 /* the firmware's own steps around an install (its site's install_app script, or none): before(midi, ui) runs before
    anything is written, may ask (ui.ask) and returns its state, or false to stop there; after(midi, ui, state) once
    the new firmware has started (it waits for it itself). A failure in after is said, the install stays done */
