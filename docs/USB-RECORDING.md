@@ -1,0 +1,30 @@
+# USB recording and WobbleBass investigation — Preview 2026.11.21-7
+
+The FM-1 now advertises the pinned platform's UAC1 recording input alongside USB MIDI: stereo 16-bit PCM, 44.1 kHz. USB playback is disabled. This is uncompressed digital capture, not bit-exact preservation of the 24-bit DAC stream: the existing BSP rounds/saturates to 16 bits. Record WAV or FLAC at 44.1 kHz. Close the installer first. Reconnect USB and reopen the recording application after installing if enumeration is cached. No additional library or driver was added.
+
+app_init calls plat_usb_audio_full(1). The platform supplies full master gain to app_render, taps its output into a fixed ring, then applies MASTER to the local output. Synth gain, effects, MIDI volume/expression and transition fades remain in the recording. Platform uac_mix_test with TEST_NO_OUT verifies fixed recording level versus local MASTER. Device selection, actual level, channel mapping and simultaneous MIDI/recording need hardware confirmation.
+
+## Confirmed bug and remaining uncertainty
+
+The new long-held WobbleBass test reproduced a UBSan invalid read in sin01 at RDX_Constants.h's interpolation second sample. A very small negative phase can wrap/round to exactly 1.0f. The old code then used sine indices 1024 and 1025 although the table ends at 1024. Interpolation now wraps the base index with the table's power-of-two mask; the fraction is calculated before wrapping. The generated-source importer retains the fix. This adds a bounded integer mask, no runtime math call or allocation. Explicit seam assertions exercise sin01(1) and wrap01(-1e-9).
+
+After the fix, tools/test-wobble.sh passes ASan/UBSan/float-cast-overflow for 30-second holds at MIDI 36/48/60/72, dry and wet (240 seconds of rendered audio), plus release. Outputs remain finite and bounded. Maximum dry peaks are 0.0857–0.0881 and wet peaks 0.1634–0.1641; no output clipping in those cases. Delta statistics are diagnostics, not proof of audible correctness. tests/wobble-hold.txt also creates 12-second wet/dry full-app reference WAVs at MIDI 48.
+
+The user reports an FX-independent rough portion around one second, heard in emulator and FM-1, with the ESP version clean and operator 1 suspected. The overread is confirmed; whether it explains this particular sustained-note symptom is UNKNOWN. No patch parameters, envelope timing, LFO depth, operator routing or gain were changed to conceal it. Capture the remaining symptom over USB with note number and timing, and compare FX bypass plus isolated operator modulation. Hardware overload is not established as the cause, especially given browser reproduction.
+
+## Build and compliance
+
+Parent source dbfb019; fm1-base 7932dff6f1474cc8c3420e0df75eb75879e47319, BSP f869dfa8dc3c081f040407e370d303349e4444d5 unchanged. Existing pi32v2 clang 4.0.1/r3 and AC79 SDK, unchanged compiler flags. Single audio owner, 128 frames at nominal 44.1 kHz (2.90249 ms). USB ring producer runs after app_render in audio ISR; TIMER5's existing 2 kHz USB poll consumes it. Ring publication, packet sizing, descriptor/control handling and no-reader/drop behaviour remain the pinned BSP implementation. Recording never waits for host consumption. The new configuration enables that existing code, without changing interrupt priorities, clocks, voltage, storage or bootloader. Audio Timing remains available with SEL+REC; its APP MAX excludes the USB tap outside app_render, while platform CPU/>90%/XRUN include the surrounding render workload. USB packet losses are not equivalent to DMA XRUN and are not exposed by that screen.
+
+| Compliance category | Status and evidence |
+| --- | --- |
+| Target/build/ABI | PASS target build tools/build-fm1.sh, retained SDK/manifest/register/helper checks. Build B581E75F; source/artifact SHA pins distinguish C++ changes omitted from platform build ID. Device ABI/enumeration UNVERIFIED. |
+| Audio hot path/numerics | PASS scoped source/target audit: masked sine interpolation; existing bounded USB tap, fixed ring, 16-bit rounding/saturation; no new heap, logging, storage or libm calls. Target reports no soft-double helpers or RAM-code calls. ISR timing UNVERIFIED. |
+| Ownership/synchronization | PASS source: original single audio producer/TIMER5 consumer, existing publication barriers and nonblocking no-reader handling; initialization sets recording gain before playback. USB/MIDI contention UNVERIFIED on hardware. |
+| Memory/storage/I/O | PASS static: image 210408 B, data+bss 23452/98304 B, pool 333572/344064 B, RAM code 5100/32768 B. No flash/layout/state changes. Stack, USB transport and I/O timing UNVERIFIED. |
+| Dependencies/includes/licenses | PASS scoped review: no added dependency, asset or modified submodule; pinned USB platform/BSP notices preserved. Original-source licensing remains unresolved. |
+| Compatibility/package/recovery | PASS local package identity/size/checksum/loader and installer pin tests. Composite descriptor intentionally adds audio; MIDI retained by platform defaults. Actual OS enumeration/install/rollback UNVERIFIED. |
+| Host functional validation | PASS core UBSan 33 patches/12 algorithms/four-voice stress; manual behaviour ASan/UBSan; full app panel/MIDI/timing scenarios; 240-second Wobble holds; full-app WAV capture; platform UAC fixed-level/no-playback mix test; matching wasm 33 programs/controllers/FX/encoder checks; site assets/pins/corrupt-package tests. |
+| Hardware real-time validation | UNVERIFIED: no agent flash/recording or local hardware measurements. Test USB input with simultaneous MIDI, sustained chords, UI load, disconnect/reconnect and long recordings; inspect captures for missing/repeated frames. Recheck timing and analog monitor gain, compare instrumentation on/off, stack and recovery before qualification. |
+
+Skipped full platform suite, unrelated editor/envelope source-identity comparison and physical USB/soak/recovery; existing DSP semantic tests and targeted transport mix test used. Firmware SHA-256 f1b10dff5ea4268dff29ce8537ce84d7eedd324c441e488d3da9d0c3d7fbc90e. This preview is host-tested, not hardware-qualified.

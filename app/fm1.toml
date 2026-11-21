@@ -6,7 +6,7 @@ usb_product = "FM1-RDX prototype"
 o2 = ["engine.cpp", "editor.cpp"]
 o2_cflags = ["-std=c++1z", "-fno-exceptions", "-fno-rtti", "-fno-threadsafe-statics", "-DRDX_FM1"]
 ble = false
-usb_audio_in = false
+usb_audio_in = true
 usb_audio_out = false
 companion = false
 words = "words.tsv"

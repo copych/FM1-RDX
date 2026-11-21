@@ -58,6 +58,7 @@ static void editor_event(uint8_t page,uint8_t op,uint8_t control,int32_t delta,u
 void app_init(void) {
     event_read=event_write=panic_requested=0;keys_before=buttons_before=0;
     octave=0;preset=1;master_gain=0.0f;rdx_boot();
+    plat_usb_audio_full(1); // Record at fixed level; MASTER controls local monitoring.
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;save_notice_until=0;
     editor_redraw=1;
     reset_knob_motion();

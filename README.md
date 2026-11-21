@@ -6,7 +6,7 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
-**Latest preview:** pitch bend and MIDI controllers, per-operator pitch-EG switches, corrected envelope release and LFO delay, and voice stealing that protects developing attacks. Polyphony is currently limited to four voices; adaptive voice budgeting is still pending.
+**Latest preview:** USB recording at 44.1 kHz stereo/16-bit PCM and a fix for a sine-table boundary bug found while investigating WobbleBass. Polyphony remains four voices; adaptive budgeting is pending. Hold SEL and press REC for Audio Timing; SAVE resets measurements.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 
@@ -55,7 +55,9 @@ MIDI receives on channel 1 by default. Press **GLO** twice for MIDI settings: **
 
 With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; operators 2, 3 and 4 use CC102–107, 108–113 and 114–119. Each group controls level, feedback amount, feedback type, frequency mode, coarse frequency and fine frequency, in that order.
 
-Built-in keys currently use a fixed velocity. USB audio, live SysEx, permanent patch saving and phrase looping are not available yet. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited effect combinations exceed the available memory; the synth rejects those combinations and displays a memory-limit message.
+To record over USB, select **FM1-RDX prototype** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
+
+Built-in keys currently use a fixed velocity. Live SysEx, permanent patch saving and phrase looping are not available yet. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited effect combinations exceed the available memory; the synth rejects those combinations and displays a memory-limit message.
 
 ## Feedback
 

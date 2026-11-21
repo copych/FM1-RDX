@@ -69,6 +69,8 @@ inline float rdxGainInv(float value) {
     const a=s.indexOf('constexpr float harmonics');
     const b=s.indexOf('// phase in [0..1)',a);
     s=s.slice(0,a)+`constexpr std::array<float,1025> sinTable = {{${array(Array.from({length:1025},(_,i)=>Math.sin(f(i*2*Math.PI/1024))))}}};\n`+s.slice(b);
+    s=s.replace('    float s0   = sinTable[idx];',
+      '    // Float wrapping can round a tiny negative phase up to exactly 1.\n    // Keep the interpolation pair in the periodic table, including that seam.\n    idx &= SINLUT_SIZE - 1;\n    float s0   = sinTable[idx];');
     // All inherited table values are single precision constants.
     s=s.replace(/(?<![\w.])((?:\d+\.\d*|\.\d+)(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+)(?![\w.])/g,'$1f');
     s=s.replace('#include <array>','').replace(/std::array<float,192>/g,'RdxArray<float,192>')

@@ -4691,6 +4691,9 @@ inline  __attribute__((always_inline)) float sin01(float phase) {
     float idxf = phase * SINLUT_SIZE;
     int idx    = (int)idxf ;
     float frac = idxf - (float)idx;
+    // Float wrapping can round a tiny negative phase up to exactly 1.
+    // Keep the interpolation pair in the periodic table, including that seam.
+    idx &= SINLUT_SIZE - 1;
     float s0   = sinTable[idx];
     return s0 + frac * (sinTable[(idx + 1) ] - s0);
 }
