@@ -1,5 +1,5 @@
 {
-  "version": "Preview 2026.11.21-2",
+  "version": "Preview 2026.11.21-3",
   "product": "FM-1_9900",
   "files": {
     ".gitattributes": {
@@ -15,16 +15,16 @@
       "sha256": "74ee9d39d5eaa77e6b9ac4c0d5a3d47479f701a942e1a76ab9dcfadde7f77f08"
     },
     "emu/app.wasm": {
-      "bytes": 233424,
-      "sha256": "a280bd8622466182249aef8b785354aa8e6ff12293ad3e9cc937d3573642e78a"
+      "bytes": 237390,
+      "sha256": "df0e4b94484a1134f8ad947c7a9371ad98f1874d26885a72ae3d4767278a9a3b"
     },
     "emu/app_worklet.js": {
       "bytes": 176,
       "sha256": "c34058663482ce620ea583b8623a8f68b969e4902d493a01385a477154260387"
     },
     "emu/index.html": {
-      "bytes": 46365,
-      "sha256": "a00bf850b2e7b342bf22f5639ea75fc458dbba160e7e0ab66481a0e54175896d"
+      "bytes": 46514,
+      "sha256": "debd8148f0d233f316d26e9f25365c938c18c189dff65ff73a970d2ec1f42509"
     },
     "emu/parts/parts.js": {
       "bytes": 2358,
@@ -58,6 +58,10 @@
       "bytes": 616059,
       "sha256": "309f440c80e0350f96dcc67ee382daef793e891e362f68f05346d0fe93ab0509"
     },
+    "firmware/fm1-rdx-preview-2026.11.21-3.fwsc": {
+      "bytes": 616059,
+      "sha256": "4662b6f24f92a776c7a861faea234d5ce445c4d95769bdcbb3fb4e19f2bc100f"
+    },
     "firmware/fm1-rdx-preview-2026.11.21.fwsc": {
       "bytes": 616059,
       "sha256": "493ea7de6de2e9f8d7045befd51abcbfe7d7fbd7c7fc5f3b0444ec2a106b7582"
@@ -67,12 +71,12 @@
       "sha256": "cde215e5b42363eb28ca2462c4558ff4807b38f383c537624c31e44657ac58f4"
     },
     "index.html": {
-      "bytes": 7164,
-      "sha256": "a68e07ea070c8feebc20e229ca3cb9b8881826e223101d2f7d75e68647ab5e86"
+      "bytes": 7152,
+      "sha256": "16bba059424c6981cfbefd517b2e86c56b3a1022dcf5358ba72cd2929b6233f1"
     },
     "install/index.html": {
-      "bytes": 86252,
-      "sha256": "91cfa248c4907e33f31ed9af37c4566b430ef45d732a168ac9213a9dbe9644ca"
+      "bytes": 86306,
+      "sha256": "5c2ff272e02c83b13c3c993e4ec72e75d325c7d99122c8a8078eaef5769eeeaa"
     },
     "words/5a2ec875ad.json": {
       "bytes": 977,
