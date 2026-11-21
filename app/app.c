@@ -1,5 +1,6 @@
 #include "engine_api.h"
 #include "editor_api.h"
+#include "../src/rdx_encoder.h"
 
 enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENTS_COUNT };
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
@@ -14,6 +15,21 @@ static uint8_t editor_page,editor_op,editor_tune,selector_used;
 static uint32_t save_notice_until;
 static EditorSnapshot editor_view;
 static uint8_t editor_redraw;
+static RdxEncoderMotion knob_motion[4];
+static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
+static int continuous_parameter(uint8_t page,uint8_t knob){
+    switch(page){
+      case EDITOR_HOME:case EDITOR_LEVEL:case EDITOR_FEEDBACK:case EDITOR_FREQ:case EDITOR_OP2:case EDITOR_LFO3:
+      case EDITOR_AEG_RATES:case EDITOR_AEG_LEVELS:case EDITOR_PEG_RATES:case EDITOR_PEG_LEVELS:return 1;
+      case EDITOR_VOICE:return knob!=1;
+      case EDITOR_OP1:return knob>=2;
+      case EDITOR_OP3:return knob==0||knob==3;
+      case EDITOR_LFO1:return knob!=0;
+      case EDITOR_FX1:case EDITOR_FX2:return knob>=2;
+      case EDITOR_LAB:return knob>=1;
+      default:return 0;
+    }
+}
 
 // Main loop producer; interrupt consumer. plat_lock supplies the platform's
 // interrupt exclusion. Full queues deliberately panic and discard the batch.
@@ -35,6 +51,7 @@ void app_init(void) {
     octave=0;preset=1;master_gain=0.0f;rdx_boot();
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;save_notice_until=0;
     editor_redraw=1;
+    reset_knob_motion();
 }
 void app_panic(void) {
     uint32_t f=plat_lock();
@@ -79,9 +96,11 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     }
 }
 void app_input_only(void) {
+    const uint8_t previous_page=editor_page,previous_op=editor_op;
     uint32_t k,keys=plat_keys(),buttons=plat_buttons();
     uint32_t pressed=buttons&~buttons_before;
     uint32_t released=buttons_before&~buttons;
+    if((pressed|released)&(1u<<B_SEL))reset_knob_motion();
     if(pressed&(1u<<B_SEL))selector_used=0;
     if((released&(1u<<B_SEL))&&!selector_used)editor_op=(uint8_t)((editor_op+1u)%4u);
     if(pressed&(1u<<B_HOME))editor_page=EDITOR_HOME;
@@ -102,15 +121,24 @@ void app_input_only(void) {
     int32_t move=plat_enc(EN_SELECT);
     if(move){move=clamp(move,-127,127);int32_t p=((int32_t)editor_page+move)%EDITOR_PAGES_COUNT;if(p<0)p+=EDITOR_PAGES_COUNT;editor_page=(uint8_t)p;}
     move=plat_enc(EN_ALGO);if(move)editor_event(EDITOR_ALGO,0,0,move,0);
+    if(previous_page!=editor_page||previous_op!=editor_op)reset_knob_motion();
+    const uint32_t now=plat_ms();
     for(uint8_t k=0;k<4;++k) {
         move=plat_enc(EN_K1+k);if(!move)continue;
+        move=clamp(move,-127,127);
         if(editor_page==EDITOR_HOME)editor_page=EDITOR_LEVEL;
         uint8_t fine=(buttons&(1u<<B_SEL))!=0;if(fine)selector_used=1;
-        if(editor_page==EDITOR_LAB&&k==0){editor_tune=(uint8_t)clamp((int32_t)editor_tune+move,0,4);continue;}
+        if(editor_page==EDITOR_LAB&&k==0){editor_tune=(uint8_t)clamp((int32_t)editor_tune+move,0,4);reset_knob_motion();continue;}
+        int accelerate=continuous_parameter(editor_page,k)&&!fine;
+#ifdef PLAT_HOST
+        if(plat_host_exact)accelerate=0; // host "spin" explicitly requests exact steps
+#endif
+        move=rdx_encoder_delta(&knob_motion[k],move,now,accelerate);
         editor_event(editor_page,editor_page==EDITOR_LAB?editor_tune:editor_op,k,move,fine);
     }
     const int32_t step=plat_enc(EN_PRESET);
     if(step) {
+        reset_knob_motion();
         uint32_t f=plat_lock();
         preset=clamp(preset+step,0,(int32_t)rdx_preset_count()-1);
         event_push(EVENT_PRESET,(uint8_t)preset,0);
@@ -184,6 +212,7 @@ int app_expect(const char* what,int* got) {
     else if(!strcmp(what,"op3_level"))*got=editor_view.patch[38+56+18];
     else if(!strcmp(what,"op4_level"))*got=editor_view.patch[38+84+18];
     else if(!strcmp(what,"algorithm"))*got=editor_view.patch[16];
+    else if(!strcmp(what,"lfo_wave"))*got=editor_view.patch[17];
     else if(!strcmp(what,"midi_rx"))*got=(int)editor_view.midi_rx;
     else if(!strcmp(what,"midi_control"))*got=(int)editor_view.midi_control;
     else if(!strcmp(what,"peg1"))*got=(int)editor_view.patch[38+16];

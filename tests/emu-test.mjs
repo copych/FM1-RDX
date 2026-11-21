@@ -55,3 +55,15 @@ emu.send({type:'enc',role:3,n:-127});emu.run(30); // RX = ALL, retires old notes
 midi(0x9f,69,100);assert(emu.run(250)>0.001,'Omni receives notes on channel 16');
 midi(0xbf,120);emu.run(50);assert.equal(emu.run(20),0,'All Sound Off on selected/omni channel');
 console.log('PASS: WebAssembly audible pitch bend, volume/reset controllers and omni reception.');
+// Compare rendered level values with exact-step references, through the worklet.
+emu.send({type:'enc',role:0,n:2});emu.run(50); // MIDI page 20 -> LEVEL page 1
+const turn=(n,ms)=>{emu.send({type:'enc',role:3,n});emu.run(ms);};
+const screen=()=>{const frames=emu.take('frame').filter(f=>f.fb);assert(frames.length);return frames.at(-1).fb.slice();};
+turn(-127,200);emu.take('frame');for(let i=0;i<3;i++)turn(1,20);emu.run(40);const fastScreen=screen();
+turn(-127,200);emu.take('frame');emu.send({type:'buttons',mask:2});turn(10,40);emu.send({type:'buttons',mask:0});emu.run(40);
+assert.deepEqual(screen(),fastScreen,'Three fast turns equal ten precise level units');
+turn(-127,200);emu.take('frame');for(let i=0;i<3;i++)turn(1,200);const slowScreen=screen();
+turn(-127,200);emu.take('frame');emu.send({type:'buttons',mask:2});turn(3,40);emu.send({type:'buttons',mask:0});emu.run(40);
+assert.deepEqual(screen(),slowScreen,'Three slow turns equal three precise level units');
+assert.notDeepEqual(fastScreen,slowScreen,'Fast and slow rotations produce different displayed values');
+console.log('PASS: WebAssembly fast/slow knob acceleration and SEL precision override.');

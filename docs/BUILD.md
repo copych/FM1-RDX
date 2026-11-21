@@ -1,5 +1,7 @@
 The user guide is in [README](../README.md). Published preview assembly is described in [PUBLISHING](PUBLISHING.md).
 
+Latest UI update: [speed-sensitive parameter knobs](ENCODERS.md). Use `bash tools/test-encoders.sh` for its integer timing/bounds regression and `bash tools/test-app.sh` for full-panel scenarios.
+
 Latest engineering update: [Reface manual compatibility](REFACE-COMPATIBILITY.md), following [first hardware feedback](HARDWARE-FEEDBACK.md). Run `bash tools/test-manuals.sh` for the current manual-derived behavior assertions. Older feature/status, source-identity and program-number descriptions below are historical; source waveform/timing comparisons are diagnostics, not current acceptance gates.
 
 # FM1-RDX development notes

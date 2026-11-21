@@ -1,0 +1,32 @@
+wait 600
+spin K1 -127
+wait 200
+turn K1 3 200
+wait 30
+expect op1_level 3
+wait 200
+spin K1 -127
+wait 200
+turn K1 3 20
+wait 30
+expect op1_level 10
+turn K1 -1 20
+wait 30
+expect op1_level 9
+press SEL
+turn K1 3 20
+release SEL
+wait 30
+expect op1_level 12
+expect operator 0
+tap HOME
+turn K1 1 20
+wait 30
+expect page 1
+expect op1_level 13
+tap LFO
+turn K1 3 20
+wait 30
+expect lfo_wave 3
+shot encoder-acceleration.png
+expect store_writes 0
