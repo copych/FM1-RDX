@@ -1,5 +1,5 @@
 {
-  "version": "Preview 2026.11.21-11",
+  "version": "Preview 2026.11.21-12",
   "product": "FM-1_9900",
   "files": {
     ".gitattributes": {
@@ -15,16 +15,16 @@
       "sha256": "9597c291397b5582b4cd573ef62e869e544f824344c889f34e5dfe0bcb2ae4c0"
     },
     "emu/app.wasm": {
-      "bytes": 247594,
-      "sha256": "b2d3d9c85039e3eec7e7db4ee704584a27218c8c5c8455a91bd8e612d028b567"
+      "bytes": 250811,
+      "sha256": "806b99f3dfbdef6079b0b03f20ab4cd7025f69b05f775ad6045f1d647d20542d"
     },
     "emu/app_worklet.js": {
       "bytes": 210,
       "sha256": "9bfc501df0336e45a25ee43e2f1f54b9126c95197a1c253346cf3a8fce55082e"
     },
     "emu/index.html": {
-      "bytes": 46859,
-      "sha256": "d616c83ad1b5659c739388abeaa37ed27c482545e0ec50e33f2ead212c3c691d"
+      "bytes": 46874,
+      "sha256": "4b489d82e8c87394292fee86449a7a78d146d48567004231381f149bd10f70c7"
     },
     "emu/parts/midi.js": {
       "bytes": 4527,
@@ -70,6 +70,10 @@
       "bytes": 616059,
       "sha256": "d1bd931b24626b586d81d5e532744c8c49c1a91f34da1e774d2574b3429c7d1b"
     },
+    "firmware/fm1-rdx-preview-2026.11.21-12.fwsc": {
+      "bytes": 616059,
+      "sha256": "00311756e9d778110d125d882e1a0275a5ce1b0f64fd8548e9e617c51eea88fe"
+    },
     "firmware/fm1-rdx-preview-2026.11.21-2.fwsc": {
       "bytes": 616059,
       "sha256": "309f440c80e0350f96dcc67ee382daef793e891e362f68f05346d0fe93ab0509"
@@ -111,12 +115,12 @@
       "sha256": "cde215e5b42363eb28ca2462c4558ff4807b38f383c537624c31e44657ac58f4"
     },
     "index.html": {
-      "bytes": 7352,
-      "sha256": "e35d8e06f24f98b0b0afad16281d91cc66a526d207c1eca70f5b6879a4ab4f17"
+      "bytes": 7361,
+      "sha256": "6c0e1c7289be267d23cb998e0ea5b0dfc81f381fce937f55f261c8709a8b629d"
     },
     "install/index.html": {
       "bytes": 86272,
-      "sha256": "36da9d9236468b50a176f8e9260c33a239a221f076b828eb1f046979f6bebc4a"
+      "sha256": "51c7d348633f27b2e8524992981854ac452106f8b9ee36be723e0dfccea2e1cf"
     },
     "words/5a2ec875ad.json": {
       "bytes": 977,
