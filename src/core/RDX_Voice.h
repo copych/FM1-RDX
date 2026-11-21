@@ -145,6 +145,7 @@ inline  __attribute__((always_inline)) void updateMods() {
         }
         const float currentNote = portamentoStartNote_ +
                                   (portamentoTargetNote_ - portamentoStartNote_) * portamentoPos_;
+        currentNoteSemitone_ = currentNote;
         portaOffsetSemitones = currentNote - noteOnBaseNote_;
     }
 
@@ -230,6 +231,15 @@ inline  __attribute__((always_inline)) void updateMods() {
     }
 
 
+    inline bool isAttacking() const {
+        unsigned mask=1u;
+        if(algorithm_==5||algorithm_==6)mask=3u;
+        else if(algorithm_==7)mask=5u;
+        else if(algorithm_>=8&&algorithm_<=10)mask=7u;
+        else if(algorithm_==11)mask=15u;
+        for(int i=0;i<4;++i)if((mask&(1u<<i))&&ops_[i].isAttacking())return true;
+        return false;
+    }
     inline float calcScore() {
         if ( !isActive() ) {
             return score_ = 0.0f;
@@ -244,6 +254,7 @@ inline  __attribute__((always_inline)) void updateMods() {
             score_ *= 0.1f;
         }
         
+        if(isAttacking())score_+=1000000.0f; // protect developing attacks
         return score_;
     }
 

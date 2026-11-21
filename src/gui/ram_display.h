@@ -24,3 +24,5 @@ public:
 };
 UiRamDisplay& ui_display();
 unsigned ui_preset_index();
+unsigned ui_midi_channel();
+bool ui_midi_control();

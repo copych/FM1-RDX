@@ -12,6 +12,7 @@ public:
     void noteOn(uint8_t note, uint8_t velocity);
     void noteOff(uint8_t note);
     void sustain(bool down);
+    void allNotesOff();
     void panic();
     void renderBlock(float* left, float* right);
     static RDX_Patch initPatch();
@@ -21,6 +22,7 @@ public:
 private:
     void updateDerived();
     RDX_Voice voices_[voiceCapacity];
+    uint8_t voiceAge_[voiceCapacity]{};
     uint8_t heldNotes_[16]{};
     uint8_t heldVelocity_[16]{};
     uint8_t heldCount_ = 0;

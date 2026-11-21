@@ -1,0 +1,47 @@
+wait 600
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+wait 30
+expect page 19
+turn K1 -127
+wait 30
+expect peg1 0
+turn K1 1
+wait 30
+expect peg1 1
+shot pitch-eg-on.png
+tap GLO
+tap GLO
+wait 30
+expect page 20
+expect midi_rx 1
+expect midi_control 0
+turn K2 1
+wait 30
+expect midi_control 1
+midi B0 55 40
+wait 30
+expect op1_level 64
+midi B0 50 7F
+wait 30
+expect algorithm 11
+turn K1 1
+wait 30
+expect midi_rx 2
+midi B0 55 00
+wait 30
+expect op1_level 64
+midi B1 55 32
+wait 30
+expect op1_level 50
+turn K1 -127
+wait 30
+expect midi_rx 0
+midi BF 55 14
+wait 30
+expect op1_level 20
+shot midi.png
+expect store_writes 0

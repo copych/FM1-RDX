@@ -84,6 +84,7 @@ void RdxEngine::updateDerived() {
 
 void RdxEngine::panic() {
     for(auto& v:voices_) v.init();
+    for(auto& age:voiceAge_)age=0;
     heldCount_=0;
     RDX_State::getState().controls.sustain=false;
 }
@@ -101,12 +102,18 @@ void RdxEngine::noteOn(uint8_t note, uint8_t velocity) {
         heldNotes_[heldCount_]=note;
         heldVelocity_[heldCount_++]=velocity;
     } else {
-        float score=1.0e30f;
+        // Protect developing carrier attacks. Among other voices prefer the
+        // lowest envelope/velocity score; use age only to break equal costs.
+        slot=0;
+        float lowest=1.0e30f;
         for(int i=0;i<voiceCapacity;++i) {
             if(!voices_[i].isActive()) {slot=i;break;}
-            const float next=voices_[i].calcScore();
-            if(next<score) {score=next;slot=i;}
+            const float score=voices_[i].calcScore();
+            if(score<lowest||(score==lowest&&voiceAge_[i]>voiceAge_[slot])){lowest=score;slot=i;}
         }
+        const uint8_t previousAge=voiceAge_[slot];
+        for(int i=0;i<voiceCapacity;++i)if(i!=slot&&voiceAge_[i]<=previousAge&&voiceAge_[i]<voiceCapacity)++voiceAge_[i];
+        voiceAge_[slot]=0;
     }
     voices_[slot].noteOn(note,velocity);
 }
@@ -131,6 +138,10 @@ void RdxEngine::sustain(bool down) {
     auto& ctl=RDX_State::getState().controls;
     ctl.sustain=down;
     if(!down) for(auto& v:voices_) if(v.isSustained()) v.noteOff();
+}
+void RdxEngine::allNotesOff() {
+    heldCount_=0;
+    for(auto& v:voices_)if(v.isHeld())v.noteOff();
 }
 
 void RdxEngine::renderBlock(float* left,float* right) {

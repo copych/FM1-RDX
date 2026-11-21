@@ -78,10 +78,40 @@ inline float rdxGainInv(float value) {
     s=s.replace(/mapLevel\(/g,'rdxEnvelopeGain(')
       .replace('k_ = V0 / currentL_;','k_ = 0.0f;')
       .replace('c_ = 0.0f;\n            }','c_ = V0;\n            }');
-    // Preserve source mono/glide gate semantics: note-off lets the current
-    // segment finish before advanceStage() enters release. Do not force it.
+    // Reface reference pp.5-6: key-off starts Rate 4, including mono/glide.
+    const a=s.indexOf('    inline void gate(bool g)');
+    const b=s.indexOf('    inline Stage getStage()',a);
+    s=s.slice(0,a)+`    inline void gate(bool g) {
+        const bool was=gate_;gate_=g;
+        if(g&&!was){
+            if(stage_==Stage::IDLE||stage_==Stage::RELEASE)currentL_=0.0f;
+            enterStage(Stage::ATTACK);
+        } else if(!g&&was&&stage_!=Stage::IDLE&&stage_!=Stage::RELEASE)enterStage(Stage::RELEASE);
+    }
+\n`+s.slice(b);
+  }
+  if(name==='RDX_LFO.h') {
+    s=s.replace('delay_ = DELAY_TIME_MS[delayParam] * 0.001f;', 'delay_ = delayParam ? DELAY_TIME_MS[delayParam] * 0.001f : 0.0f;');
+    const a=s.indexOf('        // --- delay / fade-in ---');
+    const b=s.indexOf('        float startPhase',a);
+    s=s.slice(0,a)+`        // Reference p.7: delay is a wait before modulation begins.
+        if(delaySamples_>0){delaySamples_-=DMA_BUFFER_LEN;value_=increment_=0.0f;return;}
+        fadeInEnv_+=fadeInIncrement_;if(fadeInEnv_>1.0f)fadeInEnv_=1.0f;
+\n`+s.slice(b);
   }
   if(name==='RDX_Voice.h') {
+    s=s.replace('    inline float calcScore() {',`    inline bool isAttacking() const {
+        unsigned mask=1u;
+        if(algorithm_==5||algorithm_==6)mask=3u;
+        else if(algorithm_==7)mask=5u;
+        else if(algorithm_>=8&&algorithm_<=10)mask=7u;
+        else if(algorithm_==11)mask=15u;
+        for(int i=0;i<4;++i)if((mask&(1u<<i))&&ops_[i].isAttacking())return true;
+        return false;
+    }
+    inline float calcScore() {`);
+    s=s.replace('        return score_;\n    }','        if(isAttacking())score_+=1000000.0f; // protect developing attacks\n        return score_;\n    }');
+    s=s.replace('portaOffsetSemitones = currentNote - noteOnBaseNote_;','currentNoteSemitone_ = currentNote;\n        portaOffsetSemitones = currentNote - noteOnBaseNote_;');
     s=s.replace('vTaskDelay(1); // invalid RDX_State ?', '// Invalid routing fails silent, with bounded work.');
     s=s.replace('uint8_t             note_;','uint8_t             note_ = 0;');
     s=s.replace('    float               portaSemitoneOffset_ = 0.0f;','');
@@ -90,6 +120,10 @@ inline float rdxGainInv(float value) {
       'portamentoInc_        = ctl_.portaTimeS > 0.0f ? 1.0f / (ctl_.portaTimeS * sampleRate_) : 1.0f;');
   }
   if(name==='RDX_Operator.h') {
+    s=s.replace('    inline bool isActive() const', '    inline bool isAttacking() const {return params_.enable&&params_.outLevel&&env_.getStage()==RDX_Envelope::Stage::ATTACK;}\n    inline bool isActive() const');
+    // Mute output without freezing the operator's envelope/phase state.
+    s=s.replace('if (!params_.enable) return 0.f;','');
+    s=s.replace('return fbAcc_ * outGain_ * env_.processAEG();','const float sample=fbAcc_ * outGain_ * env_.processAEG();\n        return params_.enable ? sample : 0.0f;');
     s=s.replace('if(phase_>1.0f) phase_ -= 1.0f;', 'phase_ = wrap01(phase_);');
     s=s.replace(': idx_(idx),\n          params_(RDX_State::getState().workingPatch.ops[idx])',
       ': params_(RDX_State::getState().workingPatch.ops[idx]), idx_(idx)');

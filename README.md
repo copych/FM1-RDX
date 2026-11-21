@@ -6,6 +6,8 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
+**Latest preview:** pitch bend and MIDI controllers, per-operator pitch-EG switches, corrected envelope release and LFO delay, and voice stealing that protects developing attacks. Polyphony is currently limited to four voices; adaptive voice budgeting is still pending.
+
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 
 ## Start playing
@@ -22,7 +24,7 @@ The large screen beside or below the instrument mirrors its display so you can r
 | Control | What it does |
 | --- | --- |
 | **EDIT** | Browse levels, feedback, frequency, algorithm and operator settings |
-| **ENV** | Edit amplitude and pitch envelope rates and levels |
+| **ENV** | Edit amplitude/pitch envelopes and pitch-EG on/off per operator |
 | **LFO** | Edit modulation waveform, speed and depth |
 | **FX** | Open the first or second effect slot |
 | **K1–K4** | Change the parameters shown on the screen |
@@ -30,7 +32,7 @@ The large screen beside or below the instrument mirrors its display so you can r
 | **Hold SEL + turn frequency** | Adjust fine tuning |
 | **SELECT** | Browse every editor page |
 | **ALGORITHM** | Change how the four operators connect |
-| **GLO / REC / HOME** | Voice settings / Phaser Lab / home screen |
+| **GLO / REC / HOME** | Voice/MIDI settings / Phaser Lab / home screen |
 | **Hold SEL + press FX** | Switch effects off or on |
 
 Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and four voices of polyphony. The supplied presets include basses, keys, bells, pads, leads and percussion.
@@ -45,7 +47,11 @@ This is an **experimental preview**. The first hardware test confirmed boot, pla
 
 **Close the installer tab before opening your DAW or MIDI app.** It can hold the MIDI port and prevent another app from opening it. If you already see an error, close the installer, reconnect the FM-1 and reopen the MIDI device in your app.
 
-On hardware, MIDI channel 1 accepts notes, sustain and program changes for the 33 presets. Built-in keys currently use a fixed velocity. USB audio, pitch bend/mod wheel input, live SysEx and permanent patch saving are not available yet. Some edited effect combinations exceed the available memory; the synth rejects those combinations and displays a memory-limit message.
+MIDI receives on channel 1 by default. Press **GLO** twice for MIDI settings: **K1** selects channel 1–16 or ALL; **K2** enables the optional Reface FM control CCs. Pitch bend, modulation (CC1), volume (CC7), expression (CC11) and sustain (CC64) work without enabling FM CC mode. The **BEND** setting on the voice page sets the range from −24 to +24 semitones; a negative range reverses the bend direction.
+
+With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; operators 2, 3 and 4 use CC102–107, 108–113 and 114–119. Each group controls level, feedback amount, feedback type, frequency mode, coarse frequency and fine frequency, in that order.
+
+Built-in keys currently use a fixed velocity. USB audio, live SysEx, permanent patch saving and phrase looping are not available yet. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited effect combinations exceed the available memory; the synth rejects those combinations and displays a memory-limit message.
 
 ## Feedback
 

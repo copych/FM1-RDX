@@ -35,5 +35,5 @@ int main() {
     rdx_preset_request(25);run(30);
     read();const float previous=snapshot.phaser[0];rdx_editor_adjust(EDITOR_LAB,0,1,1,0);run(1);read();CHECK(snapshot.phaser[0]>previous);
     rdx_panic();run(30);CHECK(run(5)==0.0f);
-    std::puts("PASS: all 19 source/editor pages, live audio level editing, parameter bounds, pending FX edits, budget rejection, phaser tuning.");
+    std::printf("PASS: all %u source/editor pages, live audio level editing, parameter bounds, pending FX edits, budget rejection, phaser tuning.\n",(unsigned)EDITOR_PAGES_COUNT);
 }

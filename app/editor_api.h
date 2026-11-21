@@ -3,9 +3,9 @@
 enum eEditorPage {
     EDITOR_HOME=0,EDITOR_LEVEL,EDITOR_FEEDBACK,EDITOR_FREQ,EDITOR_ALGO,EDITOR_VOICE,
     EDITOR_OP1,EDITOR_OP2,EDITOR_OP3,EDITOR_LFO1,EDITOR_LFO2,EDITOR_LFO3,EDITOR_LAB,
-    EDITOR_FX1,EDITOR_FX2,EDITOR_AEG_RATES,EDITOR_AEG_LEVELS,EDITOR_PEG_RATES,EDITOR_PEG_LEVELS,EDITOR_PAGES_COUNT
+    EDITOR_FX1,EDITOR_FX2,EDITOR_AEG_RATES,EDITOR_AEG_LEVELS,EDITOR_PEG_RATES,EDITOR_PEG_LEVELS,EDITOR_PEG_ON,EDITOR_MIDI,EDITOR_PAGES_COUNT
 };
-typedef struct {uint8_t patch[150];float phaser[5];uint32_t revision,preset,fx,dirty,error;} EditorSnapshot;
+typedef struct {uint8_t patch[150];float phaser[5];uint32_t revision,preset,fx,dirty,error;uint8_t midi_rx,midi_control;} EditorSnapshot;
 #ifdef __cplusplus
 extern "C" {
 #endif

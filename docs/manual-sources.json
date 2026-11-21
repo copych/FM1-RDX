@@ -1,0 +1,22 @@
+{
+  "suppliedByUser": true,
+  "originalsNotRedistributed": true,
+  "files": [
+    {
+      "name": "refaceGUI.docx",
+      "sha256": "837c3981887373bc1223dbbd2828b691feeed4c6a326f6e2037bed0914db66c8"
+    },
+    {
+      "name": "RefaceDX-midi.pdf",
+      "sha256": "bf1628112a9825e9ca6b4cf057820e9c47c8355fd880dfea793d6d0b7d8f3a7b"
+    },
+    {
+      "name": "RefaceDX-reference.pdf",
+      "sha256": "20fb5a4e6855e471d039c6ccb0f25359f28a9ae72e9ce00d3c12f16d2c01b9da"
+    },
+    {
+      "name": "RefaceDX.pdf",
+      "sha256": "c0c482180b663d36f0317569165ca4ff2e9925dd30412920bdea3c94400fbd62"
+    }
+  ]
+}

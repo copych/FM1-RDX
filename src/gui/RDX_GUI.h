@@ -22,7 +22,7 @@ class RDX_GUI {
       EDIT_LFO1,
       EDIT_LFO2,
       EDIT_LFO3,
-      PHASER_LAB, FX1, FX2, AEG_RATES, AEG_LEVELS, PEG_RATES, PEG_LEVELS, PAGES_COUNT
+      PHASER_LAB, FX1, FX2, AEG_RATES, AEG_LEVELS, PEG_RATES, PEG_LEVELS, PEG_ON, MIDI, PAGES_COUNT
     };
 
     RDX_GUI (RDX_Patch& patch) : patch_(patch) {};
@@ -96,6 +96,8 @@ class RDX_GUI {
         case Page::AEG_LEVELS: drawEnvelope_(false,true); break;
         case Page::PEG_RATES: drawEnvelope_(true,false); break;
         case Page::PEG_LEVELS: drawEnvelope_(true,true); break;
+        case Page::PEG_ON: drawPitchOn_(); break;
+        case Page::MIDI: drawMidi_(); break;
         case Page::HOME:
         default:
           drawHome_();
@@ -825,8 +827,23 @@ class RDX_GUI {
       ui_display().setTextScale(UITextScale::X1);
       const uint8_t* r=pitch?patch_.common.pegRate:patch_.ops[selectedOp_].egRate;
       const uint8_t* l=pitch?patch_.common.pegLevel:patch_.ops[selectedOp_].egLevel;
-      for(int i=0;i<4;++i)ui_display().drawText(i*32+8,0,toText(levels?l[i]:r[i]));
+      for(int i=0;i<4;++i){
+        if(pitch&&levels){char value[8];ui_snprintf(value,sizeof value,"%+d",(int)l[i]-64);ui_display().drawText(i*32+5,0,value);}
+        else ui_display().drawText(i*32+8,0,toText(levels?l[i]:r[i]));
+      }
       drawEG(ui_display(),0,14,128,50,l,r,pitch?UIEnvType::ENV_PITCH:UIEnvType::ENV_AMP,levels?UIEnvMode::ENV_LEVELS:UIEnvMode::ENV_RATES);
+    }
+    inline void drawPitchOn_(){
+      ui_display().setTextScale(UITextScale::X1);ui_display().drawText(10,0,"PITCH EG ON/OFF");
+      drawAlgo(ui_display(),14,patch_.common.algorithm,22,false);
+      for(int i=0;i<4;++i)ui_display().drawText(i*32+5,46,patch_.ops[i].pegEnable?"ON":"off");
+    }
+    inline void drawMidi_(){
+      ui_display().setTextScale(UITextScale::X1);
+      ui_display().drawText(0,2,"RX CHANNEL");
+      ui_display().drawText(90,2,ui_midi_channel()?toText(ui_midi_channel()):"ALL");
+      ui_display().drawText(0,20,"FM CONTROL CC");ui_display().drawText(100,20,ui_midi_control()?"ON":"off");
+      ui_display().drawText(0,44,"PITCH / MOD / VOL");ui_display().drawText(0,55,"ALWAYS RECEIVED");
     }
     inline void drawPhaserLab_() {
       static const char* names[5]={"PH MIX","PH FB","FL MIX","FL DEP","FL OFF"};

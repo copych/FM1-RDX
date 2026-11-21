@@ -65,32 +65,12 @@ public:
 
 
     inline void gate(bool g) {
-        bool was = gate_;
-        gate_ = g;
-        bool glide = (common_.monoPoly != RDX_MODE_POLY) && (common_.portaTime > 0);
-        
-        if (!glide) {
-            if (g && !was) {
-                if (stage_ == Stage::IDLE || stage_ == Stage::RELEASE ) currentL_ = 0.0f; // usually L4
-                enterStage(Stage::ATTACK);
-            } else if (!g && was) {
-                if (stage_ != Stage::IDLE && stage_ != Stage::RELEASE) enterStage(Stage::RELEASE);
-            }
-        } else {
-            if (g && was) {
-                // do nothing
-            } else if (g && !was){
-                if (common_.monoPoly == RDX_MODE_MONO_LEGATO) {
-                    enterStage(Stage::ATTACK);
-                } else if (common_.monoPoly == RDX_MODE_MONO_FULL) {
-                    if (stage_ == Stage::IDLE || stage_ == Stage::RELEASE ) currentL_ = 0.0f;
-                    enterStage(Stage::ATTACK);
-                }
-            }
-        }
-
+        const bool was=gate_;gate_=g;
+        if(g&&!was){
+            if(stage_==Stage::IDLE||stage_==Stage::RELEASE)currentL_=0.0f;
+            enterStage(Stage::ATTACK);
+        } else if(!g&&was&&stage_!=Stage::IDLE&&stage_!=Stage::RELEASE)enterStage(Stage::RELEASE);
     }
-
 
     inline Stage getStage() const { return stage_; }
     inline float getLevel() const { return currentL_; }

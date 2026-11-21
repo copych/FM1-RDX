@@ -1,5 +1,7 @@
 # Envelope timing and readable GUI — 2026-11-21
 
+Historical ESP-matching milestone. The later [Reface manual compatibility pass](REFACE-COMPATIBILITY.md) deliberately changes early mono/glide release and LFO delay; the exact ESP timing result below is not a current acceptance claim.
+
 GUI milestone below is historical. The subsequent [original ESP GUI restoration](ORIGINAL-GUI.md) replaces its playback screen with 19 editor pages and panel bindings; the envelope results remain current.
 
 The user reported that sound was much closer but still distinguishable, suspected envelope timing, and could not read the small GUI font. This change addresses both without tuning rates by ear or altering the original ESP snapshot.

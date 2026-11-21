@@ -1,5 +1,7 @@
 # Original ESP GUI restored — 2026-11-21
 
+Historical 19-page milestone. The later [manual compatibility pass](REFACE-COMPATIBILITY.md) adds pitch-EG switches and MIDI settings for 21 pages, with corrected controller/release/voice-stealing behavior.
+
 The earlier prototype imported the sound engine but left behind the completed ESP GUI. This patch reuses its drawings, widgets, font, algorithm diagrams and effect/waveform bitmaps. The original snapshot is unchanged. `tools/import-gui.mjs` produces `src/gui`; `gui-lock.json` records hashes of every imported input.
 
 All 13 original main pages are reachable: home, level, feedback, frequency, algorithm, voice, three operator pages, three LFO pages and Phaser Lab. The existing effect drawing is exposed for both slots. Four new page wrappers use the existing envelope graph helper for AEG/PEG rates and levels, making 19 pages. Phaser Lab displays its five tuning values and explicitly labels unavailable meters.

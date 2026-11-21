@@ -1,5 +1,7 @@
 # ESP32 sound-matching correction — 2026-11-20
 
+Historical source-matching record. See [Reface manual compatibility](REFACE-COMPATIBILITY.md) for the later intentional envelope, LFO, controller and voice-allocation differences; source waveform identity is no longer asserted for those changes.
+
 Follow-up on 2026-11-21: [envelope timing and readable GUI](ENVELOPES-AND-GUI.md) supersedes the mono-release repair and GUI/build-size statements below. The earlier port forced mono/glide note-off to release early; that behavior is now restored to the ESP source and explicitly tested.
 
 The user confirmed that ESP32-S3 and ESP32-P4 sound the same apart from polyphony, and that ESP effects are enabled. The supplied YouTube short shows **WobbleBass** on the instrument display: https://www.youtube.com/shorts/Vu2NzcPyU-I. Its source patch selects distortion (92,56), then delay (40,5). The first prototype omitted both. The video was used to identify the patch visually, not as a decoded digital-audio or note-event reference.

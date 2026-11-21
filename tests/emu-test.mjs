@@ -41,3 +41,17 @@ function wav(samples,file) {
 }
 wav(wet,'build/wobble-wet.wav');wav(dry,'build/wobble-dry.wav');
 console.log('PASS: FX wet/dry toggle; WobbleBass comparison WAV files saved.');
+// Exercise documented controllers through real USB-MIDI packet parsing in wasm.
+midi(0xb0,120);midi(0xc0,32);emu.run(100);midi(0x90,69,100);emu.run(200);
+const frequency=s=>{let crossings=0;for(let i=1;i<s.length;++i)if(s[i-1]<=0&&s[i]>0)++crossings;return crossings*44100/s.length;};
+assert(Math.abs(frequency(emu.record(500))-440)<4,'Init at A4');
+midi(0xe0,127,127);emu.run(20);assert(Math.abs(frequency(emu.record(500))-493.883)<4,'14-bit bend +2 semitones');
+midi(0xe0,0,0);emu.run(20);assert(Math.abs(frequency(emu.record(500))-391.995)<4,'14-bit bend -2 semitones');
+midi(0xb0,7,0);emu.run(200);assert(emu.record(100).every(v=>Math.abs(v)<1e-6),'CC7 mutes the output');
+midi(0xb0,121,0);emu.run(50);assert(emu.record(100).every(v=>Math.abs(v)<1e-6),'Reset Controllers preserves volume');
+midi(0xb0,7,127);emu.run(200);assert(Math.abs(frequency(emu.record(500))-440)<4,'Reset Controllers centers bend');
+emu.send({type:'enc',role:0,n:20});emu.run(30); // MIDI settings
+emu.send({type:'enc',role:3,n:-127});emu.run(30); // RX = ALL, retires old notes
+midi(0x9f,69,100);assert(emu.run(250)>0.001,'Omni receives notes on channel 16');
+midi(0xbf,120);emu.run(50);assert.equal(emu.run(20),0,'All Sound Off on selected/omni channel');
+console.log('PASS: WebAssembly audible pitch bend, volume/reset controllers and omni reception.');

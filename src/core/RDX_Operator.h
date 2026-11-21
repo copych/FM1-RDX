@@ -60,7 +60,7 @@ public:
 
 
     inline  __attribute__((always_inline, hot)) float compute(float inputPhaseOffset, float phaseModSemitones = 0.f) {
-        if (!params_.enable) return 0.f;
+        
 
         // Optional rectification 
         if (fbRectify_  && fbAcc_ < 0.f) fbAcc_ = -fbAcc_;
@@ -79,7 +79,8 @@ public:
         fbAcc_  = sin01(lookupPhase);
 
         // Apply gain + AEG
-        return fbAcc_ * outGain_ * env_.processAEG();
+        const float sample=fbAcc_ * outGain_ * env_.processAEG();
+        return params_.enable ? sample : 0.0f;
     }
 
     inline void updateGain() {
@@ -107,6 +108,7 @@ public:
     }
 
 
+    inline bool isAttacking() const {return params_.enable&&params_.outLevel&&env_.getStage()==RDX_Envelope::Stage::ATTACK;}
     inline bool isActive() const { return env_.isActive(); }
     inline float getEnvLevel() const { return env_.getLevel(); }
 

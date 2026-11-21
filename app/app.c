@@ -57,17 +57,16 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     // Bound MIDI work even when the sender continuously fills its ring.
     for(i=0;i<32u && plat_midi_in(&pkt,&port);++i) {
         uint32_t st=(pkt>>8)&255u,d1=(pkt>>16)&127u,d2=(pkt>>24)&127u;
-        if((st&15u)!=0u)continue; // channel 1 only for bring-up
+        uint32_t channel=rdx_midi_receive_channel();
+        if(channel&&(st&15u)!=channel-1u)continue;
         if((st&240u)==144u)rdx_note_on((uint8_t)d1,(uint8_t)d2);
         else if((st&240u)==128u)rdx_note_off((uint8_t)d1);
         else if((st&240u)==192u && d1<rdx_preset_count()) {
             // Programs 0..31 are bank sounds 1..32; program 32 is Init.
             preset=d1==32u?0:(int32_t)d1+1;rdx_preset_request((uint32_t)preset);
         }
-        else if((st&240u)==176u) {
-            if(d1==64u)rdx_sustain(d2>=64u);
-            else if(d1==120u || d1==123u)rdx_panic();
-        }
+        else if((st&240u)==224u)rdx_pitch_bend((uint16_t)(d1|(d2<<7)));
+        else if((st&240u)==176u)rdx_control_change((uint8_t)d1,(uint8_t)d2);
     }
     rdx_render(left,right);
     const float target=(float)(master_q12>4096u ? 4096u : master_q12)*(1.0f/4096.0f);
@@ -91,9 +90,9 @@ void app_input_only(void) {
         uint32_t at=0;for(;at<7u;++at)if(pages[at]==editor_page)break;
         editor_page=pages[at<7u?(at+1u)%7u:0u];
     }
-    if(pressed&(1u<<B_ENV))editor_page=editor_page>=EDITOR_AEG_RATES&&editor_page<EDITOR_PEG_LEVELS?(uint8_t)(editor_page+1u):EDITOR_AEG_RATES;
+    if(pressed&(1u<<B_ENV))editor_page=editor_page>=EDITOR_AEG_RATES&&editor_page<EDITOR_PEG_ON?(uint8_t)(editor_page+1u):EDITOR_AEG_RATES;
     if(pressed&(1u<<B_LFO))editor_page=editor_page>=EDITOR_LFO1&&editor_page<EDITOR_LFO3?(uint8_t)(editor_page+1u):EDITOR_LFO1;
-    if(pressed&(1u<<B_GLO))editor_page=EDITOR_VOICE;
+    if(pressed&(1u<<B_GLO))editor_page=editor_page==EDITOR_VOICE?EDITOR_MIDI:EDITOR_VOICE;
     if(pressed&(1u<<B_REC))editor_page=EDITOR_LAB;
     if(pressed&(1u<<B_FX)) {
         if(buttons&(1u<<B_SEL)){selector_used=1;event_push(EVENT_FX,0,0);}
@@ -181,6 +180,9 @@ int app_expect(const char* what,int* got) {
     else if(!strcmp(what,"operator"))*got=(int)editor_op;
     else if(!strcmp(what,"op1_level"))*got=editor_view.patch[38+18];
     else if(!strcmp(what,"algorithm"))*got=editor_view.patch[16];
+    else if(!strcmp(what,"midi_rx"))*got=(int)editor_view.midi_rx;
+    else if(!strcmp(what,"midi_control"))*got=(int)editor_view.midi_control;
+    else if(!strcmp(what,"peg1"))*got=(int)editor_view.patch[38+16];
     else return 0;
     return 1;
 }

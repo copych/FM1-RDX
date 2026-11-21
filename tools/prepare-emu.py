@@ -40,11 +40,12 @@ page = page.replace('<div class="bar">', '''<aside class="help" style="margin:16
   <kbd>1</kbd>–<kbd>0</kbd> and <kbd>-</kbd> for black keys.</p>
   <p>Turn <strong>PRESET</strong> to browse the bank. Drag a knob up/down, use its mouse wheel,
   or focus it and use arrow keys. <strong>MASTER</strong> sets volume;
-  <strong>OCT− / OCT+</strong> transpose. <strong>SELECT</strong> browses all 19 editor pages;
+  <strong>OCT− / OCT+</strong> transpose. <strong>SELECT</strong> browses all 21 editor pages;
   <strong>K1–K4</strong> edit the displayed parameters. Tap <strong>SEL</strong> to select an operator;
   hold it while turning a frequency knob for fine tuning.</p>
   <p><strong>EDIT</strong>, <strong>ENV</strong>, <strong>LFO</strong> and <strong>FX</strong> cycle their pages.
-  <strong>GLO</strong> opens voice settings; <strong>REC</strong> opens Phaser Lab.
+  <strong>GLO</strong> cycles voice and MIDI settings. On MIDI, K1 selects the receive channel and K2 enables FM control CCs.
+  <strong>ENV</strong> also reaches per-operator pitch-EG switches. <strong>REC</strong> opens Phaser Lab.
   <strong>SEL + FX</strong> toggles the effects chain. <strong>HOME</strong> returns home.
   Edits remain in RAM; <strong>SAVE</strong> does not write a patch yet.</p>
   <p>This tests the current prototype's app and synth code in your browser.

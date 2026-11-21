@@ -32,7 +32,7 @@ public:
     }
 
     inline void setDelay(uint8_t delayParam) {
-        delay_ = DELAY_TIME_MS[delayParam] * 0.001f; // seconds
+        delay_ = delayParam ? DELAY_TIME_MS[delayParam] * 0.001f : 0.0f; // seconds
         delaySamples_ = delay_ * SAMPLE_RATE;
         fadeInSamples_ = delaySamples_ / 3;
         fadeInIncrement_ = (fadeInSamples_ > 0)
@@ -50,15 +50,9 @@ public:
 
     // --- call once per audio block ---
     inline void updateState() {
-        // --- delay / fade-in ---
-        if (delaySamples_ > 0) {
-            delaySamples_ -= DMA_BUFFER_LEN;
-            fadeInEnv_ += fadeInIncrement_;
-            if (fadeInEnv_ >= 1.f) {
-                fadeInEnv_ = 1.f;
-                delaySamples_ = 0;
-            }
-        }
+        // Reference p.7: delay is a wait before modulation begins.
+        if(delaySamples_>0){delaySamples_-=DMA_BUFFER_LEN;value_=increment_=0.0f;return;}
+        fadeInEnv_+=fadeInIncrement_;if(fadeInEnv_>1.0f)fadeInEnv_=1.0f;
 
         float startPhase = phase_;
         float endPhase = startPhase + phaseInc_;

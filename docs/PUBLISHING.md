@@ -1,6 +1,6 @@
 # GitHub Pages preview — 2026-11-21
 
-The initial-site milestone below is superseded by [preview 2026.11.21-2 and first hardware feedback](HARDWARE-FEEDBACK.md). Current version and artifact pins are in site/preview.json; the first hardware smoke test passed, with detailed real-time validation still pending.
+The initial-site milestone below is superseded by [preview 2026.11.21-3 and Reface manual compatibility](REFACE-COMPATIBILITY.md), following [first hardware feedback](HARDWARE-FEEDBACK.md). Current version and artifact pins are in site/preview.json; the first hardware smoke test passed, with updated behavior and detailed real-time validation still pending a hardware retest.
 
 Public site: https://copych.github.io/FM1-RDX/ with `emu/` and `install/`. GitHub's current Pages domain is `github.io`; the requested `copych.github.com` spelling is not configured as a custom domain. The existing account home site is not modified.
 

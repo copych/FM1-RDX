@@ -69,5 +69,22 @@ int main() {
         for(int b=0;b<128;++b)block();
     }
     CHECK(!RdxEngine::presetPatch(RdxEngine::presetCount(),p));
+    // Newest-note priority protects new slow attacks from a loud sustained note.
+    p=RdxEngine::initPatch();
+    for(int i=0;i<4;++i){p.ops[0].egRate[i]=127;p.ops[0].egLevel[i]=i==3?0:127;}
+    CHECK(engine.applyPatch(p));engine.noteOn(60,127);for(int b=0;b<5;++b)block();
+    p.ops[0].egRate[0]=0;CHECK(engine.updatePatch(p));
+    engine.noteOn(62,127);engine.noteOn(64,127);engine.noteOn(65,127);for(int b=0;b<5;++b)block();
+    engine.noteOn(67,127);engine.noteOff(62);engine.noteOff(64);engine.noteOff(65);engine.noteOff(67);
+    for(int b=0;b<1000;++b)block();
+    CHECK(block()==0.0f);
+    // Outside attack, prefer a quiet voice over an older, louder sustained one.
+    p=RdxEngine::initPatch();p.ops[0].velSens=127;
+    for(int i=0;i<4;++i){p.ops[0].egRate[i]=127;p.ops[0].egLevel[i]=i==3?0:127;}
+    CHECK(engine.applyPatch(p));engine.noteOn(60,127);engine.noteOn(62,1);engine.noteOn(64,127);engine.noteOn(65,127);
+    for(int b=0;b<100;++b)block();
+    engine.noteOn(67,127);engine.noteOff(60);engine.noteOff(64);engine.noteOff(65);engine.noteOff(67);
+    for(int b=0;b<1000;++b)block();
+    CHECK(block()==0.0f);
     std::printf("PASS: core bounds, 12 algorithms, 4-voice stress, release/sustain, determinism, %u source presets; engine=%zu bytes\n",RdxEngine::presetCount(),sizeof engine);
 }
