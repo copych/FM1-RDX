@@ -1,0 +1,58 @@
+wait 600
+tap ENV
+turn SELECT 1
+expect page 15
+expect operator 1
+turn SELECT -2
+expect operator 3
+tap ENV
+turn SELECT 5
+expect page 16
+expect operator 0
+press SEL
+turn SELECT 1
+release SEL
+expect operator 1
+tap ENV
+expect page 17
+turn SELECT -1
+expect page 19
+turn SELECT 1
+expect page 17
+turn SELECT 3
+expect page 17
+tap LFO
+turn SELECT 1
+expect page 10
+turn SELECT 1
+expect page 11
+turn SELECT 1
+expect page 9
+turn SELECT -1
+expect page 11
+tap FX
+turn SELECT 1
+expect page 14
+turn SELECT 1
+expect page 13
+tap GLO
+turn SELECT 1
+expect page 20
+turn SELECT 1
+expect page 5
+tap EDIT
+expect page 1
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+expect page 6
+turn SELECT -1
+expect page 6
+expect operator 0
+tap HOME
+turn SELECT -1
+expect page 4
+turn SELECT 1
+expect page 0
+expect store_writes 0

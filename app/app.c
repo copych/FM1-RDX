@@ -28,6 +28,21 @@ static void timing_reset(void){
 static RdxEncoderMotion knob_motion[4];
 static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
 static void preset_home(void){editor_page=EDITOR_HOME;timing_page=0;editor_redraw=1;reset_knob_motion();}
+static uint8_t wrap_selection(uint8_t at,int32_t move,uint8_t count){
+    int32_t next=((int32_t)at+move)%count;if(next<0)next+=count;return (uint8_t)next;
+}
+static void select_in_menu(int32_t move){
+    if((editor_page>=EDITOR_OP1&&editor_page<=EDITOR_OP3)||editor_page==EDITOR_AEG_RATES||editor_page==EDITOR_AEG_LEVELS){
+        editor_op=wrap_selection(editor_op,move,4);return;
+    }
+    if(editor_page>=EDITOR_LFO1&&editor_page<=EDITOR_LFO3){editor_page=EDITOR_LFO1+wrap_selection(editor_page-EDITOR_LFO1,move,3);return;}
+    if(editor_page>=EDITOR_PEG_RATES&&editor_page<=EDITOR_PEG_ON){editor_page=EDITOR_PEG_RATES+wrap_selection(editor_page-EDITOR_PEG_RATES,move,3);return;}
+    if(editor_page==EDITOR_FX1||editor_page==EDITOR_FX2){editor_page=EDITOR_FX1+wrap_selection(editor_page-EDITOR_FX1,move,2);return;}
+    if(editor_page==EDITOR_VOICE||editor_page==EDITOR_MIDI){editor_page=wrap_selection(editor_page==EDITOR_MIDI,move,2)?EDITOR_MIDI:EDITOR_VOICE;return;}
+    if(editor_page==EDITOR_LAB){editor_tune=wrap_selection(editor_tune,move,5);return;}
+    // Home and the four all-operator overview pages share one menu node.
+    if(editor_page<=EDITOR_ALGO)editor_page=wrap_selection(editor_page,move,5);
+}
 static int continuous_parameter(uint8_t page,uint8_t knob){
     switch(page){
       case EDITOR_HOME:case EDITOR_LEVEL:case EDITOR_FEEDBACK:case EDITOR_FREQ:case EDITOR_OP2:case EDITOR_LFO3:
@@ -155,7 +170,10 @@ void app_input_only(void) {
     }
     if(pressed&(1u<<B_SAVE))save_notice_until=plat_ms()+2000u;
     int32_t move=plat_enc(EN_SELECT);
-    if(move&&!timing_page){move=clamp(move,-127,127);int32_t p=((int32_t)editor_page+move)%EDITOR_PAGES_COUNT;if(p<0)p+=EDITOR_PAGES_COUNT;editor_page=(uint8_t)p;}
+    if(move&&!timing_page){
+        if(buttons&(1u<<B_SEL))selector_used=1;
+        select_in_menu(clamp(move,-127,127));
+    }
     move=plat_enc(EN_ALGO);if(move&&!timing_page)editor_event(EDITOR_ALGO,0,0,move,0);
     if(previous_page!=editor_page||previous_op!=editor_op)reset_knob_motion();
     const uint32_t now=plat_ms();

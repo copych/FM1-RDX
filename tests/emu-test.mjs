@@ -50,13 +50,14 @@ midi(0xe0,0,0);emu.run(20);assert(Math.abs(frequency(emu.record(500))-391.995)<4
 midi(0xb0,7,0);emu.run(200);assert(emu.record(100).every(v=>Math.abs(v)<1e-6),'CC7 mutes the output');
 midi(0xb0,121,0);emu.run(50);assert(emu.record(100).every(v=>Math.abs(v)<1e-6),'Reset Controllers preserves volume');
 midi(0xb0,7,127);emu.run(200);assert(Math.abs(frequency(emu.record(500))-440)<4,'Reset Controllers centers bend');
-emu.send({type:'enc',role:0,n:20});emu.run(30); // MIDI settings
+const button=mask=>{emu.send({type:'buttons',mask});emu.run(30);emu.send({type:'buttons',mask:0});emu.run(30);};
+button(1<<5);button(1<<5); // GLO twice -> MIDI settings
 emu.send({type:'enc',role:3,n:-127});emu.run(30); // RX = ALL, retires old notes
 midi(0x9f,69,100);assert(emu.run(250)>0.001,'Omni receives notes on channel 16');
 midi(0xbf,120);emu.run(50);assert.equal(emu.run(20),0,'All Sound Off on selected/omni channel');
 console.log('PASS: WebAssembly audible pitch bend, volume/reset controllers and omni reception.');
 // Compare rendered level values with exact-step references, through the worklet.
-emu.send({type:'enc',role:0,n:2});emu.run(50); // MIDI page 20 -> LEVEL page 1
+button(1<<6);emu.send({type:'enc',role:0,n:1});emu.run(50); // HOME -> LEVEL overview
 const turn=(n,ms)=>{emu.send({type:'enc',role:3,n});emu.run(ms);};
 const screen=()=>{const frames=emu.take('frame').filter(f=>f.fb);assert(frames.length);return frames.at(-1).fb.slice();};
 turn(-127,200);emu.take('frame');for(let i=0;i<3;i++)turn(1,20);emu.run(40);const fastScreen=screen();

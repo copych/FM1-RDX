@@ -23,6 +23,8 @@ Choosing a preset with PRESET or a MIDI program change returns the display to Ho
 
 Turn slowly for one-unit steps, or keep turning quickly to cover the range faster (up to 8×). Reverse direction or pause to return to small steps. **Hold SEL** to keep precise steps; on frequency controls it also selects fine tuning. Presets, pages, switches and type selectors remain stepwise.
 
+**SELECT** stays within the current section. On operator-detail and AEG screens it cycles OP1–OP4 without changing the page. On LFO, FX, global and shared pitch-envelope screens it cycles the related pages. Use the section buttons to move to another menu.
+
 The large screen beside or below the instrument mirrors its display so you can read the editor comfortably. On a phone, landscape orientation gives the controls more room. If you hear nothing, check **Mute**, MASTER and your device volume, then click Switch on again if your browser paused audio.
 
 ## Shape the sound
@@ -36,7 +38,7 @@ The large screen beside or below the instrument mirrors its display so you can r
 | **K1–K4** | Change the parameters shown on the screen |
 | **SEL** | Select the next operator |
 | **Hold SEL + turn frequency** | Adjust fine tuning |
-| **SELECT** | Browse every editor page |
+| **SELECT** | Choose an operator on operator/AEG pages; browse related screens in other menus |
 | **ALGORITHM** | Change how the four operators connect |
 | **GLO / REC / HOME** | Voice/MIDI settings / Phaser Lab / home screen |
 | **Hold SEL + press FX** | Switch effects off or on |

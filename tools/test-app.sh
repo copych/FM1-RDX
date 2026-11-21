@@ -18,3 +18,5 @@ mkdir -p build/timing-controls
 app/build/host/rdx_host tests/timing-controls.txt build/timing-controls
 mkdir -p build/preset-home
 app/build/host/rdx_host tests/preset-home.txt build/preset-home
+mkdir -p build/select-context
+app/build/host/rdx_host tests/select-context.txt build/select-context

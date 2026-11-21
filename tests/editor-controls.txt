@@ -43,7 +43,7 @@ expect page 0
 turn ALGO 127
 wait 30
 expect algorithm 11
-turn SELECT 21
+turn SELECT 5
 wait 30
 expect page 0
 expect store_writes 0
