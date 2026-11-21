@@ -1,5 +1,5 @@
 {
-  "version": "Preview 2026.11.21-7",
+  "version": "Preview 2026.11.21-8",
   "product": "FM-1_9900",
   "files": {
     ".gitattributes": {
@@ -15,8 +15,8 @@
       "sha256": "74ee9d39d5eaa77e6b9ac4c0d5a3d47479f701a942e1a76ab9dcfadde7f77f08"
     },
     "emu/app.wasm": {
-      "bytes": 239776,
-      "sha256": "92f52d308836b10e33a01c532a1f593301bc82c1d7dfde7ee042a5734fd67dbd"
+      "bytes": 239784,
+      "sha256": "6c16e736a3c887dd677b959ebce46044cc171bb0c5d6d150b7df6be516f1397e"
     },
     "emu/app_worklet.js": {
       "bytes": 176,
@@ -78,6 +78,10 @@
       "bytes": 616059,
       "sha256": "f1b10dff5ea4268dff29ce8537ce84d7eedd324c441e488d3da9d0c3d7fbc90e"
     },
+    "firmware/fm1-rdx-preview-2026.11.21-8.fwsc": {
+      "bytes": 616059,
+      "sha256": "0ae3b9cab895b2a7bba221e3d045c23d810cac57088dd489452baf8388430737"
+    },
     "firmware/fm1-rdx-preview-2026.11.21.fwsc": {
       "bytes": 616059,
       "sha256": "493ea7de6de2e9f8d7045befd51abcbfe7d7fbd7c7fc5f3b0444ec2a106b7582"
@@ -92,7 +96,7 @@
     },
     "install/index.html": {
       "bytes": 86268,
-      "sha256": "301d4acf13ca1b8a0f6b1749cafdae5fb5e4e8c0815085a4e6634391ae8dcab7"
+      "sha256": "e027d0e360a69757c9015bd62ee17d6c95f60a2a0adf280d93a164f4011924c6"
     },
     "words/5a2ec875ad.json": {
       "bytes": 977,
