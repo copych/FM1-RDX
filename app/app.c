@@ -21,7 +21,7 @@ static uint8_t timing_page;
 static volatile uint8_t preset_home_requested;
 #include "soundmondo.h"
 static uint32_t timing_started,timing_xruns,timing_draw;
-void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;}
+void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;rdx_budget_overload(plat_ms());}
 static void timing_reset(void){
     uint32_t f=plat_lock();memset(&timing,0,sizeof(timing));plat_unlock(f);
     timing_started=plat_ms();timing_xruns=plat_xruns();timing_draw=0;
@@ -135,6 +135,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(t2-t1>timing.render_peak)timing.render_peak=t2-t1;
     if(t3-t2>timing.output_peak)timing.output_peak=t3-t2;
     if(timing.blocks!=UINT32_MAX)++timing.blocks;
+    rdx_budget_observe(t3-t0,plat_ms());
 }
 void app_input_only(void) {
     uint32_t home_lock=plat_lock();uint8_t go_home=preset_home_requested;preset_home_requested=0;plat_unlock(home_lock);
@@ -252,7 +253,9 @@ void app_frame(void) {
         timing_format(row,"OUT %lu us  CPU %lu%%",(output+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
         timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,&FONT_B,row,C_WHITE);
         timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,&FONT_B,row,C_WHITE);
-        draw_text_row(184,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
+        f=plat_lock();uint32_t voices=rdx_voice_status();plat_unlock(f);
+        timing_format(row,"VOICES %lu/%lu  MAX 8",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
+        draw_text_row(198,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
         draw_text_row(216,&FONT_B,"DEADLINE 2902 us",C_GRAY);return;
     }
     uint32_t lock=plat_lock();rdx_editor_snapshot(&editor_view);plat_unlock(lock);
@@ -288,6 +291,10 @@ void app_frame(void) {
 int app_expect(const char* what,int* got) {
     if(!strcmp(what,"preset"))*got=(int)preset;
     else if(!strcmp(what,"timing"))*got=timing_page;
+    else if(!strcmp(what,"voice_limit"))*got=rdx_voice_status()&255u;
+    else if(!strcmp(what,"voice_active"))*got=(rdx_voice_status()>>8)&255u;
+    else if(!strcmp(what,"voice_capacity"))*got=(rdx_voice_status()>>16)&255u;
+    else if(!strcmp(what,"voices_in_budget")){uint32_t v=rdx_voice_status();*got=((v>>8)&255u)<=(v&255u);}
     else if(!strcmp(what,"bank"))*got=preset?((int)preset-1)/8+1:0;
     else if(!strcmp(what,"patch"))*got=preset?((int)preset-1)%8+1:0;
     else if(!strcmp(what,"octave"))*got=(int)octave;

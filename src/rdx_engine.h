@@ -6,7 +6,11 @@
 // that owner, rather than mutate voices concurrently from the UI.
 class RdxEngine {
 public:
-    static constexpr int voiceCapacity = 4; // provisional; measure on FM-1
+    static constexpr int voiceCapacity = 8;
+    void setVoiceLimit(uint8_t limit);
+    uint8_t voiceLimit() const;
+    uint8_t activeVoices() const;
+    uint8_t renderedVoices() const {return rendered_;}
     bool applyPatch(const RDX_Patch& patch);
     bool updatePatch(const RDX_Patch& patch);
     void noteOn(uint8_t note, uint8_t velocity);
@@ -21,7 +25,10 @@ public:
     static bool presetPatch(uint32_t index, RDX_Patch& patch);
 private:
     void updateDerived();
+    int cheapestVoice(bool skipRetiring);
     RDX_Voice voices_[voiceCapacity];
+    uint8_t retiring_[voiceCapacity]{};
+    uint8_t limit_=4,rendered_=0;
     uint8_t voiceAge_[voiceCapacity]{};
     uint8_t heldNotes_[16]{};
     uint8_t heldVelocity_[16]{};

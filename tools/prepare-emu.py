@@ -6,7 +6,7 @@ page = source.read_text()
 # Keep the original MPL notice on this adapted page.
 page = page.replace('<title>{{NAME}} in the browser</title>', '<title>FM1-RDX Emulator</title>')
 page = '\n'.join(line for line in page.splitlines() if not ('<link' in line and ('fonts.googleapis.com' in line or 'fonts.gstatic.com' in line)))
-page = page.replace('<h1>{{NAME}}</h1>', '<h1>FM1-RDX Emulator</h1><p>4 voices · 33 presets · source effects</p>')
+page = page.replace('<h1>{{NAME}}</h1>', '<h1>FM1-RDX Emulator</h1><p>Up to 8 adaptive voices · 33 presets · source effects</p>')
 # Keep the physical panel while providing a large, crisp LCD mirror.
 page = page.replace('</style>', '''
 .emulator-layout { display:grid; grid-template-columns:minmax(560px,1fr) 320px; gap:24px; align-items:start; }

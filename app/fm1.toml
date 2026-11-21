@@ -12,5 +12,5 @@ companion = false
 emu = ["midi"]
 words = "words.tsv"
 tagline = "Reface DX inspired RDX port prototype"
-description = "Four-voice synth prototype with both source effect slots. Panel keys and USB/TRS MIDI input."
+description = "Up to eight adaptive voices with both source effect slots, USB recording and Reface-compatible SysEx."
 tags = ["synth"]

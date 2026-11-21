@@ -1,0 +1,28 @@
+wait 600
+midi C0 20 00
+wait 100
+midi 90 3C 64
+wait 7000
+expect voice_capacity 8
+expect voices_in_budget 1
+midi B0 78 00
+wait 100
+midi 90 3C 64
+midi 90 3E 64
+midi 90 40 64
+midi 90 41 64
+midi 90 43 64
+midi 90 45 64
+midi 90 47 64
+midi 90 48 64
+wait 100
+expect voices_in_budget 1
+press SEL
+tap REC
+release SEL
+wait 600
+shot adaptive-polyphony.png
+midi B0 78 00
+wait 100
+expect voice_active 0
+expect store_writes 0

@@ -26,3 +26,5 @@ else
     sh tools/node-wsl.sh tools/prepare-soundmondo-test.mjs
 fi
 app/build/host/rdx_host build/soundmondo-controls.txt build/soundmondo-controls
+mkdir -p build/polyphony-controls
+app/build/host/rdx_host tests/polyphony-controls.txt build/polyphony-controls

@@ -85,8 +85,25 @@ void RdxEngine::updateDerived() {
 void RdxEngine::panic() {
     for(auto& v:voices_) v.init();
     for(auto& age:voiceAge_)age=0;
+    for(auto& fade:retiring_)fade=0;
     heldCount_=0;
     RDX_State::getState().controls.sustain=false;
+}
+uint8_t RdxEngine::voiceLimit() const {return RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY?limit_:1;}
+uint8_t RdxEngine::activeVoices() const {uint8_t count=0;for(const auto& v:voices_)if(v.isActive())++count;return count;}
+int RdxEngine::cheapestVoice(bool skipRetiring){
+    int slot=-1;float lowest=1.0e30f;
+    for(int i=0;i<voiceCapacity;++i){
+        if(!voices_[i].isActive()||(skipRetiring&&retiring_[i]))continue;
+        const float score=voices_[i].calcScore();
+        if(slot<0||score<lowest||(score==lowest&&voiceAge_[i]>voiceAge_[slot])){slot=i;lowest=score;}
+    }return slot;
+}
+void RdxEngine::setVoiceLimit(uint8_t limit){
+    limit_=limit<1?1:limit>voiceCapacity?voiceCapacity:limit;
+    if(RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY)return;
+    int count=0;for(int i=0;i<voiceCapacity;++i)if(voices_[i].isActive()&&!retiring_[i])++count;
+    while(count>limit_){const int slot=cheapestVoice(true);if(slot<0)break;retiring_[slot]=32;--count;}
 }
 
 void RdxEngine::noteOn(uint8_t note, uint8_t velocity) {
@@ -104,13 +121,12 @@ void RdxEngine::noteOn(uint8_t note, uint8_t velocity) {
     } else {
         // Protect developing carrier attacks. Among other voices prefer the
         // lowest envelope/velocity score; use age only to break equal costs.
-        slot=0;
-        float lowest=1.0e30f;
-        for(int i=0;i<voiceCapacity;++i) {
-            if(!voices_[i].isActive()) {slot=i;break;}
-            const float score=voices_[i].calcScore();
-            if(score<lowest||(score==lowest&&voiceAge_[i]>voiceAge_[slot])){lowest=score;slot=i;}
-        }
+        slot=-1;
+        if(activeVoices()<limit_)for(int i=0;i<voiceCapacity;++i)if(!voices_[i].isActive()){slot=i;break;}
+        if(slot<0)slot=cheapestVoice(true);
+        if(slot<0)slot=cheapestVoice(false);
+        if(slot<0)slot=0;
+        retiring_[slot]=0;
         const uint8_t previousAge=voiceAge_[slot];
         for(int i=0;i<voiceCapacity;++i)if(i!=slot&&voiceAge_[i]<=previousAge&&voiceAge_[i]<voiceCapacity)++voiceAge_[i];
         voiceAge_[slot]=0;
@@ -150,12 +166,22 @@ void RdxEngine::renderBlock(float* left,float* right) {
         return;
     }
     const bool mono=RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY;
-    const int count=mono ? 1 : voiceCapacity;
-    for(int v=0;v<count;++v) voices_[v].updateLfo();
+    uint8_t slots[voiceCapacity];int count=0;
+    for(int v=0;v<(mono?1:voiceCapacity);++v)if(voices_[v].isActive()){
+        slots[count++]=(uint8_t)v;voices_[v].updateLfo();
+    }
+    rendered_=(uint8_t)count;
     for(uint32_t i=0;i<DMA_BUFFER_LEN;++i) {
         float sample=0.0f;
-        for(int v=0;v<count;++v)
-            sample+=mono ? voices_[v].step<true>() : voices_[v].step<false>();
+        for(int at=0;at<count;++at){
+            const int v=slots[at];
+            // A budget reduction fades the selected voice over 32 samples.
+            // The slot stays in this bounded block list, silent after retirement.
+            if(v==255)continue;
+            float value=mono?voices_[v].step<true>():voices_[v].step<false>();
+            if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}
+            sample+=value;
+        }
         sample*=outputGain_;
         // Source's linear knee and smooth saturation, bounded to [-1,1].
         const float a=fabsf(sample);

@@ -2,6 +2,16 @@
 #include "editor_api.h"
 #include "../src/rdx_engine.cpp"
 #include "../src/rdx_effects.cpp"
+#include "../src/rdx_budget.h"
+#if defined(RDX_FM1)
+extern "C" uint32_t plat_ticks24(void);
+static uint32_t budget_ticks(){return plat_ticks24();}
+#else
+static uint32_t budget_ticks(){return 0;}
+#endif
+static RdxBudget budget;
+static bool budget_dirty=true,budget_keep_limit,budget_sample_valid;
+static uint32_t synth_ticks;
 
 // Explicit construction at boot, with static storage and no heap or C++ runtime.
 alignas(RdxEngine) static unsigned char storage[sizeof(RdxEngine)];
@@ -32,6 +42,8 @@ static float performance_gain=1.0f;
 static void stage_edit(const RDX_Patch& p) {
     if(!RdxEngine::validPatch(p)||RdxEffects::required(p)>RdxEffects::arenaFloats){editor_error=true;++editor_revision;return;}
     edited_patch=p;editor_pending=editor_dirty=true;editor_error=false;++editor_revision;
+    if(!budget_dirty)budget_keep_limit=true;
+    budget_dirty=true;
 }
 enum eDeferredType {DEFER_NOTE_ON,DEFER_NOTE_OFF,DEFER_SUSTAIN,DEFER_TYPES_COUNT};
 struct DeferredEvent {eDeferredType type;uint8_t note,value;};
@@ -50,6 +62,7 @@ static void event(DeferredEvent e) {
 }
 extern "C" void rdx_boot(void) {
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
+    budget.reset(0);budget_dirty=true;budget_keep_limit=false;budget_sample_valid=false;synth_ticks=0;
     preset_gain=1.0f;
     external_patch=false;memset(system_metadata,0,32);system_metadata[6]=1;system_metadata[7]=64;system_metadata[9]=120;system_metadata[10]=20;system_metadata[11]=system_metadata[12]=system_metadata[13]=1;
     midi_rx=1;midi_control=modulation=0;midi_volume=expression=127;bend=0;performance_gain=1.0f;
@@ -102,19 +115,21 @@ extern "C" void rdx_panic(void) {
     engine->panic();
     effects->begin(RDX_State::getState().workingPatch);
 }
-extern "C" void rdx_fx_toggle(void) {effects_on=!effects_on;}
+extern "C" void rdx_fx_toggle(void) {effects_on=!effects_on;if(effects_on)budget_keep_limit=false;else if(!budget_dirty)budget_keep_limit=true;budget_dirty=true;}
 extern "C" uint32_t rdx_fx_status(void) {return !effects->valid() ? 2u : effects_on ? 1u : 0u;}
 extern "C" uint32_t rdx_preset_count(void) {return RdxEngine::presetCount();}
 extern "C" void rdx_preset_request(uint32_t i) {
     if(i>=RdxEngine::presetCount())return;
     RdxEngine::presetPatch(i,pending_patch);editor_pending=false;editor_dirty=editor_error=false;++editor_revision;
     external_patch=false;destination=i;fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
+    budget_dirty=true;budget_keep_limit=false;
 }
 extern "C" int rdx_patch_valid(const uint8_t* bytes){RDX_Patch p;memcpy(&p,bytes,150);return RdxEngine::validPatch(p)&&RdxEffects::required(p)<=RdxEffects::arenaFloats;}
 extern "C" void rdx_patch_export(uint8_t* bytes){memcpy(bytes,editor_pending?&edited_patch:fade==PRESET_FADE_OUT?&pending_patch:&RDX_State::getState().workingPatch,150);}
 extern "C" void rdx_patch_import(const uint8_t* bytes){
     memcpy(&pending_patch,bytes,150);editor_pending=false;external_patch=true;editor_dirty=true;editor_error=false;++editor_revision;
     fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
+    budget_dirty=true;budget_keep_limit=false;
 }
 extern "C" void rdx_patch_edit(const uint8_t* bytes){RDX_Patch p;memcpy(&p,bytes,150);stage_edit(p);}
 extern "C" void rdx_system_export(uint8_t* bytes){memcpy(bytes,system_metadata,32);bytes[1]=midi_rx?midi_rx-1:16;bytes[14]=midi_control;}
@@ -126,6 +141,7 @@ extern "C" void rdx_preset_name(uint32_t i,char* name) {
     name[10]=0;
 }
 extern "C" void rdx_render(float* l,float* r) {
+    budget_sample_valid=false;synth_ticks=0;
     if(editor_pending) {
         editor_pending=false;
         const auto& old=RDX_State::getState().workingPatch;
@@ -133,6 +149,7 @@ extern "C" void rdx_render(float* l,float* r) {
         for(int s=0;s<2;++s)reset_fx=reset_fx || old.common.effects[s][0]!=edited_patch.common.effects[s][0] ||
             (edited_patch.common.effects[s][0]==EFFECT_DELAY && old.common.effects[s][2]!=edited_patch.common.effects[s][2]);
         if(fade==PRESET_FADE_OUT || reset_fx) {
+            if(reset_fx){budget_dirty=true;budget_keep_limit=false;}
             pending_patch=edited_patch;
             if(fade!=PRESET_FADE_OUT){fade=PRESET_FADE_OUT;pedal_before=pedal_down;}
         } else engine->updatePatch(edited_patch);
@@ -143,7 +160,10 @@ extern "C" void rdx_render(float* l,float* r) {
     const float performance_target=(float)midi_volume*(float)expression*(1.0f/(127.0f*127.0f));
     const bool ready=effects->serviceClear();
     if(ready) {
+        const uint32_t start=budget_ticks();
         engine->renderBlock(l,r);
+        synth_ticks=budget_ticks()-start;
+        budget_sample_valid=fade==PRESET_STEADY&&RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY;
         if(effects_on)effects->process(l,r);
     } else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;
     for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){performance_gain+=(performance_target-performance_gain)*0.004f;
@@ -166,6 +186,13 @@ extern "C" void rdx_render(float* l,float* r) {
         fade=PRESET_FADE_IN;
     } else fade=PRESET_STEADY;
 }
+extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
+    if(budget_dirty){uint8_t previous=budget.limit;budget.reset(now);if(budget_keep_limit)budget.limit=previous;budget_dirty=budget_keep_limit=false;}
+    budget.observe(now,ticks,synth_ticks,engine->renderedVoices(),budget_sample_valid);
+    engine->setVoiceLimit(budget.limit);
+}
+extern "C" void rdx_budget_overload(uint32_t now){budget.overload(now);engine->setVoiceLimit(budget.limit);}
+extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_t)engine->activeVoices()<<8)|((uint32_t)RdxEngine::voiceCapacity<<16);}
 extern "C" void rdx_editor_snapshot(EditorSnapshot* out) {
     const auto& p=fade==PRESET_FADE_OUT?pending_patch:RDX_State::getState().workingPatch;
     memcpy(out->patch,&p,150);
