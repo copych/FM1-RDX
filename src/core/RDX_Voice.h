@@ -168,7 +168,7 @@ inline  __attribute__((always_inline)) void updateMods() {
             phaseMod_[i] = phaseMod + pitchBend;
 
         if (lfoAMD_[i] > 0) {
-            ampMod_[i] = 1.0f + AM_DEPTH[lfoAMD_[i]] * (lfoValue_*2.0f - 1.0f) - modWheelLfo;
+            ampMod_[i] = 1.0f + amdDepth_[i] * (lfoValue_*2.0f - 1.0f) - modWheelLfo;
             ampMod_[i] = fclamp(ampMod_[i], 0.f, 1.f);
         } else {
             ampMod_[i] = 1.0f;
@@ -380,6 +380,7 @@ inline  __attribute__((always_inline)) void updateMods() {
             pegEnable_[i]       = patch_.ops[i].pegEnable;
             lfoPMDEnable_[i]    = patch_.ops[i].lfoPMDEnable;
             lfoAMD_[i]          = patch_.ops[i].lfoAMD;
+            amdDepth_[i] = AM_DEPTH[patch_.ops[i].lfoAMD];
         }
     }
 
@@ -396,6 +397,7 @@ inline  __attribute__((always_inline)) void updateMods() {
             pegEnable_[i]    = patch_.ops[i].pegEnable;
             lfoPMDEnable_[i] = patch_.ops[i].lfoPMDEnable;
             lfoAMD_[i]       = patch_.ops[i].lfoAMD;
+            amdDepth_[i] = AM_DEPTH[patch_.ops[i].lfoAMD];
         }
     }
 
@@ -450,9 +452,10 @@ private:
     // cached params
     int                 algorithm_          = 0;
     float               pmDepth_            = 0.f;
-    int                 pegEnable_[4]       = {0};
-    int                 lfoPMDEnable_[4]    = {0};
-    int                 lfoAMD_[4]          = {0};
+    float                 pegEnable_[4]       = {0};
+    float                 lfoPMDEnable_[4]    = {0};
+    bool                 lfoAMD_[4]          = {0};
+    float amdDepth_[4] = {0};
 
     // LFO
     RDX_LFO             lfo_;

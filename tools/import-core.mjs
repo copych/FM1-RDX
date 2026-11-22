@@ -122,6 +122,10 @@ inline __attribute__((always_inline)) float rdxGainInv(float value) {
         'if ((int)waveform_ > 3) { // Square\n            value_ = evalWave(startPhase) * fadeInEnv_;');
   }
   if(name==='RDX_Voice.h') {
+    s=s.replace(/int(\s+)(pegEnable_|lfoPMDEnable_)(\[4\])/g,'float$1$2$3')
+      .replace('AM_DEPTH[lfoAMD_[i]] *','amdDepth_[i] *')
+      .replace(/(lfoAMD_\[i\]\s*= patch_\.ops\[i\]\.lfoAMD;)/g,'$1\n            amdDepth_[i] = AM_DEPTH[patch_.ops[i].lfoAMD];')
+      .replace(/int(\s+lfoAMD_\[4\]\s*= \{0\};)/,'bool$1\n    float amdDepth_[4] = {0};');
     s=s.replace('    inline void updateModParams() {','    inline void updateModParams() {\n        cachePitchRouting();');
     s=s.replace('//const float lfoNorm = lfoValue_ * MIDI_NORM;\n    for', '//const float lfoNorm = lfoValue_ * MIDI_NORM;\n    RDX_UNROLL4\n    for');
     s=s.replace('inline void init()', 'inline __attribute__((always_inline)) void init()')
