@@ -76,6 +76,27 @@ static int fm1_lcd_wait(void)
     return rc;
 }
 
+/* Optional UI-only cooperative wait. The callback must not touch SPI/LCD or its
+ * DMA source. Keep the original poll ceiling and pending-clear/timeout contract;
+ * an elapsed-time ceiling additionally bounds time spent in callback service.
+ * Not an audio-ISR wait; legacy/loader callers retain fm1_lcd_wait unchanged. */
+static int fm1_lcd_wait_service(void (*service)(void),uint32_t (*clock)(void),uint32_t timeout_ticks)
+{
+    uint32_t n,start;
+    int timed_out=0;
+    if(!service||!clock)return fm1_lcd_wait();
+    start=clock();
+    for(n=0;n<4000000u&&!(FM1_LCD_SPI_CON&0x8000u);++n){
+        if(!(n&63u)){
+            if((uint32_t)(clock()-start)>=timeout_ticks){timed_out=1;break;}
+            service();
+        }
+    }
+    if(n==4000000u||timed_out)++fm1_lcd_timeouts;
+    FM1_LCD_SPI_CON|=0x4000u;
+    return n==4000000u||timed_out?-1:0;
+}
+
 FM1_INLINE void fm1_lcd_spi_off(void) { FM1_LCD_SPI_CON &= ~1u; }
 
 FM1_INLINE void fm1_lcd_deselect(void) { FM1_LCD_PC_OUT |= FM1_LCD_CS; }
