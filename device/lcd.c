@@ -46,6 +46,19 @@ static void lcd_sync(void)          /* finish the running transfer (before touch
     lcd_busy = 0;
 }
 
+/* UI worker only. The canvas remains owned by DMA throughout service calls.
+ * On timeout retain the existing counted/best-effort LCD recovery contract. */
+static int lcd_sync_service(void (*service)(void),uint32_t (*clock)(void),uint32_t timeout_ticks)
+{
+#if FM1B_SD
+    sd_bus_release();
+#endif
+    if(!lcd_busy)return 0;
+    int rc=fm1_lcd_wait_service(service,clock,timeout_ticks);
+    fm1_lcd_deselect();lcd_busy=0;
+    return rc;
+}
+
 static void lcd_cmd(uint8_t c)
 {
     lcd_sync();
