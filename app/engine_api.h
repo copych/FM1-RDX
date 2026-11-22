@@ -45,3 +45,21 @@ void rdx_preset_name(uint32_t index,char* name11);
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+// Dry-render pipeline: access only after acquire succeeds. CPU0 publishes after
+// consuming the previous bus; CPU1 services at UI checkpoints or as a BSP job.
+int rdx_dry_acquire(void);
+void rdx_dry_service(void);
+int rdx_dry_publish(void);
+void rdx_dry_mode(uint8_t on);
+void rdx_dry_snapshot(uint32_t* words8);
+void rdx_dry_late(void);
+void rdx_dry_retired(void); // main only, after BSP has completed/held CPU1
+void rdx_dry_reset_stats(void);
+void rdx_dry_set_kick(void (*kick)(void));
+#ifdef __cplusplus
+}
+#endif

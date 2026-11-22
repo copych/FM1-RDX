@@ -203,3 +203,38 @@ void RdxEngine::renderBlock(float* left,float* right) {
         left[i]=right[i]=sample;
     }
 }
+
+void RdxEngine::renderDry(float (*dry)[DMA_BUFFER_LEN]) {
+    uint8_t slots[voiceCapacity];int count=0;
+    for(int v=0;v<voiceCapacity;++v){
+        for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)dry[v][i]=0.0f;
+        if(ready_&&v<(mono_?1:voiceCapacity)&&voices_[v].isActive()){
+            slots[count++]=(uint8_t)v;voices_[v].updateLfo();
+        }
+    }
+    rendered_=(uint8_t)count;
+    for(uint32_t offset=0;offset<DMA_BUFFER_LEN;offset+=RDX_RENDER_CHUNK){
+        for(int at=0;at<count;++at){
+            const int v=slots[at];if(v==255)continue;
+            uint32_t n=RDX_RENDER_CHUNK;
+            if(n>DMA_BUFFER_LEN-offset)n=DMA_BUFFER_LEN-offset;
+            if(retiring_[v]&&n>retiring_[v])n=retiring_[v];
+            voices_[v].renderChunk(render_scratch,n,mono_);
+            for(uint32_t i=0;i<n;++i){
+                float value=render_scratch.wave[0][i];
+                if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}
+                dry[v][offset+i]=value;
+            }
+        }
+    }
+}
+void RdxEngine::mixDry(const float (*dry)[DMA_BUFFER_LEN],float gain,float* left,float* right){
+    for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){
+        float sample=0.0f;
+        for(int v=0;v<voiceCapacity;++v)sample+=dry[v][i];
+        sample*=gain;
+        const float a=fabsf(sample);
+        if(a>0.9f){const float over=a-0.9f;sample=copysignf(0.9f+0.1f*over/(0.1f+over),sample);}
+        left[i]=right[i]=sample;
+    }
+}

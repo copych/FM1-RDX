@@ -88,3 +88,17 @@ const fineProfiled=emu.record(200);assert(fineProfiled.every(Number.isFinite)&&f
 button(1<<6);const normalAgain=emu.record(100);assert(normalAgain.every(Number.isFinite)&&normalAgain.some(v=>Math.abs(v)>0.001),'HOME restores normal renderer on held note');
 midi(0xb0,120);emu.run(50);assert.equal(emu.run(20),0,'panic after profiling');
 console.log('PASS: WebAssembly profile entry, audio, preset-home exit, live return to normal and panic.');
+for(let i=0;i<7;i++){
+  emu.send({type:'buttons',mask:2});emu.run(20);
+  emu.send({type:'buttons',mask:2|(1<<11)});emu.run(20);
+  emu.send({type:'buttons',mask:0});emu.run(20);
+}
+emu.send({type:'enc',role:0,n:1});emu.run(100); // CPU1 dry pipeline
+midi(0x90,69,100);const piped=emu.record(500);
+assert(piped.every(Number.isFinite)&&piped.some(v=>Math.abs(v)>0.001),'Dry pipeline plays');
+assert(Math.abs(frequency(piped)-440)<4,'Dry pipeline preserves pitch');
+midi(0xb0,120);emu.run(100);assert.equal(emu.run(20),0,'Pipeline panic');
+emu.send({type:'enc',role:0,n:1});emu.run(100); // CPU0 baseline
+midi(0x90,69,100);assert(emu.run(200)>0.001,'Return to CPU0 plays');
+midi(0xb0,120);emu.run(100);
+console.log('PASS: WebAssembly dry pipeline switching, finite audio, pitch, panic and CPU0 return (no hardware timing claims).');

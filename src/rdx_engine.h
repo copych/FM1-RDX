@@ -19,6 +19,11 @@ public:
     void allNotesOff();
     void panic();
     RDX_RAM_CODE void renderBlock(float* left, float* right);
+    // Exclusive voice owner generates individual dry buses; consumer mixes
+    // only after publication. Original voice order and sample arithmetic remain.
+    RDX_RAM_CODE void renderDry(float (*dry)[DMA_BUFFER_LEN]);
+    static RDX_RAM_CODE void mixDry(const float (*dry)[DMA_BUFFER_LEN],float gain,float* left,float* right);
+    float outputGain() const {return outputGain_;}
     static RDX_Patch initPatch();
     static bool validPatch(const RDX_Patch& patch);
     static uint32_t presetCount();

@@ -44,6 +44,7 @@ static uint32_t detail_ticks(){
 // Explicit construction at boot, with static storage and no heap or C++ runtime.
 alignas(RdxEngine) static unsigned char storage[sizeof(RdxEngine)];
 static RdxEngine* engine;
+#include "dry_pipeline.inc"
 static RDX_RAM_CODE void render_core(RdxEngine* synth,float* left,float* right){synth->renderBlock(left,right);}
 alignas(RdxEffects) static unsigned char effects_storage[sizeof(RdxEffects)];
 static RdxEffects* effects;
@@ -138,8 +139,10 @@ extern "C" void rdx_control_change(uint8_t cc,uint8_t value){
     stage_edit(p);
 }
 extern "C" void rdx_panic(void) {
+    dry.valid=dry.prepared=0;
     if(fade==PRESET_FADE_OUT) {
         engine->applyPatch(pending_patch);
+        dry.valid=0;
         preset_gain=output_trim();
     }
     fade=PRESET_STEADY;deferred_count=0;pedal_down=false;
@@ -172,6 +175,14 @@ extern "C" void rdx_preset_name(uint32_t i,char* name) {
     name[10]=0;
 }
 extern "C" void rdx_render(float* l,float* r) {
+    dry.prepared=0;
+    if(dry.enabled){
+        // Previous job has completed before entry. Apply the last admission
+        // decision now, never while CPU1 owns the voices.
+        engine->setVoiceLimit(budget.limit);
+        dry.observed_turn=dry.turn_ticks;
+        dry.observed_voices=engine->renderedVoices();
+    }
     budget_sample_valid=false;synth_ticks=fx_last=0;
     if(editor_pending) {
         editor_pending=false;
@@ -194,8 +205,12 @@ extern "C" void rdx_render(float* l,float* r) {
         const uint32_t start=budget_ticks();
         uint32_t parts[RENDER_PARTS_COUNT],fine[RENDER_FINE_PARTS_COUNT];
         if(detail_enabled)RdxProfile::render(*engine,l,r,parts,detail_ticks,detail_enabled==DETAIL_FINE?fine:nullptr);
-        else RDX_FAR(render_core)(engine,l,r);
-        synth_ticks=budget_ticks()-start;
+        else if(dry.enabled){
+            if(dry.valid)RDX_FAR(RdxEngine::mixDry)(dry.samples,dry.gain,l,r);
+            else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;
+            dry.valid=0;dry.prepared=1;
+        }else RDX_FAR(render_core)(engine,l,r);
+        synth_ticks=dry.enabled?dry.worker_ticks:budget_ticks()-start;
         if(detail_enabled){
             if(detail_blocks!=UINT32_MAX)++detail_blocks;
 #ifdef PLAT_HOST
@@ -209,6 +224,10 @@ extern "C" void rdx_render(float* l,float* r) {
         }
         if(synth_ticks>synth_peak)synth_peak=synth_ticks;
         budget_sample_valid=fade==PRESET_STEADY&&RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY;
+        // The completed dry bus has been copied to l/r. Reuse its storage for
+        // the NEXT block now, overlapping generation with this block's FX and
+        // output. Patch/fade transitions dispatch at callback end instead.
+        if(dry.enabled&&fade==PRESET_STEADY&&dry.kick&&rdx_dry_publish())dry.kick();
         const uint32_t fx_start=budget_ticks();
         if(effects_on)effects->process(l,r);
         const uint32_t fx_ticks=budget_ticks()-fx_start;fx_last=fx_ticks;if(fx_ticks>fx_peak)fx_peak=fx_ticks;
@@ -227,6 +246,7 @@ extern "C" void rdx_render(float* l,float* r) {
         engine->applyPatch(pending_patch);
         preset_gain=output_trim();
         effects->begin(pending_patch);
+        dry.valid=0;
         engine->sustain(pedal_before);
         for(uint32_t i=0;i<deferred_count;++i)dispatch(deferred[i]);
         deferred_count=0;
@@ -235,6 +255,11 @@ extern "C" void rdx_render(float* l,float* r) {
 }
 static void measure_restore(){engine->panic();engine->setVoiceLimit(budget.limit);engine->sustain(pedal_down);}
 extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
+    if(dry.enabled){
+        // Pipeline throughput is bounded by the busier core/turnaround, not
+        // the sum of overlapping worker and CPU0 service times.
+        if(dry.observed_turn>ticks)ticks=dry.observed_turn;
+    }
     if(voice_measure.active()){
         measure_guarded_block=true;measure_last_voices=engine->renderedVoices();
 #ifdef PLAT_HOST
@@ -248,10 +273,11 @@ extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
     }
     if(detail_enabled)return; // Do not learn a normal voice budget from diagnostic execution.
     if(budget_dirty){uint8_t previous=budget.limit;budget.reset(now);if(budget_keep_limit)budget.limit=previous;budget_dirty=budget_keep_limit=false;}
-    budget.observe(now,ticks,synth_ticks,engine->renderedVoices(),budget_sample_valid);
-    engine->setVoiceLimit(budget.limit);
+    budget.observe(now,ticks,synth_ticks,dry.enabled?dry.observed_voices:engine->renderedVoices(),budget_sample_valid);
+    if(!dry.enabled)engine->setVoiceLimit(budget.limit);
 }
 extern "C" void rdx_budget_overload(uint32_t now){
+    if(dry.enabled)return; // observe already made this block's decision before publication
     if(voice_measure.active()||measure_guarded_block){
         voice_measure.overload(measure_guarded_block?measure_last_voices:engine->renderedVoices());
         measure_restore();return;
@@ -260,6 +286,7 @@ extern "C" void rdx_budget_overload(uint32_t now){
 }
 extern "C" int rdx_measure_active(void){return voice_measure.active();}
 extern "C" void rdx_measure_command(uint8_t command,uint32_t now){
+    if(dry.enabled&&command==COST_START)return; // sweep is synchronous-only
     if(voice_measure.active()){voice_measure.stop(COST_STOPPED);measure_restore();}
     if(command==COST_START){
         rdx_detail_set(DETAIL_OFF);uint32_t predicted=budget.prediction(6);
@@ -292,6 +319,7 @@ extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_
 extern "C" void rdx_cost_reset(void){synth_peak=fx_peak=0;}
 extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=budget.prediction(RdxBudget::maximum);}
 extern "C" void rdx_detail_set(uint8_t on){if(on&&voice_measure.active())rdx_measure_command(COST_STOP,0);detail_enabled=on>=DETAIL_MODES_COUNT?DETAIL_OFF:on;
+    if(dry.enabled)detail_enabled=DETAIL_OFF;
     if(detail_enabled){detail_peak=detail_blocks=detail_voices=0;
         for(uint32_t i=0;i<RENDER_PARTS_COUNT;++i)detail_parts[i]=0;
         for(uint32_t i=0;i<RENDER_FINE_PARTS_COUNT;++i)detail_fine[i]=0;}}

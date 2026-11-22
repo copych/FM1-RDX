@@ -30,6 +30,7 @@ static void control_probe(void){
 }
 static void control_job(uint32_t unused){
     (void)unused;
+    audio_checkpoint();
     uint32_t start=plat_ticks24();
     memset(&control_reply,0,sizeof control_reply);
     if(gui_hash(&control_request,sizeof control_request)!=control_input_hash||control_request.kind>=CONTROL_JOBS_COUNT)return;
@@ -45,6 +46,7 @@ static void control_job(uint32_t unused){
     control_reply.ticks=plat_ticks24()-start;
     control_reply.hash=gui_hash(&control_reply,(uint32_t)((uint8_t*)&control_reply.hash-(uint8_t*)&control_reply));
     control_reply.valid=1;
+    audio_checkpoint();
 }
 static void control_recover(void){
     ++control_errors;control_failed=1;control_active=0;gui_failed=1;gui_ready=gui_pending=0;
@@ -52,10 +54,12 @@ static void control_recover(void){
     // The BSP has completed or held CPU1 before this is called. A failed GUI
     // may have left a panel DMA in flight; drain it before touching its source.
     lcd_sync();rdx_editor_boot();editor_page=EDITOR_HOME;timing_page=0;editor_redraw=1;
+    uint32_t owned=audio_control_lock();rdx_dry_retired();plat_unlock(owned);
     keys_before=buttons_before=0;sm_reset();
     uint32_t f=plat_lock();panic_requested=1;plat_unlock(f);
 }
 static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
+    uint32_t f=audio_control_lock();
     memset(&control_request,0,sizeof control_request);
     control_request.sequence=++control_sequence;control_request.kind=kind;
     control_request.keys=plat_keys();control_request.buttons=plat_buttons();
@@ -67,12 +71,12 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     control_request.exact=plat_host_exact;
 #endif
     // CPU0's interrupt exclusion protects capture/publication, never CPU1 work.
-    uint32_t f=plat_lock();
     control_request.home=preset_home_requested;preset_home_requested=0;
     control_request.channel=rdx_midi_receive_channel();
     rdx_editor_snapshot(&control_request.editor);
     rdx_cost_profile(control_request.cost);rdx_detail_profile(control_request.profile);rdx_detail_fine(control_request.fine);
     rdx_measure_snapshot(control_request.measure);
+    rdx_dry_snapshot(control_request.dry);
     control_request.timing=timing;control_request.voices=rdx_voice_status();
     if(kind==CONTROL_SYSEX){
         if(sm_patch_pending)memcpy(control_request.patch,sm_patch,150);else rdx_patch_export(control_request.patch);
@@ -82,13 +86,18 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     control_request.xruns=plat_xruns();control_request.cpu=plat_cpu_pct();control_request.khz=plat_cpu_khz();
     control_input_hash=gui_hash(&control_request,sizeof control_request);plat_cpu2_sync();
     int dispatched=0,rc=0;
+    f=plat_lock();
     if(gui_enabled&&!control_failed&&plat_cpu2_on())dispatched=plat_cpu2_run(control_job,0);
+    plat_unlock(f);
     if(dispatched){
         // CPU0 main loop only. Serializes application LCD/USB ownership against
         // platform main-loop operations. Audio IRQs remain enabled throughout.
         // The time limit uses the free-running timer, not delayed GUI ticks.
         uint32_t start=plat_ticks24();
-        while(plat_cpu2_busy()&&(uint32_t)(plat_ticks24()-start)<2400000u){
+        // Cooperative audio service extends UI wall time. Only the main-loop
+        // control timeout changes; the callback still never waits.
+        const uint32_t timeout=control_request.dry[0]?12000000u:2400000u;
+        while(plat_cpu2_busy()&&(uint32_t)(plat_ticks24()-start)<timeout){
             for(volatile uint32_t pause=0;pause<128u;++pause){}
         }
         rc=plat_cpu2_wait();plat_cpu2_sync();
@@ -97,7 +106,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
        control_reply.hash!=gui_hash(&control_reply,(uint32_t)((uint8_t*)&control_reply.hash-(uint8_t*)&control_reply))){control_recover();return;}
     ++control_jobs;control_last_core=control_reply.core;
     if(control_reply.ticks>control_peak)control_peak=control_reply.ticks;
-    f=plat_lock();
+    f=audio_control_lock();
     if(control_reply.overflow||event_write-event_read+control_reply.count>128u){panic_requested=1;++control_drops;}
     else for(uint32_t i=0;i<control_reply.count;++i){events[event_write&127u]=control_reply.commands[i];++event_write;}
     if(control_reply.detail_changed)rdx_detail_set(control_reply.detail);

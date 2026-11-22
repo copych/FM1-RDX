@@ -3,7 +3,7 @@
 #include "benchmark.h"
 #include "../src/rdx_encoder.h"
 
-enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENT_MEASURE, EVENTS_COUNT };
+enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENT_MEASURE, EVENT_SPLIT, EVENTS_COUNT };
 static void event_push(uint8_t,uint8_t,uint8_t);
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
 static rdx_event_t events[128];
@@ -30,14 +30,42 @@ static volatile uint8_t preset_home_requested;
 #include "control_bridge.h"
 #include "core_test.h"
 #define RDX_CONTROL_ISOLATED 1
+static void audio_checkpoint(void);
 #include "gui_worker.h"
+static void audio_job(uint32_t unused){(void)unused;rdx_dry_service();}
+static void audio_kick(void){
+    // All CPU0 dispatch sites exclude audio IRQs, including main-loop dispatch.
+    uint32_t f=plat_lock();
+    if(!rdx_dry_acquire()&&plat_cpu2_on()&&!plat_cpu2_busy())plat_cpu2_run(audio_job,0);
+    plat_unlock(f);
+}
+static void audio_checkpoint(void){if(plat_core()==1)rdx_dry_service();}
+static uint32_t audio_control_lock(void){
+    // Main-loop only: snapshots/panic must not inspect a worker-owned voice.
+    // Audio never enters this bounded wait. Main also retires BSP faults here.
+    uint32_t start=plat_ticks24(),f=plat_lock();
+    while(!rdx_dry_acquire()){
+        plat_unlock(f);audio_kick();
+        if((uint32_t)(plat_ticks24()-start)>2400000u){
+            plat_cpu2_wait();
+            f=plat_lock();
+            // wait either retired CPU1 or completed its last job. A late
+            // audio IRQ might have dispatched again; never reclaim that job.
+            if(!plat_cpu2_busy()){rdx_dry_retired();panic_requested=1;return f;}
+            plat_unlock(f);
+        }
+        for(volatile uint32_t pause=0;pause<128u;++pause){}
+        f=plat_lock();
+    }
+    return f;
+}
 static uint8_t core_selection=CORE_TEST_IDLE;
 #include "soundmondo.h"
 static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;rdx_budget_overload(plat_ms());}
 static void timing_reset(void){
     if(control_active){control_reply.reset_timing=1;timing_started=plat_ms();timing_xruns=control_request.xruns;timing_draw=0;return;}
-    uint32_t f=plat_lock();memset(&timing,0,sizeof(timing));rdx_cost_reset();plat_unlock(f);
+    uint32_t f=audio_control_lock();memset(&timing,0,sizeof(timing));rdx_cost_reset();rdx_dry_reset_stats();plat_unlock(f);
     timing_started=plat_ms();timing_xruns=plat_xruns();timing_draw=0;
 }
 static RdxEncoderMotion knob_motion[4];
@@ -100,20 +128,26 @@ void app_init(void) {
     timing_page=0;bench_started=bench_selection=profile_fine=0;preset_home_requested=0;timing_reset();
     sm_reset();
     core_test_init();
+    rdx_dry_set_kick(audio_kick);
 }
 void app_panic(void) {
     // All platform app_panic entry points are CPU0 main-loop update/recovery.
     gui_collect(1);gui_ready=0;
     core_mode=CORE_TEST_OFF;
     if(core_pending){plat_cpu2_wait();core_pending=0;}
-    uint32_t f=plat_lock();
+    uint32_t f=audio_control_lock();
     rdx_measure_command(COST_STOP,plat_ms());
+    rdx_dry_mode(0);
     rdx_panic();event_read=event_write;panic_requested=0;
     plat_unlock(f);
 }
 void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     uint32_t i;
     if(n!=APP_BLOCK) {for(i=0;i<n*2u;++i)lr[i]=0;return;}
+    if(!rdx_dry_acquire()){
+        for(i=0;i<n*2u;++i)lr[i]=0;
+        rdx_dry_late();audio_kick();return;
+    }
     const uint32_t t0=plat_ticks24();
     sm_audio();
     if(panic_requested) {rdx_measure_command(COST_STOP,plat_ms());rdx_panic();event_read=event_write;panic_requested=0;}
@@ -129,6 +163,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         else if(e.type==EVENT_BEND)rdx_pitch_bend((uint16_t)e.delta);
         else if(e.type==EVENT_CC)rdx_control_change(e.note,e.velocity);
         else if(e.type==EVENT_MEASURE)rdx_measure_command(e.note,plat_ms());
+        else if(e.type==EVENT_SPLIT)rdx_dry_mode(e.note&&plat_cpu2_on());
     }
     rdx_measure_prepare(plat_ms());
     const uint32_t t1=plat_ticks24();
@@ -149,11 +184,12 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(t3-t2>timing.output_peak)timing.output_peak=t3-t2;
     if(timing.blocks!=UINT32_MAX)++timing.blocks;
     rdx_budget_observe(t3-t0,plat_ms());
+    if(rdx_dry_publish())audio_kick();
 }
 // Worker callbacks consume captured input and engine snapshots only.
 static void control_blit(uint32_t x,uint32_t y){
     // Publish CPU1's RAM canvas before starting peripheral DMA reads.
-    plat_cpu2_sync();cv_blit(x,y);
+    audio_checkpoint();plat_cpu2_sync();cv_blit(x,y);audio_checkpoint();
 }
 static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t color){
     if(x>=240u||y>=240u||!w||!h)return;
@@ -187,7 +223,7 @@ static void control_input(void) {
     uint32_t released=buttons_before&~buttons;
     if((pressed&(1u<<B_REC))&&(buttons&(1u<<B_SEL))){
         if(timing_page==6)event_push(EVENT_MEASURE,COST_STOP,0);
-        selector_used=1;timing_page=(timing_page+1u)%7u;detail_set(0);editor_redraw=1;timing_draw=0;
+        selector_used=1;timing_page=(timing_page+1u)%8u;detail_set(0);editor_redraw=1;timing_draw=0;
         if(timing_page)lcd_fill(0,0,240,240,C_BLACK);
         pressed&=~(1u<<B_REC);
     }
@@ -225,6 +261,7 @@ static void control_input(void) {
     int32_t move=plat_enc(EN_SELECT);
     if(move&&timing_page==6){cost_selection=wrap_selection(cost_follow?control_request.measure[1]:cost_selection,clamp(move,-127,127),COST_ROWS);cost_follow=0;timing_draw=0;}
     if(move&&timing_page==5){gui_enabled=!gui_enabled;editor_redraw=1;timing_draw=0;}
+    if(move&&timing_page==7){event_push(EVENT_SPLIT,!control_request.dry[0],0);editor_redraw=1;timing_draw=0;}
     if(move&&timing_page==4){core_selection=core_selection==CORE_TEST_IDLE?CORE_TEST_BUSY:CORE_TEST_IDLE;timing_draw=0;}
     if(move&&timing_page==3){
         profile_fine=wrap_selection(profile_fine,clamp(move,-127,127),2);uint32_t p[9],f=plat_lock();rdx_detail_profile(p);
@@ -295,6 +332,7 @@ static void timing_format(char* out,const char* fmt,uint32_t a,uint32_t b,const 
     }out[n]=0;
 }
 static void control_frame(void) {
+    audio_checkpoint();
     control_input();
     if(timing_page==6){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -314,6 +352,21 @@ static void control_frame(void) {
 #endif
         draw_text_row(198,&FONT_B,"SAVE START/STOP HOME",C_HI);
         timing_format(text,"SELECT ROW / %lu s",m[2]/1000u,0,"");draw_text_row(216,&FONT_B,text,C_GRAY);return;
+    }
+    if(timing_page==7){
+        uint32_t now=plat_ms();char row[40];
+        if((uint32_t)(now-timing_draw)<250u&&timing_draw)return;
+        timing_draw=now;
+        const uint32_t* d=control_request.dry;
+        draw_text_row(4,&FONT_M,"DRY CORE PIPELINE",C_WHITE);
+        timing_format(row,"SYN CPU%lu JOBS %lu",d[0]?1u:0u,d[1],"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"WORK %lu us TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"LATE %lu FAULT %lu",d[4],plat_cpu2_gave_up(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"APP %lu FX %lu us",(timing.peak+23u)/24u,(control_request.cost[1]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
+        timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
+        timing_format(row,"XRUN %lu STK %lu",plat_xruns()-timing_xruns,plat_cpu2_stack(),"");draw_text_row(174,&FONT_B,row,C_WHITE);
+        draw_text_row(198,&FONT_B,"SELECT: CPU0 / CPU1",C_HI);
+        draw_text_row(216,&FONT_B,"SAVE RESET / +1 BLOCK",C_GRAY);return;
     }
     if(timing_page==5){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -479,6 +532,9 @@ void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_bo
 #ifdef PLAT_HOST
 int app_expect(const char* what,int* got) {
     if(!strcmp(what,"preset"))*got=(int)preset;
+    else if(!strcmp(what,"dry_enabled")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[0];}
+    else if(!strcmp(what,"dry_jobs")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[1]>0;}
+    else if(!strcmp(what,"dry_late")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[4];}
     else if(!strcmp(what,"timing"))*got=timing_page;
     else if(!strcmp(what,"core_mode"))*got=core_mode;
     else if(!strcmp(what,"core_ok"))*got=core_done>0;

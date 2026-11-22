@@ -62,12 +62,16 @@ static int plat_cpu2_wait(void);
 #include "../app/core_test.h"
 static void (*held_job)(uint32_t);
 static uint32_t dispatched_pending;
-static int plat_cpu2_run(void (*fn)(uint32_t),uint32_t arg){(void)arg;assert(!core&&!lock_depth&&!dispatched_pending);held_job=fn;dispatched_pending=1;return 1;}
+static int plat_cpu2_run(void (*fn)(uint32_t),uint32_t arg){(void)arg;assert(!core&&lock_depth&&!dispatched_pending);held_job=fn;dispatched_pending=1;return 1;}
 static int plat_cpu2_busy(void){
     if(dispatched_pending&&!stall){core=1;held_job(0);core=0;dispatched_pending=0;if(corrupt)control_reply.hash^=1;}
     return dispatched_pending;
 }
 static int plat_cpu2_wait(void){assert(!core);if(fail_wait){dispatched_pending=cpu_on=0;return -1;}assert(!dispatched_pending);return 0;}
+static void audio_checkpoint(void){}
+static uint32_t audio_control_lock(void){return plat_lock();}
+void rdx_dry_snapshot(uint32_t* p){assert(!core&&lock_depth);memset(p,0,32);}
+void rdx_dry_retired(void){assert(!core&&lock_depth);}
 #include "../app/control_dispatch.h"
 static uint32_t packet(uint32_t status,uint32_t a,uint32_t b){return (status<<8)|(a<<16)|(b<<24);}
 int main(void){
