@@ -10,12 +10,14 @@ static uint32_t ui_ticks(void){
     return plat_ticks24();
 #endif
 }
-static void ui_record(uint32_t part,uint32_t start){
+static void ui_record_excluding(uint32_t part,uint32_t start,uint32_t excluded){
     if(part>=UI_PARTS_COUNT)return;
-    const uint32_t elapsed=ui_ticks()-start;
+    const uint32_t total=ui_ticks()-start;
+    const uint32_t elapsed=excluded<=total?total-excluded:0;
     if(elapsed>ui_peaks[part])ui_peaks[part]=elapsed;
     if(ui_calls[part]!=UINT32_MAX)++ui_calls[part];
 }
+static void ui_record(uint32_t part,uint32_t start){ui_record_excluding(part,start,0);}
 static void ui_profile_snapshot(uint32_t* out){
     for(uint32_t i=0;i<UI_PARTS_COUNT;++i)out[i]=ui_peaks[i];
 }

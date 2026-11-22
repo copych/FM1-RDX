@@ -194,9 +194,26 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(rdx_dry_publish())audio_kick();
 }
 // Worker callbacks consume captured input and engine snapshots only.
+#ifndef PLAT_HOST
+static uint32_t wait_audio_ticks;
+static void control_wait_audio(void){
+    const uint32_t start=ui_ticks();audio_checkpoint_at(DRY_AT_WAIT);
+    wait_audio_ticks+=ui_ticks()-start;
+}
+#endif
 static void control_dma_wait(void){
     audio_checkpoint_at(DRY_AT_WAIT);
-    const uint32_t start=ui_ticks();lcd_sync();ui_record(UI_DMA_WAIT,start);
+    const uint32_t start=ui_ticks();uint32_t nested=0;
+#ifndef PLAT_HOST
+    if(plat_core()==1){
+        wait_audio_ticks=0;
+        lcd_sync_service(control_wait_audio,plat_ticks24,2400000u); // 100 ms additional wall ceiling
+        nested=wait_audio_ticks;
+    }else lcd_sync();
+#else
+    lcd_sync();
+#endif
+    ui_record_excluding(UI_DMA_WAIT,start,nested);
     audio_checkpoint_at(DRY_AT_WAIT);
 }
 static void control_blit(uint32_t x,uint32_t y){
@@ -401,7 +418,7 @@ static void control_frame(void) {
             timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
             timing_format(row,"LATE %lu XRUN %lu",d[4],plat_xruns()-timing_xruns,"");draw_text_row(174,&FONT_B,row,C_WHITE);
             timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(198,&FONT_B,row,C_HI);
-            draw_text_row(216,&FONT_B,"K1: QUEUE / SAVE RESET",C_GRAY);return;
+            timing_format(row,"LCD ERR %lu / K1: QUEUE",control_request.lcd_errors,0,"");draw_text_row(216,&FONT_B,row,C_GRAY);return;
         }
         draw_text_row(4,&FONT_M,"DRY CORE PIPELINE",C_WHITE);
         timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);

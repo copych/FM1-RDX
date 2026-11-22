@@ -8,6 +8,8 @@ int main(void){
     ui_profile_reset();clock_ticks=1000;
     ui_record(UI_DMA_WAIT,100);ui_record(UI_TEXT,800);
     assert(ui_peaks[UI_DMA_WAIT]==900&&ui_peaks[UI_TEXT]==200);
+    ui_record_excluding(UI_TEXT,0,700);assert(ui_peaks[UI_TEXT]==300);
+    ui_record_excluding(UI_TEXT,0,1100);assert(ui_peaks[UI_TEXT]==300); // saturate invalid exclusion
     ui_record(UI_DMA_WAIT,900);assert(ui_peaks[UI_DMA_WAIT]==900&&ui_calls[UI_DMA_WAIT]==2);
     clock_ticks=20;ui_record(UI_SUBMIT,0xfffffff0u);assert(ui_peaks[UI_SUBMIT]==36);
     uint32_t snapshot[UI_PARTS_COUNT];ui_profile_snapshot(snapshot);

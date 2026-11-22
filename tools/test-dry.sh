@@ -11,6 +11,7 @@ ASAN_OPTIONS=detect_leaks=0 build/pipeline-budget
 cc -std=c11 -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all \
   tests/ui_profile.c -o build/ui-profile
 ASAN_OPTIONS=detect_leaks=0 build/ui-profile
+bash tools/test-lcd-wait.sh
 g++ -std=c++17 -O2 -ffp-contract=off -fsanitize=undefined,float-cast-overflow \
   -fno-sanitize-recover=all -Isrc tests/dry_equivalence.cpp src/rdx_engine.cpp -o build/dry-equivalence
 build/dry-equivalence

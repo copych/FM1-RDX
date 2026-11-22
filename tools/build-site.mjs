@@ -17,7 +17,7 @@ checkUfw(logicalImage(firmware));
 if(!firmware.includes(Buffer.from('FELUCCA-LOADER-1')))throw Error('Missing update loader');
 // Refuse stale binaries when app or DSP source differs from recorded build inputs.
 const evidence=JSON.parse(fs.readFileSync('build/evidence.json'));
-for(const [file,digest] of Object.entries(evidence.source))if(file.startsWith('src/')||file.startsWith('app/')){
+for(const [file,digest] of Object.entries(evidence.source))if(file.startsWith('src/')||file.startsWith('app/')||file.startsWith('platform/')){
   if(hash(fs.readFileSync(file))!==digest)throw Error(`Rebuild evidence required: ${file}`);
 }
 const out=path.resolve('build/site');
