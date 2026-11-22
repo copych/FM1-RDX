@@ -84,6 +84,7 @@ public:
     }
 
     #include "rdx_operator_profile.inc"
+    #include "rdx_operator_block.inc"
     inline void updateGain() {
         outGain_ = rdxGain(params_.outLevel * velogain_) * scaling_;
     }

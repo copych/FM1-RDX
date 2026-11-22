@@ -26,7 +26,7 @@ extern "C" const char* rdx_build_label(void){
 #elif defined(RDX_TEST_UNROLL)
     return "O2 U4";
 #else
-    return "O2 CCH";
+    return "O2 B32";
 #endif
 }
 static uint32_t detail_ticks(){

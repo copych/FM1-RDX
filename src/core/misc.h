@@ -5,11 +5,11 @@
 inline float fclamp(float x, float lo, float hi) {
     return x > hi ? hi : x >= lo ? x : lo;
 }
-inline float fast_floorf(float x) {
+inline __attribute__((always_inline)) float fast_floorf(float x) {
     const int i = static_cast<int>(x);
     return static_cast<float>(i - (static_cast<float>(i) > x));
 }
-inline float wrap01(float x) { return x - fast_floorf(x); }
+inline __attribute__((always_inline)) float wrap01(float x) { return x - fast_floorf(x); }
 // Oscillator increments are nonnegative. Most advances need no integer
 // conversion; retain the general wrap for extreme pitch/frequency settings.
 inline __attribute__((always_inline)) float wrapPositive01(float x){

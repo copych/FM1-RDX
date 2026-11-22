@@ -1,5 +1,6 @@
 #include "rdx_engine.h"
 #include "preset_bank.h"
+static RdxVoiceBlockScratch render_scratch;
 
 uint32_t RdxEngine::presetCount() {return sizeof presetData/sizeof presetData[0];}
 bool RdxEngine::presetPatch(uint32_t index,RDX_Patch& p) {
@@ -172,17 +173,26 @@ void RdxEngine::renderBlock(float* left,float* right) {
         slots[count++]=(uint8_t)v;voices_[v].updateLfo();
     }
     rendered_=(uint8_t)count;
-    for(uint32_t i=0;i<DMA_BUFFER_LEN;++i) {
-        float sample=0.0f;
+    for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)left[i]=0.0f;
+    for(uint32_t offset=0;offset<DMA_BUFFER_LEN;offset+=RDX_RENDER_CHUNK){
         for(int at=0;at<count;++at){
             const int v=slots[at];
             // A budget reduction fades the selected voice over 32 samples.
             // The slot stays in this bounded block list, silent after retirement.
             if(v==255)continue;
-            float value=mono?voices_[v].stepRouted<true>():voices_[v].stepRouted<false>();
-            if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}
-            sample+=value;
+            uint32_t n=RDX_RENDER_CHUNK;
+            if(n>DMA_BUFFER_LEN-offset)n=DMA_BUFFER_LEN-offset;
+            if(retiring_[v]&&n>retiring_[v])n=retiring_[v];
+            voices_[v].renderChunk(render_scratch,n,mono);
+            for(uint32_t i=0;i<n;++i){
+                float value=render_scratch.wave[0][i];
+                if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}
+                left[offset+i]+=value;
+            }
         }
+    }
+    for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){
+        float sample=left[i];
         sample*=outputGain_;
         // Source's linear knee and smooth saturation, bounded to [-1,1].
         const float a=fabsf(sample);

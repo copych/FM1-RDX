@@ -122,16 +122,13 @@ inline __attribute__((always_inline)) float rdxGainInv(float value) {
         'if ((int)waveform_ > 3) { // Square\n            value_ = evalWave(startPhase) * fadeInEnv_;');
   }
   if(name==='RDX_Voice.h') {
-    s=s.replace(/int(\s+)(pegEnable_|lfoPMDEnable_)(\[4\])/g,'float$1$2$3')
-      .replace('AM_DEPTH[lfoAMD_[i]] *','amdDepth_[i] *')
-      .replace(/(lfoAMD_\[i\]\s*= patch_\.ops\[i\]\.lfoAMD;)/g,'$1\n            amdDepth_[i] = AM_DEPTH[patch_.ops[i].lfoAMD];')
-      .replace(/int(\s+lfoAMD_\[4\]\s*= \{0\};)/,'bool$1\n    float amdDepth_[4] = {0};');
+    s=s.replace('#pragma once','#pragma once\n#include "rdx_block.h"');
     s=s.replace('    inline void updateModParams() {','    inline void updateModParams() {\n        cachePitchRouting();');
     s=s.replace('//const float lfoNorm = lfoValue_ * MIDI_NORM;\n    for', '//const float lfoNorm = lfoValue_ * MIDI_NORM;\n    RDX_UNROLL4\n    for');
     s=s.replace('inline void init()', 'inline __attribute__((always_inline)) void init()')
       .replace('algorithm_ = a;', 'algorithm_ = a;\n    cacheRouting();')
       .replace('inline bool isActive() const', 'inline __attribute__((always_inline)) bool isActive() const')
-      .replace('    inline void cacheParams()', '#include "rdx_voice_routing.inc"\n\n    inline void cacheParams()')
+      .replace('    inline void cacheParams()', '#include "rdx_voice_routing.inc"\n#include "rdx_voice_block.inc"\n\n    inline void cacheParams()')
       .replace(/^\s*algorithm_\s*= patch_\.common\.algorithm;/m, '$&\n        cacheRouting();');
     s=s.replace('    inline float calcScore() {',`    inline bool isAttacking() const {
         unsigned mask=1u;
@@ -153,7 +150,7 @@ inline __attribute__((always_inline)) float rdxGainInv(float value) {
       'portamentoInc_        = ctl_.portaTimeS > 0.0f ? 1.0f / (ctl_.portaTimeS * sampleRate_) : 1.0f;');
   }
   if(name==='RDX_Operator.h') {
-    s=s.replace('    inline void updateGain()', '    #include "rdx_operator_profile.inc"\n    inline void updateGain()');
+    s=s.replace('    inline void updateGain()', '    #include "rdx_operator_profile.inc"\n    #include "rdx_operator_block.inc"\n    inline void updateGain()');
     s=s.replace('    inline bool isActive() const', '    inline bool isAttacking() const {return params_.enable&&params_.outLevel&&env_.getStage()==RDX_Envelope::Stage::ATTACK;}\n    inline bool isActive() const');
     // Mute output without freezing the operator's envelope/phase state.
     s=s.replace('if (!params_.enable) return 0.f;','');
