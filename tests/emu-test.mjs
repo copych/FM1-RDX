@@ -97,6 +97,10 @@ emu.send({type:'enc',role:0,n:1});emu.run(100); // CPU1 dry pipeline
 midi(0x90,69,100);const piped=emu.record(500);
 assert(piped.every(Number.isFinite)&&piped.some(v=>Math.abs(v)>0.001),'Dry pipeline plays');
 assert(Math.abs(frequency(piped)-440)<4,'Dry pipeline preserves pitch');
+emu.send({type:'enc',role:3,n:1});emu.run(100); // LCD profile subview
+const lcdProfiled=emu.record(150);
+assert(lcdProfiled.every(Number.isFinite)&&lcdProfiled.some(v=>Math.abs(v)>0.001),'LCD profile view keeps audio running');
+emu.send({type:'enc',role:3,n:1});emu.run(100); // queue view
 midi(0xb0,120);emu.run(100);assert.equal(emu.run(20),0,'Pipeline panic');
 emu.send({type:'enc',role:0,n:1});emu.run(100); // CPU0 baseline
 midi(0x90,69,100);assert(emu.run(200)>0.001,'Return to CPU0 plays');

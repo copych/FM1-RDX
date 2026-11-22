@@ -18,7 +18,9 @@ static void gui_job(uint32_t unused){
     GuiRequest request;memcpy(&request,&gui_request,sizeof request);
     gui_reply.valid=0;
     if(gui_hash(&request,sizeof request)!=gui_request_hash||request.page>=EDITOR_PAGES_COUNT||request.op>=4||request.tune>=5)return;
+    const uint32_t editor_start=ui_ticks();
     const uint8_t* pixels=rdx_editor_draw(&request.view,request.page,request.op,request.tune);
+    ui_record(UI_EDITOR,editor_start);
     audio_checkpoint_at(DRY_AT_EDITOR);
     memset(gui_reply.pixels,0,sizeof gui_reply.pixels);
     // Same nearest-neighbour scaling and bit order as the original CPU0 path.

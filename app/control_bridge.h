@@ -12,6 +12,7 @@ typedef struct {
     uint32_t measure[COST_SNAPSHOT_WORDS];
     uint32_t dry[8];
     uint32_t dry_detail[8];
+    uint32_t ui[5];
     RdxTiming timing;
     uint8_t patch[150],system[32],sysex[640];uint32_t sysex_size;
 } ControlRequest;

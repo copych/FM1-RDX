@@ -25,11 +25,14 @@ static uint8_t bench_selection;
 static uint8_t bench_started;
 static uint8_t profile_fine;
 static uint8_t cost_selection,cost_follow=1;
+static uint8_t dry_view;
 static uint32_t cost_xruns;
 static volatile uint8_t preset_home_requested;
 #include "control_bridge.h"
 #include "core_test.h"
 #define RDX_CONTROL_ISOLATED 1
+#include "ui_profile.h"
+_Static_assert(UI_PARTS_COUNT==sizeof(control_request.ui)/sizeof(control_request.ui[0]),"UI snapshot size");
 static void audio_checkpoint(void);
 static void audio_checkpoint_at(uint32_t where);
 #include "gui_worker.h"
@@ -67,7 +70,7 @@ static uint32_t timing_started,timing_xruns,timing_draw;
 void app_overload(void){if(timing.over90!=UINT32_MAX)++timing.over90;rdx_budget_overload(plat_ms());}
 static void timing_reset(void){
     if(control_active){control_reply.reset_timing=1;timing_started=plat_ms();timing_xruns=control_request.xruns;timing_draw=0;return;}
-    uint32_t f=audio_control_lock();memset(&timing,0,sizeof(timing));rdx_cost_reset();rdx_dry_reset_stats();plat_unlock(f);
+    uint32_t f=audio_control_lock();memset(&timing,0,sizeof(timing));rdx_cost_reset();rdx_dry_reset_stats();ui_profile_reset();plat_unlock(f);
     timing_started=plat_ms();timing_xruns=plat_xruns();timing_draw=0;
 }
 static RdxEncoderMotion knob_motion[4];
@@ -128,6 +131,7 @@ void app_init(void) {
     editor_redraw=1;
     reset_knob_motion();
     timing_page=0;bench_started=bench_selection=profile_fine=0;preset_home_requested=0;timing_reset();
+    dry_view=0;
     sm_reset();
     core_test_init();
     rdx_dry_set_kick(audio_kick);
@@ -190,26 +194,37 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(rdx_dry_publish())audio_kick();
 }
 // Worker callbacks consume captured input and engine snapshots only.
+static void control_dma_wait(void){
+    audio_checkpoint_at(DRY_AT_WAIT);
+    const uint32_t start=ui_ticks();lcd_sync();ui_record(UI_DMA_WAIT,start);
+    audio_checkpoint_at(DRY_AT_WAIT);
+}
 static void control_blit(uint32_t x,uint32_t y){
+    control_dma_wait();
     // Publish CPU1's RAM canvas before starting peripheral DMA reads.
-    audio_checkpoint_at(DRY_AT_LCD);plat_cpu2_sync();cv_blit(x,y);audio_checkpoint_at(DRY_AT_LCD);
+    audio_checkpoint_at(DRY_AT_SUBMIT);plat_cpu2_sync();
+    const uint32_t start=ui_ticks();cv_blit(x,y);ui_record(UI_SUBMIT,start);
+    audio_checkpoint_at(DRY_AT_SUBMIT);
 }
 static void control_begin(uint32_t w,uint32_t h,uint16_t color){
-    audio_checkpoint_at(DRY_AT_LCD);cv_begin(w,h,color);audio_checkpoint_at(DRY_AT_LCD);
+    control_dma_wait();
+    audio_checkpoint_at(DRY_AT_CLEAR);
+    const uint32_t start=ui_ticks();cv_begin(w,h,color);ui_record(UI_CLEAR,start);
+    audio_checkpoint_at(DRY_AT_CLEAR);
 }
 static int32_t control_text(int32_t x,int32_t y,const felucca_font_t* font,const char* text,uint16_t color){
     // The original rasterizer advances independently per byte/glyph; preserving
     // its returned x retains clipping, blending and glyph placement exactly.
     for(;*text;++text){
         const char one[2]={*text,0};audio_checkpoint_at(DRY_AT_TEXT);
-        x=cv_text(x,y,font,one,color);
+        const uint32_t start=ui_ticks();x=cv_text(x,y,font,one,color);ui_record(UI_TEXT,start);
     }
     audio_checkpoint_at(DRY_AT_TEXT);return x;
 }
 static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t color){
     if(x>=240u||y>=240u||!w||!h)return;
     if(w>240u-x)w=240u-x;if(h>240u-y)h=240u-y;
-    for(uint32_t row=0;row<h;row+=8u){uint32_t n=h-row;if(n>8u)n=8u;cv_begin(w,n,color);control_blit(x,y+row);}
+    for(uint32_t row=0;row<h;row+=8u){uint32_t n=h-row;if(n>8u)n=8u;control_begin(w,n,color);control_blit(x,y+row);}
 }
 #define cv_blit control_blit
 #define cv_begin control_begin
@@ -294,7 +309,7 @@ static void control_input(void) {
     const uint32_t now=plat_ms();
     for(uint8_t k=0;k<4;++k) {
         move=plat_enc(EN_K1+k);if(!move)continue;
-        if(timing_page)continue;
+        if(timing_page){if(timing_page==7&&k==0){dry_view=!dry_view;timing_draw=0;}continue;}
         move=clamp(move,-127,127);
         if(editor_page==EDITOR_HOME)editor_page=EDITOR_LEVEL;
         uint8_t fine=(buttons&(1u<<B_SEL))!=0;if(fine)selector_used=1;
@@ -375,7 +390,19 @@ static void control_frame(void) {
         if((uint32_t)(now-timing_draw)<250u&&timing_draw)return;
         timing_draw=now;
         const uint32_t* d=control_request.dry;const uint32_t* q=control_request.dry_detail;
-        static const char* at[DRY_CHECKPOINTS_COUNT]={"IDLE","CONTROL","LCD","TEXT","SCALE","EDITOR","PROTO"};
+        static const char* at[DRY_CHECKPOINTS_COUNT]={"IDLE","CONTROL","LCD","TEXT","SCALE","EDITOR","PROTO","WAIT","CLEAR","SUBMIT"};
+        if(dry_view){
+            const uint32_t* u=control_request.ui;
+            draw_text_row(4,&FONT_M,"GUI / LCD PROFILE",C_WHITE);
+            timing_format(row,"WAIT %lu CLEAR %lu us",(u[UI_DMA_WAIT]+23u)/24u,(u[UI_CLEAR]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+            timing_format(row,"TEXT %lu SUBMIT %lu us",(u[UI_TEXT]+23u)/24u,(u[UI_SUBMIT]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+            timing_format(row,"EDITOR %lu us / CPU%lu",(u[UI_EDITOR]+23u)/24u,plat_core(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+            timing_format(row,"QMAX %lu AT %s",(q[0]+23u)/24u,0,at[q[3]<DRY_CHECKPOINTS_COUNT?q[3]:DRY_AT_IDLE]);draw_text_row(124,&FONT_B,row,C_WHITE);
+            timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
+            timing_format(row,"LATE %lu XRUN %lu",d[4],plat_xruns()-timing_xruns,"");draw_text_row(174,&FONT_B,row,C_WHITE);
+            timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(198,&FONT_B,row,C_HI);
+            draw_text_row(216,&FONT_B,"K1: QUEUE / SAVE RESET",C_GRAY);return;
+        }
         draw_text_row(4,&FONT_M,"DRY CORE PIPELINE",C_WHITE);
         timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
         timing_format(row,"QMAX %lu WORK %lu",(q[0]+23u)/24u,(q[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
@@ -384,7 +411,7 @@ static void control_frame(void) {
         timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
         timing_format(row,"LATE %lu FAULT %lu",d[4],plat_cpu2_gave_up(),"");draw_text_row(174,&FONT_B,row,C_WHITE);
         timing_format(row,"XRUN %lu / SYN CPU%lu",plat_xruns()-timing_xruns,d[0]?1u:0u,"");draw_text_row(198,&FONT_B,row,C_HI);
-        draw_text_row(216,&FONT_B,"SELECT CPU / SAVE RESET",C_GRAY);return;
+        draw_text_row(216,&FONT_B,"K1: LCD / SAVE RESET",C_GRAY);return;
     }
     if(timing_page==5){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -555,6 +582,8 @@ int app_expect(const char* what,int* got) {
     else if(!strcmp(what,"dry_enabled")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[0];}
     else if(!strcmp(what,"dry_jobs")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[1]>0;}
     else if(!strcmp(what,"dry_late")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[4];}
+    else if(!strcmp(what,"dry_view"))*got=dry_view;
+    else if(!strcmp(what,"ui_samples"))*got=ui_calls[UI_DMA_WAIT]&&ui_calls[UI_CLEAR]&&ui_calls[UI_TEXT]&&ui_calls[UI_SUBMIT];
     else if(!strcmp(what,"timing"))*got=timing_page;
     else if(!strcmp(what,"core_mode"))*got=core_mode;
     else if(!strcmp(what,"core_ok"))*got=core_done>0;

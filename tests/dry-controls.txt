@@ -21,7 +21,13 @@ expect dry_late 0
 shot dry-core.png
 tap SAVE
 wait 100
-turn K1 2
+turn K1 1
+wait 100
+expect dry_view 1
+expect ui_samples 1
+shot lcd-profile.png
+turn K1 1
+expect dry_view 0
 midi 80 3C 00
 wait 3000
 expect voice_active 0

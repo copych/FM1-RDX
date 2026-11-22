@@ -80,6 +80,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     rdx_measure_snapshot(control_request.measure);
     rdx_dry_snapshot(control_request.dry);
     rdx_dry_detail(control_request.dry_detail);
+    ui_profile_snapshot(control_request.ui);
     control_request.timing=timing;control_request.voices=rdx_voice_status();
     if(kind==CONTROL_SYSEX){
         if(sm_patch_pending)memcpy(control_request.patch,sm_patch,150);else rdx_patch_export(control_request.patch);
