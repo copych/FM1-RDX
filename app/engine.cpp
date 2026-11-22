@@ -4,6 +4,7 @@
 #include "../src/rdx_profile.cpp"
 #include "../src/rdx_effects.cpp"
 #include "../src/rdx_budget.h"
+#include "../src/rdx_measure.h"
 #if defined(RDX_FM1)
 extern "C" uint32_t plat_ticks24(void);
 static uint32_t budget_ticks(){return plat_ticks24();}
@@ -12,6 +13,9 @@ static uint32_t budget_ticks(){return 0;}
 #endif
 #include "benchmark.inc"
 static RdxBudget budget;
+static RdxVoiceMeasure voice_measure;
+static uint32_t fx_last,measure_last_voices;
+static bool measure_guarded_block;
 static bool budget_dirty=true,budget_keep_limit,budget_sample_valid;
 static uint32_t synth_ticks;
 static uint32_t synth_peak,fx_peak;
@@ -86,6 +90,7 @@ static void event(DeferredEvent e) {
     else rdx_panic(); // explicit overload fallback: silence and discard
 }
 extern "C" void rdx_boot(void) {
+    voice_measure=RdxVoiceMeasure{};measure_guarded_block=false;fx_last=0;
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
     budget.reset(0);budget_dirty=true;budget_keep_limit=false;budget_sample_valid=false;synth_ticks=0;
     synth_peak=fx_peak=0;
@@ -167,7 +172,7 @@ extern "C" void rdx_preset_name(uint32_t i,char* name) {
     name[10]=0;
 }
 extern "C" void rdx_render(float* l,float* r) {
-    budget_sample_valid=false;synth_ticks=0;
+    budget_sample_valid=false;synth_ticks=fx_last=0;
     if(editor_pending) {
         editor_pending=false;
         const auto& old=RDX_State::getState().workingPatch;
@@ -206,7 +211,7 @@ extern "C" void rdx_render(float* l,float* r) {
         budget_sample_valid=fade==PRESET_STEADY&&RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY;
         const uint32_t fx_start=budget_ticks();
         if(effects_on)effects->process(l,r);
-        const uint32_t fx_ticks=budget_ticks()-fx_start;if(fx_ticks>fx_peak)fx_peak=fx_ticks;
+        const uint32_t fx_ticks=budget_ticks()-fx_start;fx_last=fx_ticks;if(fx_ticks>fx_peak)fx_peak=fx_ticks;
     } else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;
     for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){performance_gain+=(performance_target-performance_gain)*0.004f;
         const float gain=preset_gain*performance_gain;l[i]*=gain;r[i]*=gain;}
@@ -228,17 +233,65 @@ extern "C" void rdx_render(float* l,float* r) {
         fade=PRESET_FADE_IN;
     } else fade=PRESET_STEADY;
 }
+static void measure_restore(){engine->panic();engine->setVoiceLimit(budget.limit);engine->sustain(pedal_down);}
 extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
+    if(voice_measure.active()){
+        measure_guarded_block=true;measure_last_voices=engine->renderedVoices();
+#ifdef PLAT_HOST
+        // A host descheduling pause is not an FM1 deadline measurement.
+        voice_measure.observe(now,0,0,0,measure_last_voices,budget_sample_valid);
+#else
+        voice_measure.observe(now,ticks,synth_ticks,fx_last,measure_last_voices,budget_sample_valid);
+#endif
+        if(!voice_measure.active())measure_restore();
+        return;
+    }
     if(detail_enabled)return; // Do not learn a normal voice budget from diagnostic execution.
     if(budget_dirty){uint8_t previous=budget.limit;budget.reset(now);if(budget_keep_limit)budget.limit=previous;budget_dirty=budget_keep_limit=false;}
     budget.observe(now,ticks,synth_ticks,engine->renderedVoices(),budget_sample_valid);
     engine->setVoiceLimit(budget.limit);
 }
-extern "C" void rdx_budget_overload(uint32_t now){budget.overload(now);engine->setVoiceLimit(budget.limit);}
+extern "C" void rdx_budget_overload(uint32_t now){
+    if(voice_measure.active()||measure_guarded_block){
+        voice_measure.overload(measure_guarded_block?measure_last_voices:engine->renderedVoices());
+        measure_restore();return;
+    }
+    budget.overload(now);engine->setVoiceLimit(budget.limit);
+}
+extern "C" int rdx_measure_active(void){return voice_measure.active();}
+extern "C" void rdx_measure_command(uint8_t command,uint32_t now){
+    if(voice_measure.active()){voice_measure.stop(COST_STOPPED);measure_restore();}
+    if(command==COST_START){
+        rdx_detail_set(DETAIL_OFF);uint32_t predicted=budget.prediction(6);
+#ifdef PLAT_HOST
+        predicted=0;
+#endif
+        voice_measure.start(now,predicted);
+    }
+}
+extern "C" void rdx_measure_prepare(uint32_t now){
+    measure_guarded_block=false;
+    if(!voice_measure.active())return;
+    voice_measure.stamp=now;
+    if(RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY){
+        voice_measure.stop(COST_NEED_POLY);measure_restore();return;
+    }
+    if(editor_pending||fade!=PRESET_STEADY){
+        if(voice_measure.state==COST_ARMED&&!voice_measure.target&&(uint32_t)(now-voice_measure.stageAt)<5000u)return;
+        voice_measure.stop(COST_CHANGED);measure_restore();return;
+    }
+    if(voice_measure.state==COST_ARMED){
+        static const uint8_t notes[6]={48,55,60,64,67,72};
+        engine->panic();engine->sustain(pedal_down);engine->setVoiceLimit(voice_measure.target?voice_measure.target:1);
+        for(uint32_t i=0;i<voice_measure.target;++i)engine->noteOn(notes[i],100);
+        voice_measure.begin(now);
+    }
+}
+extern "C" void rdx_measure_snapshot(uint32_t* out){voice_measure.snapshot(out);}
 extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_t)engine->activeVoices()<<8)|((uint32_t)RdxEngine::voiceCapacity<<16);}
 extern "C" void rdx_cost_reset(void){synth_peak=fx_peak=0;}
 extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=budget.prediction(RdxBudget::maximum);}
-extern "C" void rdx_detail_set(uint8_t on){detail_enabled=on>=DETAIL_MODES_COUNT?DETAIL_OFF:on;
+extern "C" void rdx_detail_set(uint8_t on){if(on&&voice_measure.active())rdx_measure_command(COST_STOP,0);detail_enabled=on>=DETAIL_MODES_COUNT?DETAIL_OFF:on;
     if(detail_enabled){detail_peak=detail_blocks=detail_voices=0;
         for(uint32_t i=0;i<RENDER_PARTS_COUNT;++i)detail_parts[i]=0;
         for(uint32_t i=0;i<RENDER_FINE_PARTS_COUNT;++i)detail_fine[i]=0;}}

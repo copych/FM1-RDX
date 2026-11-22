@@ -1,0 +1,38 @@
+wait 600
+midi C0 20 00
+wait 500
+press SEL
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+expect timing 6
+tap SAVE
+wait 100
+expect cost_state 2
+tap SAVE
+wait 100
+expect cost_state 5
+tap SAVE
+wait 36000
+expect cost_state 4
+expect cost_target 6
+expect voice_active 0
+turn SELECT -2
+expect cost_selection 4
+shot voice-cost.png
+tap SAVE
+wait 100
+midi 90 3C 64
+wait 100
+expect cost_state 5
+expect voice_active 1
+midi B0 78 00
+wait 100
+expect voice_active 0
+tap HOME
+expect timing 0
+expect store_writes 0

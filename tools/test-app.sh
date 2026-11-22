@@ -26,6 +26,8 @@ mkdir -p build/gui-split-controls
 app/build/host/rdx_host tests/gui-split-controls.txt build/gui-split-controls
 mkdir -p build/control-isolation-controls
 app/build/host/rdx_host tests/control-isolation-controls.txt build/control-isolation-controls
+mkdir -p build/voice-cost-controls
+app/build/host/rdx_host tests/voice-cost-controls.txt build/voice-cost-controls
 mkdir -p build/preset-home
 app/build/host/rdx_host tests/preset-home.txt build/preset-home
 mkdir -p build/select-context
@@ -39,3 +41,4 @@ app/build/host/rdx_host build/soundmondo-controls.txt build/soundmondo-controls
 mkdir -p build/polyphony-controls
 app/build/host/rdx_host tests/polyphony-controls.txt build/polyphony-controls
 bash tools/test-isolation.sh
+bash tools/test-voice-cost.sh

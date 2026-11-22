@@ -72,6 +72,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     control_request.channel=rdx_midi_receive_channel();
     rdx_editor_snapshot(&control_request.editor);
     rdx_cost_profile(control_request.cost);rdx_detail_profile(control_request.profile);rdx_detail_fine(control_request.fine);
+    rdx_measure_snapshot(control_request.measure);
     control_request.timing=timing;control_request.voices=rdx_voice_status();
     if(kind==CONTROL_SYSEX){
         if(sm_patch_pending)memcpy(control_request.patch,sm_patch,150);else rdx_patch_export(control_request.patch);

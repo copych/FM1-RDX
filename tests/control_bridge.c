@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include "../app/editor_api.h"
+#include "../app/engine_api.h"
 enum {NE=7,EVENT_ON,EVENT_OFF,EVENT_PANIC,EVENT_PRESET,EVENT_FX,EVENT_EDITOR,EVENT_BEND,EVENT_CC};
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
 typedef struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} RdxTiming;
@@ -28,19 +29,20 @@ static uint32_t plat_keys(void){assert(!core);return 0;}
 static uint32_t plat_buttons(void){assert(!core);return 0;}
 static int32_t plat_enc(int n){(void)n;assert(!core);return 0;}
 static int plat_midi_in(uint32_t* p,int* port){assert(!core);*port=0;if(queue_read==queue_count)return 0;*p=queue[queue_read++];return 1;}
+void rdx_measure_snapshot(uint32_t* p){assert(!core&&lock_depth);memset(p,0,COST_SNAPSHOT_WORDS*4);}
 static uint32_t plat_xruns(void){return 0;}
 static uint32_t plat_cpu_pct(void){return 0;}
 static uint32_t plat_cpu_khz(void){return 360000;}
-static uint32_t rdx_midi_receive_channel(void){assert(!core&&lock_depth);return capture_channel;}
+uint32_t rdx_midi_receive_channel(void){assert(!core&&lock_depth);return capture_channel;}
 void rdx_editor_snapshot(EditorSnapshot* p){assert(!core&&lock_depth);memset(p,0,sizeof *p);}
-static void rdx_cost_profile(uint32_t* p){assert(!core&&lock_depth);memset(p,0,12);}
-static void rdx_detail_profile(uint32_t* p){assert(!core&&lock_depth);memset(p,0,36);}
-static void rdx_detail_fine(uint32_t* p){assert(!core&&lock_depth);memset(p,0,16);}
-static uint32_t rdx_voice_status(void){assert(!core&&lock_depth);return 0;}
-static void rdx_patch_export(uint8_t* p){assert(!core&&lock_depth);memset(p,0,150);}
-static void rdx_system_export(uint8_t* p){assert(!core&&lock_depth);memset(p,0,32);}
-static void rdx_detail_set(uint32_t n){(void)n;assert(!core&&lock_depth);}
-static uint32_t rdx_preset_count(void){return 33;}
+void rdx_cost_profile(uint32_t* p){assert(!core&&lock_depth);memset(p,0,12);}
+void rdx_detail_profile(uint32_t* p){assert(!core&&lock_depth);memset(p,0,36);}
+void rdx_detail_fine(uint32_t* p){assert(!core&&lock_depth);memset(p,0,16);}
+uint32_t rdx_voice_status(void){assert(!core&&lock_depth);return 0;}
+void rdx_patch_export(uint8_t* p){assert(!core&&lock_depth);memset(p,0,150);}
+void rdx_system_export(uint8_t* p){assert(!core&&lock_depth);memset(p,0,32);}
+void rdx_detail_set(uint8_t n){(void)n;assert(!core&&lock_depth);}
+uint32_t rdx_preset_count(void){return 33;}
 void rdx_editor_boot(void){assert(!core);}
 static void lcd_sync(void){assert(!core);}
 static void sm_reset(void){assert(!core);}

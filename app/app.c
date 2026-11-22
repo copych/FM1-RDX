@@ -3,7 +3,8 @@
 #include "benchmark.h"
 #include "../src/rdx_encoder.h"
 
-enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENTS_COUNT };
+enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENT_MEASURE, EVENTS_COUNT };
+static void event_push(uint8_t,uint8_t,uint8_t);
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
 static rdx_event_t events[128];
 static volatile uint32_t event_read,event_write,panic_requested;
@@ -23,6 +24,8 @@ static uint8_t timing_page;
 static uint8_t bench_selection;
 static uint8_t bench_started;
 static uint8_t profile_fine;
+static uint8_t cost_selection,cost_follow=1;
+static uint32_t cost_xruns;
 static volatile uint8_t preset_home_requested;
 #include "control_bridge.h"
 #include "core_test.h"
@@ -40,7 +43,7 @@ static void timing_reset(void){
 static RdxEncoderMotion knob_motion[4];
 static void reset_knob_motion(void){for(uint8_t k=0;k<4;++k)rdx_encoder_reset(&knob_motion[k]);}
 static void detail_set(uint8_t on){if(control_active){control_detail(on);return;}uint32_t f=plat_lock();rdx_detail_set(on);plat_unlock(f);}
-static void preset_home(void){editor_page=EDITOR_HOME;timing_page=0;detail_set(0);editor_redraw=1;reset_knob_motion();}
+static void preset_home(void){if(timing_page==6)event_push(EVENT_MEASURE,COST_STOP,0);editor_page=EDITOR_HOME;timing_page=0;detail_set(0);editor_redraw=1;reset_knob_motion();}
 static uint8_t wrap_selection(uint8_t at,int32_t move,uint8_t count){
     int32_t next=((int32_t)at+move)%count;if(next<0)next+=count;return (uint8_t)next;
 }
@@ -104,6 +107,7 @@ void app_panic(void) {
     core_mode=CORE_TEST_OFF;
     if(core_pending){plat_cpu2_wait();core_pending=0;}
     uint32_t f=plat_lock();
+    rdx_measure_command(COST_STOP,plat_ms());
     rdx_panic();event_read=event_write;panic_requested=0;
     plat_unlock(f);
 }
@@ -112,9 +116,10 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     if(n!=APP_BLOCK) {for(i=0;i<n*2u;++i)lr[i]=0;return;}
     const uint32_t t0=plat_ticks24();
     sm_audio();
-    if(panic_requested) {rdx_panic();event_read=event_write;panic_requested=0;}
+    if(panic_requested) {rdx_measure_command(COST_STOP,plat_ms());rdx_panic();event_read=event_write;panic_requested=0;}
     for(i=0;i<32u && event_read!=event_write;++i) {
         rdx_event_t e=events[event_read&127u];++event_read;
+        if(e.type!=EVENT_MEASURE&&rdx_measure_active())rdx_measure_command(COST_STOP,plat_ms());
         if(e.type==EVENT_ON)rdx_note_on(e.note,e.velocity);
         else if(e.type==EVENT_OFF)rdx_note_off(e.note);
         else if(e.type==EVENT_PANIC)rdx_panic();
@@ -123,7 +128,9 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         else if(e.type==EVENT_EDITOR)rdx_editor_adjust(e.note,e.velocity,e.control&127u,e.delta,(e.control&128u)!=0);
         else if(e.type==EVENT_BEND)rdx_pitch_bend((uint16_t)e.delta);
         else if(e.type==EVENT_CC)rdx_control_change(e.note,e.velocity);
+        else if(e.type==EVENT_MEASURE)rdx_measure_command(e.note,plat_ms());
     }
+    rdx_measure_prepare(plat_ms());
     const uint32_t t1=plat_ticks24();
     rdx_render(left,right);
     const uint32_t t2=plat_ticks24();
@@ -179,19 +186,21 @@ static void control_input(void) {
     uint32_t pressed=buttons&~buttons_before;
     uint32_t released=buttons_before&~buttons;
     if((pressed&(1u<<B_REC))&&(buttons&(1u<<B_SEL))){
-        selector_used=1;timing_page=(timing_page+1u)%6u;detail_set(0);editor_redraw=1;timing_draw=0;
+        if(timing_page==6)event_push(EVENT_MEASURE,COST_STOP,0);
+        selector_used=1;timing_page=(timing_page+1u)%7u;detail_set(0);editor_redraw=1;timing_draw=0;
         if(timing_page)lcd_fill(0,0,240,240,C_BLACK);
         pressed&=~(1u<<B_REC);
     }
     if(timing_page){
         if(pressed&(1u<<B_SAVE)){
-            if(timing_page==2){rdx_bench_start();bench_started=1;}
+            if(timing_page==6){uint32_t s=control_request.measure[0];event_push(EVENT_MEASURE,s>=COST_ARMED&&s<=COST_MEASURE?COST_STOP:COST_START,0);cost_follow=1;cost_xruns=control_request.xruns;}
+            else if(timing_page==2){rdx_bench_start();bench_started=1;}
             else if(timing_page==3){uint32_t p[9],f=plat_lock();rdx_detail_profile(p);rdx_detail_set(p[7]?DETAIL_OFF:profile_fine?DETAIL_FINE:DETAIL_COARSE);plat_unlock(f);}
             else if(timing_page==4){core_mode=core_mode?CORE_TEST_OFF:core_selection;core_done=core_errors=core_late=core_roundtrip=0;timing_reset();}
             else if(timing_page==5){timing_reset();gui_jobs=gui_errors=gui_peak=0;control_jobs=control_peak=control_midi_count=control_drops=0;}
             else timing_reset();timing_draw=0;
         }
-        if(pressed&(1u<<B_HOME)){timing_page=0;detail_set(0);editor_redraw=1;}
+        if(pressed&(1u<<B_HOME)){if(timing_page==6)event_push(EVENT_MEASURE,COST_STOP,0);timing_page=0;detail_set(0);editor_redraw=1;}
         // Keep keyboard/preset processing below; consume page/edit controls.
         pressed&=(1u<<B_HOME)|(1u<<B_OCTDN)|(1u<<B_OCTUP);
     }
@@ -214,6 +223,7 @@ static void control_input(void) {
     }
     if(pressed&(1u<<B_SAVE))save_notice_until=plat_ms()+2000u;
     int32_t move=plat_enc(EN_SELECT);
+    if(move&&timing_page==6){cost_selection=wrap_selection(cost_follow?control_request.measure[1]:cost_selection,clamp(move,-127,127),COST_ROWS);cost_follow=0;timing_draw=0;}
     if(move&&timing_page==5){gui_enabled=!gui_enabled;editor_redraw=1;timing_draw=0;}
     if(move&&timing_page==4){core_selection=core_selection==CORE_TEST_IDLE?CORE_TEST_BUSY:CORE_TEST_IDLE;timing_draw=0;}
     if(move&&timing_page==3){
@@ -286,6 +296,25 @@ static void timing_format(char* out,const char* fmt,uint32_t a,uint32_t b,const 
 }
 static void control_frame(void) {
     control_input();
+    if(timing_page==6){
+        uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
+        const uint32_t* m=control_request.measure;uint32_t selected=cost_follow?m[1]:cost_selection;if(selected>=COST_ROWS)selected=0;
+        const uint32_t* row=m+COST_HEADER_WORDS+selected*COST_ROW_WORDS;
+        static const char* states[COST_STATES_COUNT]={"IDLE","WAIT","SETTLE","MEASURE","DONE","STOP","LIMIT","VOICE LOSS","POLY ONLY","CHANGED"};char text[40];
+        draw_text_row(4,&FONT_M,"VOICE COST SWEEP",C_WHITE);
+        timing_format(text,"TEST %luV %s",m[1],0,states[m[0]<COST_STATES_COUNT?m[0]:COST_IDLE]);draw_text_row(46,&FONT_B,text,C_WHITE);
+        timing_format(text,"ROW %luV ACT %lu",selected,row[COST_ACTUAL],"");draw_text_row(72,&FONT_B,text,C_WHITE);
+        timing_format(text,"APP %lu SYN %lu us",(row[COST_APP]+23u)/24u,(row[COST_SYN]+23u)/24u,"");draw_text_row(98,&FONT_B,text,C_WHITE);
+        timing_format(text,"FX %lu P6 %lu us",(row[COST_FX]+23u)/24u,(m[3]+23u)/24u,"");draw_text_row(124,&FONT_B,text,C_WHITE);
+        timing_format(text,"STEADY %lu XRUN %lu",row[COST_STEADY_BLOCKS],plat_xruns()-cost_xruns,"");draw_text_row(150,&FONT_B,text,C_WHITE);
+#ifdef PLAT_HOST
+        draw_text_row(174,&FONT_B,"HOST: NO DEVICE TIMING",C_GRAY);
+#else
+        timing_format(text,"90%% GUARD %lu us",(m[4]+23u)/24u,0,"");draw_text_row(174,&FONT_B,text,C_GRAY);
+#endif
+        draw_text_row(198,&FONT_B,"SAVE START/STOP HOME",C_HI);
+        timing_format(text,"SELECT ROW / %lu s",m[2]/1000u,0,"");draw_text_row(216,&FONT_B,text,C_GRAY);return;
+    }
     if(timing_page==5){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
         uint32_t f=plat_lock(),peak=timing.peak,cost[3];rdx_cost_profile(cost);plat_unlock(f);char row[40];
@@ -462,6 +491,9 @@ int app_expect(const char* what,int* got) {
     else if(!strcmp(what,"control_errors"))*got=control_errors;
     else if(!strcmp(what,"control_drops"))*got=control_drops;
     else if(!strcmp(what,"control_midi"))*got=control_midi_count>0;
+    else if(!strcmp(what,"cost_state")){uint32_t p[COST_SNAPSHOT_WORDS];rdx_measure_snapshot(p);*got=p[0];}
+    else if(!strcmp(what,"cost_target")){uint32_t p[COST_SNAPSHOT_WORDS];rdx_measure_snapshot(p);*got=p[1];}
+    else if(!strcmp(what,"cost_selection"))*got=cost_selection;
     else if(!strcmp(what,"bench_selection"))*got=bench_selection;
     else if(!strcmp(what,"bench_case")){uint32_t r[4];rdx_bench_result(0,r);*got=r[2];}
     else if(!strcmp(what,"profile_enabled")){uint32_t p[9];rdx_detail_profile(p);*got=p[7];}
