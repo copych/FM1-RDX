@@ -1,6 +1,6 @@
 # FM1-RDX
 
-A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha reface DX. Explore 33 sounds, shape each operator and envelope, and add two effects.
+A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha reface DX. Shape each operator and envelope, and add two effects.
 
 **[Play in your browser](https://copych.github.io/FM1-RDX/emu/)** · **[Install on your FM-1](https://copych.github.io/FM1-RDX/install/)** · **[Project home](https://copych.github.io/FM1-RDX/)**
 
