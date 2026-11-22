@@ -69,8 +69,10 @@ static int plat_cpu2_busy(void){
 }
 static int plat_cpu2_wait(void){assert(!core);if(fail_wait){dispatched_pending=cpu_on=0;return -1;}assert(!dispatched_pending);return 0;}
 static void audio_checkpoint(void){}
+static void audio_checkpoint_at(uint32_t where){(void)where;}
 static uint32_t audio_control_lock(void){return plat_lock();}
 void rdx_dry_snapshot(uint32_t* p){assert(!core&&lock_depth);memset(p,0,32);}
+void rdx_dry_detail(uint32_t* p){assert(!core&&lock_depth);memset(p,0,32);}
 void rdx_dry_retired(void){assert(!core&&lock_depth);}
 #include "../app/control_dispatch.h"
 static uint32_t packet(uint32_t status,uint32_t a,uint32_t b){return (status<<8)|(a<<16)|(b<<24);}

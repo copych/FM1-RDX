@@ -31,6 +31,7 @@ static volatile uint8_t preset_home_requested;
 #include "core_test.h"
 #define RDX_CONTROL_ISOLATED 1
 static void audio_checkpoint(void);
+static void audio_checkpoint_at(uint32_t where);
 #include "gui_worker.h"
 static void audio_job(uint32_t unused){(void)unused;rdx_dry_service();}
 static void audio_kick(void){
@@ -39,7 +40,8 @@ static void audio_kick(void){
     if(!rdx_dry_acquire()&&plat_cpu2_on()&&!plat_cpu2_busy())plat_cpu2_run(audio_job,0);
     plat_unlock(f);
 }
-static void audio_checkpoint(void){if(plat_core()==1)rdx_dry_service();}
+static void audio_checkpoint_at(uint32_t where){if(plat_core()==1)rdx_dry_service_at(where);}
+static void audio_checkpoint(void){audio_checkpoint_at(DRY_AT_CONTROL);}
 static uint32_t audio_control_lock(void){
     // Main-loop only: snapshots/panic must not inspect a worker-owned voice.
     // Audio never enters this bounded wait. Main also retires BSP faults here.
@@ -149,6 +151,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         rdx_dry_late();audio_kick();return;
     }
     const uint32_t t0=plat_ticks24();
+    rdx_dry_block_start(t0);
     sm_audio();
     if(panic_requested) {rdx_measure_command(COST_STOP,plat_ms());rdx_panic();event_read=event_write;panic_requested=0;}
     for(i=0;i<32u && event_read!=event_write;++i) {
@@ -189,7 +192,19 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
 // Worker callbacks consume captured input and engine snapshots only.
 static void control_blit(uint32_t x,uint32_t y){
     // Publish CPU1's RAM canvas before starting peripheral DMA reads.
-    audio_checkpoint();plat_cpu2_sync();cv_blit(x,y);audio_checkpoint();
+    audio_checkpoint_at(DRY_AT_LCD);plat_cpu2_sync();cv_blit(x,y);audio_checkpoint_at(DRY_AT_LCD);
+}
+static void control_begin(uint32_t w,uint32_t h,uint16_t color){
+    audio_checkpoint_at(DRY_AT_LCD);cv_begin(w,h,color);audio_checkpoint_at(DRY_AT_LCD);
+}
+static int32_t control_text(int32_t x,int32_t y,const felucca_font_t* font,const char* text,uint16_t color){
+    // The original rasterizer advances independently per byte/glyph; preserving
+    // its returned x retains clipping, blending and glyph placement exactly.
+    for(;*text;++text){
+        const char one[2]={*text,0};audio_checkpoint_at(DRY_AT_TEXT);
+        x=cv_text(x,y,font,one,color);
+    }
+    audio_checkpoint_at(DRY_AT_TEXT);return x;
 }
 static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t color){
     if(x>=240u||y>=240u||!w||!h)return;
@@ -197,6 +212,8 @@ static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t co
     for(uint32_t row=0;row<h;row+=8u){uint32_t n=h-row;if(n>8u)n=8u;cv_begin(w,n,color);control_blit(x,y+row);}
 }
 #define cv_blit control_blit
+#define cv_begin control_begin
+#define cv_text control_text
 #define lcd_fill control_fill
 #define plat_lock control_lock
 #define plat_unlock control_unlock
@@ -357,16 +374,17 @@ static void control_frame(void) {
         uint32_t now=plat_ms();char row[40];
         if((uint32_t)(now-timing_draw)<250u&&timing_draw)return;
         timing_draw=now;
-        const uint32_t* d=control_request.dry;
+        const uint32_t* d=control_request.dry;const uint32_t* q=control_request.dry_detail;
+        static const char* at[DRY_CHECKPOINTS_COUNT]={"IDLE","CONTROL","LCD","TEXT","SCALE","EDITOR","PROTO"};
         draw_text_row(4,&FONT_M,"DRY CORE PIPELINE",C_WHITE);
-        timing_format(row,"SYN CPU%lu JOBS %lu",d[0]?1u:0u,d[1],"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"WORK %lu us TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"LATE %lu FAULT %lu",d[4],plat_cpu2_gave_up(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
+        timing_format(row,"QMAX %lu WORK %lu",(q[0]+23u)/24u,(q[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
+        timing_format(row,"AT %s / %luV WHY %lu",q[4],q[7],at[q[3]<DRY_CHECKPOINTS_COUNT?q[3]:DRY_AT_IDLE]);draw_text_row(98,&FONT_B,row,C_WHITE);
         timing_format(row,"APP %lu FX %lu us",(timing.peak+23u)/24u,(control_request.cost[1]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
         timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
-        timing_format(row,"XRUN %lu STK %lu",plat_xruns()-timing_xruns,plat_cpu2_stack(),"");draw_text_row(174,&FONT_B,row,C_WHITE);
-        draw_text_row(198,&FONT_B,"SELECT: CPU0 / CPU1",C_HI);
-        draw_text_row(216,&FONT_B,"SAVE RESET / +1 BLOCK",C_GRAY);return;
+        timing_format(row,"LATE %lu FAULT %lu",d[4],plat_cpu2_gave_up(),"");draw_text_row(174,&FONT_B,row,C_WHITE);
+        timing_format(row,"XRUN %lu / SYN CPU%lu",plat_xruns()-timing_xruns,d[0]?1u:0u,"");draw_text_row(198,&FONT_B,row,C_HI);
+        draw_text_row(216,&FONT_B,"SELECT CPU / SAVE RESET",C_GRAY);return;
     }
     if(timing_page==5){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -524,6 +542,8 @@ static void control_frame(void) {
 #undef plat_cpu_khz
 #undef timing
 #undef cv_blit
+#undef cv_begin
+#undef cv_text
 #undef lcd_fill
 void app_say(const char* a,const char* b) {(void)a;(void)b;}
 void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}

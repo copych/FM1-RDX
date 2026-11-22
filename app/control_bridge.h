@@ -11,6 +11,7 @@ typedef struct {
     uint32_t cost[3],profile[9],fine[4],voices,xruns,cpu,khz;
     uint32_t measure[COST_SNAPSHOT_WORDS];
     uint32_t dry[8];
+    uint32_t dry_detail[8];
     RdxTiming timing;
     uint8_t patch[150],system[32],sysex[640];uint32_t sysex_size;
 } ControlRequest;

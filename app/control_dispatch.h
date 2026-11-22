@@ -36,7 +36,9 @@ static void control_job(uint32_t unused){
     if(gui_hash(&control_request,sizeof control_request)!=control_input_hash||control_request.kind>=CONTROL_JOBS_COUNT)return;
     control_active=1;
     if(control_request.kind==CONTROL_SYSEX){
+        audio_checkpoint_at(DRY_AT_PROTOCOL);
         if(control_request.sysex_size<=640u)control_reply.sysex_result=control_sysex(control_request.sysex,control_request.sysex_size);
+        audio_checkpoint_at(DRY_AT_PROTOCOL);
     }else{
         if(control_request.kind==CONTROL_FRAME)control_frame();else control_input();
         control_midi();control_probe();
@@ -77,6 +79,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     rdx_cost_profile(control_request.cost);rdx_detail_profile(control_request.profile);rdx_detail_fine(control_request.fine);
     rdx_measure_snapshot(control_request.measure);
     rdx_dry_snapshot(control_request.dry);
+    rdx_dry_detail(control_request.dry_detail);
     control_request.timing=timing;control_request.voices=rdx_voice_status();
     if(kind==CONTROL_SYSEX){
         if(sm_patch_pending)memcpy(control_request.patch,sm_patch,150);else rdx_patch_export(control_request.patch);

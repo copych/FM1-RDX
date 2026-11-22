@@ -52,7 +52,11 @@ extern "C" {
 // Dry-render pipeline: access only after acquire succeeds. CPU0 publishes after
 // consuming the previous bus; CPU1 services at UI checkpoints or as a BSP job.
 int rdx_dry_acquire(void);
+enum eDryCheckpoint {DRY_AT_IDLE,DRY_AT_CONTROL,DRY_AT_LCD,DRY_AT_TEXT,DRY_AT_SCALE,DRY_AT_EDITOR,DRY_AT_PROTOCOL,DRY_CHECKPOINTS_COUNT};
 void rdx_dry_service(void);
+void rdx_dry_service_at(uint32_t checkpoint);
+void rdx_dry_block_start(uint32_t ticks);
+void rdx_dry_detail(uint32_t* words8);
 int rdx_dry_publish(void);
 void rdx_dry_mode(uint8_t on);
 void rdx_dry_snapshot(uint32_t* words8);

@@ -4,6 +4,7 @@
 #include "../src/rdx_profile.cpp"
 #include "../src/rdx_effects.cpp"
 #include "../src/rdx_budget.h"
+#include "../src/rdx_pipeline_budget.h"
 #include "../src/rdx_measure.h"
 #if defined(RDX_FM1)
 extern "C" uint32_t plat_ticks24(void);
@@ -13,6 +14,7 @@ static uint32_t budget_ticks(){return 0;}
 #endif
 #include "benchmark.inc"
 static RdxBudget budget;
+static RdxPipelineBudget pipeline_budget;
 static RdxVoiceMeasure voice_measure;
 static uint32_t fx_last,measure_last_voices;
 static bool measure_guarded_block;
@@ -179,9 +181,11 @@ extern "C" void rdx_render(float* l,float* r) {
     if(dry.enabled){
         // Previous job has completed before entry. Apply the last admission
         // decision now, never while CPU1 owns the voices.
-        engine->setVoiceLimit(budget.limit);
+        engine->setVoiceLimit(pipeline_budget.limit);
         dry.observed_turn=dry.turn_ticks;
         dry.observed_voices=engine->renderedVoices();
+        dry.observed_queue=dry.queue_ticks;dry.observed_lead=dry.lead_ticks;
+        dry.observed_new=dry.complete!=dry.seen_complete;dry.seen_complete=dry.complete;
     }
     budget_sample_valid=false;synth_ticks=fx_last=0;
     if(editor_pending) {
@@ -256,9 +260,18 @@ extern "C" void rdx_render(float* l,float* r) {
 static void measure_restore(){engine->panic();engine->setVoiceLimit(budget.limit);engine->sustain(pedal_down);}
 extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
     if(dry.enabled){
-        // Pipeline throughput is bounded by the busier core/turnaround, not
-        // the sum of overlapping worker and CPU0 service times.
-        if(dry.observed_turn>ticks)ticks=dry.observed_turn;
+        dry.cpu0_accounted=ticks>RdxBudget::deadline*90u/100u;
+        if(budget_dirty){
+            const uint8_t previous=pipeline_budget.limit;pipeline_budget.reset(now);
+            if(budget_keep_limit)pipeline_budget.limit=previous;
+            budget_dirty=budget_keep_limit=false;
+        }
+        if(dry.cpu0_overload&&ticks<=RdxBudget::deadline*90u/100u)ticks=RdxBudget::deadline*90u/100u+1u;
+        pipeline_budget.observe(now,ticks,dry.observed_new?dry.observed_lead:0,
+            dry.observed_new?dry.observed_queue:0,dry.observed_new?synth_ticks:0,
+            dry.observed_new?dry.observed_voices:0,budget_sample_valid&&dry.observed_new,dry.late_signal);
+        dry.late_signal=dry.cpu0_overload=0;
+        return; // limit is applied only after the next acquired completion
     }
     if(voice_measure.active()){
         measure_guarded_block=true;measure_last_voices=engine->renderedVoices();
@@ -277,7 +290,7 @@ extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
     if(!dry.enabled)engine->setVoiceLimit(budget.limit);
 }
 extern "C" void rdx_budget_overload(uint32_t now){
-    if(dry.enabled)return; // observe already made this block's decision before publication
+    if(dry.enabled){if(!dry.cpu0_accounted)dry.cpu0_overload=1;return;}
     if(voice_measure.active()||measure_guarded_block){
         voice_measure.overload(measure_guarded_block?measure_last_voices:engine->renderedVoices());
         measure_restore();return;
@@ -317,7 +330,7 @@ extern "C" void rdx_measure_prepare(uint32_t now){
 extern "C" void rdx_measure_snapshot(uint32_t* out){voice_measure.snapshot(out);}
 extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_t)engine->activeVoices()<<8)|((uint32_t)RdxEngine::voiceCapacity<<16);}
 extern "C" void rdx_cost_reset(void){synth_peak=fx_peak=0;}
-extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=budget.prediction(RdxBudget::maximum);}
+extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=dry.enabled?pipeline_budget.prediction(RdxBudget::maximum):budget.prediction(RdxBudget::maximum);}
 extern "C" void rdx_detail_set(uint8_t on){if(on&&voice_measure.active())rdx_measure_command(COST_STOP,0);detail_enabled=on>=DETAIL_MODES_COUNT?DETAIL_OFF:on;
     if(dry.enabled)detail_enabled=DETAIL_OFF;
     if(detail_enabled){detail_peak=detail_blocks=detail_voices=0;

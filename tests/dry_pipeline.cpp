@@ -33,6 +33,7 @@ int main(){
     rdx_render(l,r);assert(kicks==1&&!rdx_dry_acquire());
     unsigned char before[sizeof(RdxEngine)];memcpy(before,engine,sizeof before);
     rdx_budget_observe(RdxBudget::deadline,3000);
+    rdx_budget_overload(3000);assert(!dry.cpu0_overload); // same CPU0 block counted once
     assert(!memcmp(before,engine,sizeof before)); // admission waits for next ownership window
     assert(!rdx_dry_publish());rdx_dry_service();
     rdx_dry_set_kick(nullptr);

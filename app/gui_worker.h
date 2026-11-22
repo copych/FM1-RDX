@@ -19,10 +19,10 @@ static void gui_job(uint32_t unused){
     gui_reply.valid=0;
     if(gui_hash(&request,sizeof request)!=gui_request_hash||request.page>=EDITOR_PAGES_COUNT||request.op>=4||request.tune>=5)return;
     const uint8_t* pixels=rdx_editor_draw(&request.view,request.page,request.op,request.tune);
-    audio_checkpoint();
+    audio_checkpoint_at(DRY_AT_EDITOR);
     memset(gui_reply.pixels,0,sizeof gui_reply.pixels);
     // Same nearest-neighbour scaling and bit order as the original CPU0 path.
-    for(uint32_t y=0;y<120;++y){if(!(y&7u))audio_checkpoint();for(uint32_t x=0;x<240;++x){
+    for(uint32_t y=0;y<120;++y){if(!(y&3u))audio_checkpoint_at(DRY_AT_SCALE);for(uint32_t x=0;x<240;++x){
         uint32_t sx=x*128u/240u,sy=y*64u/120u,at=y*240u+x;
         if((pixels[(sy>>3)*128u+sx]>>(sy&7u))&1u)gui_reply.pixels[at>>3]|=(uint8_t)(1u<<(at&7u));
     }
