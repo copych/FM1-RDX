@@ -2,8 +2,11 @@
 inline __attribute__((always_inline)) float profileEnvelope(){return env_.processAEG();}
 inline __attribute__((always_inline)) void profileEnvelopeAdvance(RdxEnvelopePoint* out){env_.profileAdvance(out);}
 inline __attribute__((always_inline)) float profilePitch(float modulation){
+    return preparePitchRatio(semitonesToRatio(modulation));
+}
+inline __attribute__((always_inline)) float preparePitchRatio(float ratio){
     const float before=phase_;
-    phase_=phase_+phaseInc_*semitonesToRatio(modulation);
+    phase_=phase_+phaseInc_*ratio;
     phase_=wrapPositive01(phase_);return before;
 }
 inline __attribute__((always_inline)) float profileWavePrepared(float input,float before,float envelope){

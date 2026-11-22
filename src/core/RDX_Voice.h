@@ -389,6 +389,7 @@ inline  __attribute__((always_inline)) void updateMods() {
     }
 
     inline void updateModParams() {
+        cachePitchRouting();
         pmDepth_ = PM_DEPTH[patch_.common.lfoPMD];
 
         for (int i = 0; i < 4; ++i) {

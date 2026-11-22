@@ -9,6 +9,8 @@ template<bool Mono> static void compare(RDX_Voice& reference,RDX_Voice& routed){
         if(Mono&&b==20){reference.noteOn(65,110);routed.noteOn(65,110);}
         if(b==30){auto& p=RDX_State::getState().workingPatch;p.common.algorithm=(p.common.algorithm+1)%12;reference.cacheParams();routed.cacheParams();}
         if(b==45){uint8_t next=(RDX_State::getState().workingPatch.common.algorithm+1)%12;reference.setAlgorithm(next);routed.setAlgorithm(next);}
+        if(b==55){auto& p=RDX_State::getState().workingPatch;p.ops[0].pegEnable^=1;p.ops[2].lfoPMDEnable^=1;reference.updateModParams();routed.updateModParams();}
+        if(b==65){auto& p=RDX_State::getState().workingPatch;for(int n=0;n<4;++n){p.ops[n].pegEnable=1;p.ops[n].lfoPMDEnable=1;}reference.updateModParams();routed.updateModParams();}
         if(b==80){reference.noteOff();routed.noteOff();}
         reference.updateLfo();routed.updateLfo();
         for(int i=0;i<128;++i){float a=reference.step<Mono>(),v=routed.stepRouted<Mono>();CHECK(std::isfinite(a)&&std::isfinite(v));CHECK(!memcmp(&a,&v,sizeof a));}
