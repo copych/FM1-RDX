@@ -181,7 +181,7 @@ extern "C" void rdx_render(float* l,float* r) {
     if(dry.enabled){
         // Previous job has completed before entry. Apply the last admission
         // decision now, never while CPU1 owns the voices.
-        engine->setVoiceLimit(pipeline_budget.limit);
+        if(!voice_measure.active())engine->setVoiceLimit(pipeline_budget.limit);
         dry.observed_turn=dry.turn_ticks;
         dry.observed_voices=engine->renderedVoices();
         dry.observed_queue=dry.queue_ticks;dry.observed_lead=dry.lead_ticks;
@@ -257,10 +257,35 @@ extern "C" void rdx_render(float* l,float* r) {
         fade=PRESET_FADE_IN;
     } else fade=PRESET_STEADY;
 }
-static void measure_restore(){engine->panic();engine->setVoiceLimit(budget.limit);engine->sustain(pedal_down);}
+static uint32_t measure_service(){
+    uint32_t service=dry.turn_ticks>UINT32_MAX-dry.lead_ticks?UINT32_MAX:dry.lead_ticks+dry.turn_ticks;
+    return dry.callback_ticks>service?dry.callback_ticks:service;
+}
+static void measure_restore(){
+    engine->panic();engine->setVoiceLimit(dry.enabled?pipeline_budget.limit:budget.limit);engine->sustain(pedal_down);
+    dry.valid=dry.prepared=dry.late_signal=dry.cpu0_overload=dry.restore_pending=0;
+    if(dry.enabled){dry.seen_complete=dry.complete;dry.recovered_block=1;}
+}
+extern "C" void rdx_measure_recover(){
+    if(dry.restore_pending){
+        if(dry.enabled&&dry.complete==dry.measure_abort_request&&dry.complete!=dry.measure_seen&&
+           (int32_t)(dry.complete-dry.measure_first)>=0){
+            uint32_t service=measure_service();
+#ifdef PLAT_HOST
+            service=0;
+#endif
+            voice_measure.record(service,dry.worker_ticks,dry.callback_fx,engine->renderedVoices(),
+                dry.queue_ticks,dry.turn_ticks,dry.lead_ticks);
+            dry.measure_seen=dry.complete;
+        }
+        measure_restore();dry.recovered_block=1;
+    }
+}
 extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
     if(dry.enabled){
         dry.cpu0_accounted=ticks>RdxBudget::deadline*90u/100u;
+        dry.callback_ticks=ticks;dry.callback_fx=fx_last;dry.callback_valid=budget_sample_valid;
+        if(voice_measure.active()||measure_guarded_block)return; // freeze normal admission while testing
         if(budget_dirty){
             const uint8_t previous=pipeline_budget.limit;pipeline_budget.reset(now);
             if(budget_keep_limit)pipeline_budget.limit=previous;
@@ -290,6 +315,12 @@ extern "C" void rdx_budget_observe(uint32_t ticks,uint32_t now){
     if(!dry.enabled)engine->setVoiceLimit(budget.limit);
 }
 extern "C" void rdx_budget_overload(uint32_t now){
+    if(dry.enabled&&(voice_measure.active()||measure_guarded_block)){
+        if(voice_measure.active()){
+            voice_measure.overload(voice_measure.target);dry.restore_pending=1;dry.measure_abort_request=dry.request;
+        }
+        return;
+    }
     if(dry.enabled){if(!dry.cpu0_accounted)dry.cpu0_overload=1;return;}
     if(voice_measure.active()||measure_guarded_block){
         voice_measure.overload(measure_guarded_block?measure_last_voices:engine->renderedVoices());
@@ -299,20 +330,32 @@ extern "C" void rdx_budget_overload(uint32_t now){
 }
 extern "C" int rdx_measure_active(void){return voice_measure.active();}
 extern "C" void rdx_measure_command(uint8_t command,uint32_t now){
-    if(dry.enabled&&command==COST_START)return; // sweep is synchronous-only
     if(voice_measure.active()){voice_measure.stop(COST_STOPPED);measure_restore();}
     if(command==COST_START){
-        rdx_detail_set(DETAIL_OFF);uint32_t predicted=budget.prediction(6);
+        rdx_detail_set(DETAIL_OFF);uint32_t predicted=dry.enabled?pipeline_budget.prediction(6):budget.prediction(6);
 #ifdef PLAT_HOST
         predicted=0;
 #endif
-        voice_measure.start(now,predicted);
+        voice_measure.start(now,predicted,dry.enabled?6u:0u,dry.enabled?8u:6u);
     }
 }
 extern "C" void rdx_measure_prepare(uint32_t now){
-    measure_guarded_block=false;
+    rdx_measure_recover();measure_guarded_block=dry.recovered_block!=0;dry.recovered_block=0;
     if(!voice_measure.active())return;
     voice_measure.stamp=now;
+    if(dry.enabled&&voice_measure.state!=COST_ARMED&&dry.complete!=dry.measure_seen&&
+       (int32_t)(dry.complete-dry.measure_first)>=0){
+        // Observe the completed job before dispatching another one. No waits,
+        // and a crossed guard cannot launch another forced high-voice block.
+        dry.measure_seen=dry.complete;measure_guarded_block=true;
+        uint32_t service=measure_service();
+#ifdef PLAT_HOST
+        service=0;
+#endif
+        voice_measure.observe(now,service,dry.worker_ticks,dry.callback_fx,engine->renderedVoices(),
+            dry.callback_valid,dry.queue_ticks,dry.turn_ticks,dry.lead_ticks);
+        if(!voice_measure.active()){measure_restore();return;}
+    }
     if(RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY){
         voice_measure.stop(COST_NEED_POLY);measure_restore();return;
     }
@@ -321,10 +364,11 @@ extern "C" void rdx_measure_prepare(uint32_t now){
         voice_measure.stop(COST_CHANGED);measure_restore();return;
     }
     if(voice_measure.state==COST_ARMED){
-        static const uint8_t notes[6]={48,55,60,64,67,72};
+        static const uint8_t notes[8]={48,55,60,64,67,72,76,79};
         engine->panic();engine->sustain(pedal_down);engine->setVoiceLimit(voice_measure.target?voice_measure.target:1);
         for(uint32_t i=0;i<voice_measure.target;++i)engine->noteOn(notes[i],100);
         voice_measure.begin(now);
+        if(dry.enabled){dry.valid=0;dry.measure_first=dry.request+1u;dry.measure_seen=dry.complete;}
     }
 }
 extern "C" void rdx_measure_snapshot(uint32_t* out){voice_measure.snapshot(out);}

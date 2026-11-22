@@ -30,6 +30,8 @@ mkdir -p build/dry-controls
 app/build/host/rdx_host tests/dry-controls.txt build/dry-controls
 mkdir -p build/voice-cost-controls
 app/build/host/rdx_host tests/voice-cost-controls.txt build/voice-cost-controls
+mkdir -p build/pipeline-sweep-controls
+app/build/host/rdx_host tests/pipeline-sweep-controls.txt build/pipeline-sweep-controls
 mkdir -p build/preset-home
 app/build/host/rdx_host tests/preset-home.txt build/preset-home
 mkdir -p build/select-context

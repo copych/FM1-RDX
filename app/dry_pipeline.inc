@@ -14,6 +14,8 @@ static struct {
     uint32_t block_start,lead_ticks,queue_ticks,observed_lead,observed_queue;
     uint32_t queue_peak,queue_work,queue_turn,queue_at,queue_voices,last_at;
     uint32_t late_signal,cpu0_overload,cpu0_accounted,seen_complete,observed_new;
+    uint32_t measure_first,measure_seen,callback_ticks,callback_fx,callback_valid,restore_pending,recovered_block;
+    uint32_t measure_abort_request;
     void (*kick)(void);
     float gain;
     float samples[RdxEngine::voiceCapacity][DMA_BUFFER_LEN];
@@ -67,7 +69,12 @@ extern "C" void rdx_dry_mode(uint8_t on){
     if(on){detail_enabled=DETAIL_OFF;if(voice_measure.active())rdx_measure_command(COST_STOP,0);}
     budget_dirty=true;budget_keep_limit=false;
 }
-extern "C" void rdx_dry_late(){++dry.late;dry.late_signal=1;}
+extern "C" void rdx_dry_late(){
+    ++dry.late;dry.late_signal=1;
+    if(voice_measure.active()){
+        voice_measure.overload(voice_measure.target);dry.restore_pending=1;dry.measure_abort_request=dry.request;
+    }
+}
 extern "C" void rdx_dry_snapshot(uint32_t* out){
     out[0]=dry.enabled;out[1]=dry.jobs;out[2]=dry.worker_peak;out[3]=dry.turn_peak;
     out[4]=dry.late;out[5]=dry.request-dry.complete;out[6]=dry.worker_ticks;out[7]=dry.turn_ticks;
@@ -82,5 +89,7 @@ extern "C" void rdx_dry_reset_stats(){
     dry.queue_peak=dry.queue_work=dry.queue_turn=dry.queue_at=dry.queue_voices=0;
 }
 extern "C" void rdx_dry_retired(){
+    if(voice_measure.active())voice_measure.stop(COST_CHANGED);
+    dry.restore_pending=0;
     dry.complete=dry.request;dry.enabled=dry.prepared=dry.valid=0;plat_cpu2_sync();
 }

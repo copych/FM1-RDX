@@ -154,6 +154,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         for(i=0;i<n*2u;++i)lr[i]=0;
         rdx_dry_late();audio_kick();return;
     }
+    rdx_measure_recover();
     const uint32_t t0=plat_ticks24();
     rdx_dry_block_start(t0);
     sm_audio();
@@ -388,11 +389,13 @@ static void control_frame(void) {
         const uint32_t* m=control_request.measure;uint32_t selected=cost_follow?m[1]:cost_selection;if(selected>=COST_ROWS)selected=0;
         const uint32_t* row=m+COST_HEADER_WORDS+selected*COST_ROW_WORDS;
         static const char* states[COST_STATES_COUNT]={"IDLE","WAIT","SETTLE","MEASURE","DONE","STOP","LIMIT","VOICE LOSS","POLY ONLY","CHANGED"};char text[40];
-        draw_text_row(4,&FONT_M,"VOICE COST SWEEP",C_WHITE);
+        draw_text_row(4,&FONT_M,control_request.dry[0]?"CPU1 VOICE SWEEP":"VOICE COST SWEEP",C_WHITE);
         timing_format(text,"TEST %luV %s",m[1],0,states[m[0]<COST_STATES_COUNT?m[0]:COST_IDLE]);draw_text_row(46,&FONT_B,text,C_WHITE);
         timing_format(text,"ROW %luV ACT %lu",selected,row[COST_ACTUAL],"");draw_text_row(72,&FONT_B,text,C_WHITE);
-        timing_format(text,"APP %lu SYN %lu us",(row[COST_APP]+23u)/24u,(row[COST_SYN]+23u)/24u,"");draw_text_row(98,&FONT_B,text,C_WHITE);
-        timing_format(text,"FX %lu P6 %lu us",(row[COST_FX]+23u)/24u,(m[3]+23u)/24u,"");draw_text_row(124,&FONT_B,text,C_WHITE);
+        timing_format(text,control_request.dry[0]?"END %lu WORK %lu us":"APP %lu SYN %lu us",(row[COST_APP]+23u)/24u,(row[COST_SYN]+23u)/24u,"");draw_text_row(98,&FONT_B,text,C_WHITE);
+        if(control_request.dry[0])timing_format(text,"Q %lu TURN %lu us",(row[COST_QUEUE]+23u)/24u,(row[COST_TURN]+23u)/24u,"");
+        else timing_format(text,"FX %lu P6 %lu us",(row[COST_FX]+23u)/24u,(m[3]+23u)/24u,"");
+        draw_text_row(124,&FONT_B,text,C_WHITE);
         timing_format(text,"STEADY %lu XRUN %lu",row[COST_STEADY_BLOCKS],plat_xruns()-cost_xruns,"");draw_text_row(150,&FONT_B,text,C_WHITE);
 #ifdef PLAT_HOST
         draw_text_row(174,&FONT_B,"HOST: NO DEVICE TIMING",C_GRAY);

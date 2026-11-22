@@ -106,3 +106,15 @@ emu.send({type:'enc',role:0,n:1});emu.run(100); // CPU0 baseline
 midi(0x90,69,100);assert(emu.run(200)>0.001,'Return to CPU0 plays');
 midi(0xb0,120);emu.run(100);
 console.log('PASS: WebAssembly dry pipeline switching, finite audio, pitch, panic and CPU0 return (no hardware timing claims).');
+emu.send({type:'enc',role:0,n:1});emu.run(100); // enable CPU1 again on page seven
+button(1<<6);
+for(let i=0;i<6;i++){
+  emu.send({type:'buttons',mask:2});emu.run(20);
+  emu.send({type:'buttons',mask:2|(1<<11)});emu.run(20);
+  emu.send({type:'buttons',mask:0});emu.run(20);
+}
+button(1<<7);assert(emu.run(100)>0.001,'CPU1 six/seven/eight sweep starts audible');
+emu.run(16000);assert.equal(emu.run(100),0,'Completed pipeline sweep releases its test notes');
+midi(0x90,69,100);assert(emu.run(200)>0.001,'Normal MIDI plays after pipeline sweep');
+midi(0xb0,120);emu.run(100);
+console.log('PASS: WebAssembly CPU1 six/seven/eight sweep completes, releases test voices and returns to normal MIDI.');
