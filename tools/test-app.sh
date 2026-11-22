@@ -4,6 +4,8 @@ cd "$(dirname "$0")/.."
 bash tools/build-fm1.sh --host
 mkdir -p build/app-smoke
 app/build/host/rdx_host tests/app-smoke.txt build/app-smoke
+mkdir -p build/seven-default
+app/build/host/rdx_host tests/seven-default.txt build/seven-default
 mkdir -p build/editor-controls
 app/build/host/rdx_host tests/editor-controls.txt build/editor-controls
 mkdir -p build/bank-controls
@@ -12,6 +14,8 @@ mkdir -p build/manual-controls
 app/build/host/rdx_host tests/manual-controls.txt build/manual-controls
 mkdir -p build/level-shortcut
 app/build/host/rdx_host tests/level-shortcut.txt build/level-shortcut
+mkdir -p build/algo-shortcut
+app/build/host/rdx_host tests/algo-shortcut.txt build/algo-shortcut
 mkdir -p build/encoder-controls
 app/build/host/rdx_host tests/encoder-controls.txt build/encoder-controls
 mkdir -p build/timing-controls

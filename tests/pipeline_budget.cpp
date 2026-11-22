@@ -13,23 +13,31 @@ int main(){
     assert(b.limit==6&&b.reason==b.REASON_GROW);
     assert(b.prediction(6)==us(2336));
     b.reset(0);b.observe(1,us(399),us(50),us(120),us(1083),3,true,true);
-    assert(b.limit==5&&b.reason==b.REASON_LATE);
+    assert(b.limit==6&&b.reason==b.REASON_LATE);
     b.reset(0);b.observe(1,us(2800),0,0,0,0,false,false);
-    assert(b.limit==5&&b.reason==b.REASON_CPU0);
+    assert(b.limit==6&&b.reason==b.REASON_CPU0);
     b.reset(0);b.observe(1,us(399),us(100),us(1100),us(1500),4,true,false);
-    assert(b.limit==5&&b.reason==b.REASON_TURN);
+    assert(b.limit==6&&b.reason==b.REASON_TURN);
     // CPU0 FX just above the soft target cannot zero the worker's voice budget.
-    b.reset(0);b.observe(1,us(2500),us(50),us(100),us(1000),4,true,false);assert(b.limit==6);
+    b.reset(0);b.observe(1,us(2600),us(50),us(100),us(1000),4,true,false);assert(b.limit==7);
     b.reset(0);b.limit=3;
-    for(uint32_t t=0;t<8000;t+=3)b.observe(t,us(2500),us(50),us(100),us(1000),4,true,false);
+    for(uint32_t t=0;t<8000;t+=3)b.observe(t,us(2600),us(50),us(100),us(1000),4,true,false);
     assert(b.limit==3); // fixed CPU0 pressure prevents growth
     // Structural/invalid samples do not train a per-voice model.
     b.reset(0);b.observe(0,us(399),us(50),us(1000),us(1083),3,false,false);
-    assert(b.limit==6&&b.prediction(6)==0);
+    assert(b.limit==7&&b.prediction(6)==0);
     b.reset(0xfffffff0u);b.limit=3;
     for(uint32_t dt=0;dt<10000;dt+=3)b.observe(0xfffffff0u+dt,us(399),us(50),us(120),us(1083),3,true,false);
     assert(b.limit==6); // wrapping clock and recovery
-    b.reset(0);b.observe(1,~0u,~0u,~0u,~0u,255,true,false);assert(b.limit==5);
+    b.reset(0);b.observe(1,~0u,~0u,~0u,~0u,255,true,false);assert(b.limit==6);
     b.reset(0);for(unsigned i=0;i<20;++i)b.observe(i,0,0,0,0,0,true,true);assert(b.limit==1);
+    // User-measured seven-voice workload fits the new normal 90% target.
+    b.reset(0);for(unsigned t=0;t<5000;t+=3)b.observe(t,us(403),us(26),us(63),us(2491),7,true,false);
+    assert(b.limit==7);
+    b.limit=6;for(unsigned t=5000;t<8000;t+=3)b.observe(t,us(403),us(26),us(63),us(2491),7,true,false);
+    assert(b.limit==7);
+    b.reset(0);b.limit=6;
+    for(unsigned t=0;t<5000;t+=3)b.observe(t,us(403),us(26),us(66),us(2138),6,true,false);
+    assert(b.limit==7); // recover using measured six-voice marginal estimate too
     std::puts("PASS pipeline budget: reported scale, queue aging, recovery, fixed FX, publication lead, late/CPU0/turn guards, invalid samples, wrap and bounds");
 }

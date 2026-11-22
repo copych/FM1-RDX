@@ -374,7 +374,7 @@ extern "C" void rdx_measure_prepare(uint32_t now){
 extern "C" void rdx_measure_snapshot(uint32_t* out){voice_measure.snapshot(out);}
 extern "C" uint32_t rdx_voice_status(void){return engine->voiceLimit()|((uint32_t)engine->activeVoices()<<8)|((uint32_t)RdxEngine::voiceCapacity<<16);}
 extern "C" void rdx_cost_reset(void){synth_peak=fx_peak=0;}
-extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=dry.enabled?pipeline_budget.prediction(RdxBudget::maximum):budget.prediction(RdxBudget::maximum);}
+extern "C" void rdx_cost_profile(uint32_t* ticks3){ticks3[0]=synth_peak;ticks3[1]=fx_peak;ticks3[2]=dry.enabled?pipeline_budget.prediction(RdxPipelineBudget::maximum):budget.prediction(RdxBudget::maximum);}
 extern "C" void rdx_detail_set(uint8_t on){if(on&&voice_measure.active())rdx_measure_command(COST_STOP,0);detail_enabled=on>=DETAIL_MODES_COUNT?DETAIL_OFF:on;
     if(dry.enabled)detail_enabled=DETAIL_OFF;
     if(detail_enabled){detail_peak=detail_blocks=detail_voices=0;

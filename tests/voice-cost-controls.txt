@@ -1,4 +1,18 @@
 wait 600
+press SEL
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+turn SELECT 1
+wait 100
+expect dry_enabled 0
+tap HOME
+wait 600
 midi C0 20 00
 wait 500
 press SEL

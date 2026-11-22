@@ -6,12 +6,14 @@
 // NEXT callback, rather than one full block after its eventual dispatch.
 class RdxPipelineBudget {
 public:
+    static constexpr uint8_t maximum=7;
+    static constexpr uint32_t target=RdxBudget::deadline*90u/100u;
     enum eReason {REASON_NONE,REASON_CPU0,REASON_LATE,REASON_TURN,REASON_PREDICT,REASON_GROW,REASONS_COUNT};
-    uint8_t limit=RdxBudget::maximum;
+    uint8_t limit=maximum;
     uint8_t reason=REASON_NONE;
     void reset(uint32_t now){
         banks_[0]=banks_[1]=Peak{};bank_=0;epoch_=changed_=now;
-        limit=RdxBudget::maximum;reason=REASON_NONE;
+        limit=maximum;reason=REASON_NONE;
     }
     uint32_t prediction(uint8_t voices) const {
         if(!peak(&Peak::per))return 0;
@@ -37,11 +39,11 @@ public:
         // A fixed CPU0/FX peak must not make this loop shed every voice:
         // removing voices cannot remove that fixed workload. It blocks growth;
         // actual CPU0 deadline pressure is handled separately above.
-        while(safe>1u&&workerPrediction(safe)>RdxBudget::target)--safe;
+        while(safe>1u&&workerPrediction(safe)>target)--safe;
         if(safe<limit){limit=safe;changed_=now;reason=REASON_PREDICT;return;}
         // Quiet scheduling must persist before admitting another attack.
-        if(limit<RdxBudget::maximum&&now-changed_>=1500u&&
-           prediction(limit+1u)<RdxBudget::target-RdxBudget::deadline/50u){
+        if(limit<maximum&&now-changed_>=1500u&&
+           prediction(limit+1u)<target-RdxBudget::deadline/200u){
             ++limit;changed_=now;reason=REASON_GROW;
         }
     }

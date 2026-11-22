@@ -12,7 +12,10 @@ const raw=fs.readFileSync(path.resolve(dir,path.dirname(installer),meta.pkg));
 assert.equal(createHash('sha256').update(raw).digest('hex'),meta.sha256);
 assert.equal(meta.boot,null,'No bootloader package offered');
 assert(!html.includes('{{NAME}}'));
-assert(html.includes('hardware retesting is pending'));
+if(meta.version==='1.0.0-beta'){
+ assert(html.includes('Tested on M-VAVE FM-1 hardware.'));
+ assert(!/hardware (?:retesting|testing) is pending|physical FM-1 testing is pending/.test(html));
+}else assert(html.includes('hardware retesting is pending'));
 const manifest=JSON.parse(fs.readFileSync(`${dir}/manifest.json`));
 for(const [file,info] of Object.entries(manifest.files))assert.equal(createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex'),info.sha256,file);
 for(const file of ['index.html',installer,'emu/index.html']){

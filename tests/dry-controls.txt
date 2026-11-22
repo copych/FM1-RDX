@@ -9,6 +9,9 @@ tap REC
 tap REC
 release SEL
 expect timing 7
+expect dry_enabled 1
+turn SELECT 1
+wait 100
 expect dry_enabled 0
 turn SELECT 1
 wait 200

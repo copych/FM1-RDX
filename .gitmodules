@@ -1,3 +1,4 @@
 [submodule "platform/fm1-base"]
 	path = platform/fm1-base
-	url = https://github.com/charlesvestal/fm1-base.git
+	url = https://github.com/copych/FM1-RDX.git
+	branch = codex/fm1-base-rdx

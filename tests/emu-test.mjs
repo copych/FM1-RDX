@@ -68,7 +68,13 @@ turn(-127,200);emu.take('frame');emu.send({type:'buttons',mask:2});turn(3,40);em
 assert.deepEqual(screen(),slowScreen,'Three slow turns equal three precise level units');
 assert.notDeepEqual(fastScreen,slowScreen,'Fast and slow rotations produce different displayed values');
 console.log('PASS: WebAssembly fast/slow knob acceleration and SEL precision override.');
-button(1<<6); // HOME; diagnostic entry starts from normal rendering.
+button(1<<6); // HOME; switch the default CPU1 pipeline off for synchronous profiling.
+for(let i=0;i<7;i++){
+  emu.send({type:'buttons',mask:2});emu.run(20);
+  emu.send({type:'buttons',mask:2|(1<<11)});emu.run(20);
+  emu.send({type:'buttons',mask:0});emu.run(20);
+}
+emu.send({type:'enc',role:0,n:1});emu.run(100);button(1<<6);
 for(let i=0;i<3;i++){
   emu.send({type:'buttons',mask:2});emu.run(20);
   emu.send({type:'buttons',mask:2|(1<<11)});emu.run(20);

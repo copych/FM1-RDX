@@ -20,7 +20,7 @@ const evidence=JSON.parse(fs.readFileSync('build/evidence.json'));
 for(const [file,digest] of Object.entries(evidence.source))if(file.startsWith('src/')||file.startsWith('app/')||file.startsWith('platform/')){
   if(hash(fs.readFileSync(file))!==digest)throw Error(`Rebuild evidence required: ${file}`);
 }
-const out=path.resolve('build/site');
+const out=path.resolve(process.argv[2]||'build/site');
 fs.mkdirSync(path.join(out,'install'),{recursive:true});
 fs.mkdirSync(path.join(out,'firmware'),{recursive:true});
 fs.copyFileSync('site/index.html',path.join(out,'index.html'));
@@ -57,8 +57,7 @@ if(!html.includes(anchor))throw Error('Installer template changed: review checks
 html=html.replace(anchor,`${anchor}\n    if (await sha256hex(pkg) !== meta.sha256) { sayK("badpkg"); return; }`);
 html=html.replace('Installing can lose what FM1-RDX has saved.','Installing replaces your current firmware and can erase saved data. Back up using your current firmware’s tools.');
 html=html.replace('Do not unplug the USB cable while writing.','Do not unplug the USB cable while writing. After installation, close this tab before opening a DAW or MIDI app so it can access the MIDI port.');
-html=html.replace('<h1>Install FM1-RDX</h1>','<nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>Experimental preview · 2026.11.21</strong><br>Ready for hardware testing. Software checks pass; physical FM-1 testing is pending. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><a href="../firmware/'+packageName+'" download>Download this preview firmware</a></p>');
-html=html.replace('Experimental preview · 2026.11.21',`Experimental preview · ${config.version.replace('Preview ','')}`).replace('Ready for hardware testing. Software checks pass; physical FM-1 testing is pending.','The first preview boots and plays on an FM-1. This update adds speed-sensitive K1–K4 parameter knobs with a SEL precision override; hardware retesting is pending.');
+html=html.replace('<h1>Install FM1-RDX</h1>','<nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>FM1-RDX · '+config.version+'</strong><br>Tested on M-VAVE FM-1 hardware. Up to seven adaptive voices, USB MIDI, Soundmondo support and USB recording. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><a href="../firmware/'+packageName+'" download>Download this firmware</a></p>');
 html=html.replace('This installer does not replace the bootloader.</p>','This installer does not replace the bootloader.</p><p><strong>After installation, close this tab before opening a DAW or MIDI app.</strong> This releases the USB MIDI port for the other app.</p>');
 if(/\{\{[A-Z_]+\}\}|\/\*(?:LIB|META|APP)\*\//.test(html))throw Error('Unfilled installer placeholder');
 fs.writeFileSync(path.join(out,'install/index.html'),html);

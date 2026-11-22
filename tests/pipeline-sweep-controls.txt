@@ -10,7 +10,6 @@ tap REC
 tap REC
 tap REC
 release SEL
-turn SELECT 1
 wait 200
 expect dry_enabled 1
 tap HOME
@@ -32,7 +31,7 @@ wait 16000
 expect cost_state 4
 expect cost_target 8
 expect voice_active 0
-expect voice_limit 6
+expect voice_limit 7
 turn SELECT -1
 expect cost_selection 7
 shot pipeline-seven.png

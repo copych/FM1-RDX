@@ -135,6 +135,7 @@ void app_init(void) {
     sm_reset();
     core_test_init();
     rdx_dry_set_kick(audio_kick);
+    rdx_dry_mode(plat_cpu2_on()!=0);
 }
 void app_panic(void) {
     // All platform app_panic entry points are CPU0 main-loop update/recovery.
@@ -322,7 +323,7 @@ static void control_input(void) {
         if(buttons&(1u<<B_SEL))selector_used=1;
         select_in_menu(clamp(move,-127,127));
     }
-    move=plat_enc(EN_ALGO);if(move&&!timing_page)editor_event(EDITOR_ALGO,0,0,move,0);
+    move=plat_enc(EN_ALGO);if(move&&!timing_page){editor_page=EDITOR_ALGO;editor_event(EDITOR_ALGO,0,0,move,0);}
     if(previous_page!=editor_page||previous_op!=editor_op)reset_knob_motion();
     const uint32_t now=plat_ms();
     for(uint8_t k=0;k<4;++k) {
@@ -526,11 +527,11 @@ static void control_frame(void) {
         draw_text_row(4,&FONT_M,"AUDIO TIMING",C_WHITE);
         timing_format(row,"APP MAX %lu us",(peak+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
         timing_format(row,"SYN %lu  FX %lu us",(cost[0]+23u)/24u,(cost[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"6V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
+        timing_format(row,control_request.dry[0]?"7V %lu us CPU %lu%%":"6V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
         timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,&FONT_B,row,C_WHITE);
         timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,&FONT_B,row,C_WHITE);
         f=plat_lock();uint32_t voices=rdx_voice_status();plat_unlock(f);
-        timing_format(row,"VOICES %lu/%lu  MAX 6",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
+        timing_format(row,control_request.dry[0]?"VOICES %lu/%lu  MAX 7":"VOICES %lu/%lu  MAX 6",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
         draw_text_row(198,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
         uint32_t khz=plat_cpu_khz();
         timing_format(row,khz?"%s CLK %lu MHz":"%s CLK ?",khz/1000u,0,rdx_build_label());draw_text_row(216,&FONT_B,row,C_GRAY);return;

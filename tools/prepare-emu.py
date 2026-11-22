@@ -40,7 +40,7 @@ page = page.replace('<div class="bar">', '''<aside class="help" style="margin:16
   <kbd>1</kbd>–<kbd>0</kbd> and <kbd>-</kbd> for black keys.</p>
   <p>Turn <strong>PRESET</strong> to browse the bank. Drag a knob up/down, use its mouse wheel,
   or focus it and use arrow keys. <strong>MASTER</strong> sets volume;
-  <strong>OCT− / OCT+</strong> transpose. <strong>SELECT</strong> browses all 21 editor pages;
+  <strong>OCT− / OCT+</strong> transpose. <strong>SELECT</strong> cycles operators or related pages in the current section;
   <strong>K1–K4</strong> edit the displayed parameters. Tap <strong>SEL</strong> to select an operator;
   hold it while turning a frequency knob for fine tuning.</p>
   <p>From <strong>Home</strong>, turning <strong>K1–K4</strong> opens the operator Level screen and changes that operator's level immediately.</p>

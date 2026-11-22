@@ -3,6 +3,20 @@ press SEL
 tap REC
 tap REC
 tap REC
+tap REC
+tap REC
+tap REC
+tap REC
+release SEL
+turn SELECT 1
+wait 100
+expect dry_enabled 0
+tap HOME
+wait 600
+press SEL
+tap REC
+tap REC
+tap REC
 release SEL
 expect timing 3
 expect profile_enabled 0

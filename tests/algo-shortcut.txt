@@ -1,0 +1,19 @@
+wait 600
+expect page 0
+turn ALGO 1
+wait 50
+expect page 4
+tap ENV
+expect page 15
+turn ALGO -1
+wait 50
+expect page 4
+press SEL
+tap REC
+release SEL
+expect timing 1
+turn ALGO 1
+expect timing 1
+tap HOME
+expect page 0
+expect store_writes 0

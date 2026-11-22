@@ -6,7 +6,7 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
-**Latest preview:** a compact DSP kernel now runs from audio RAM, with up to **eight adaptive voices**, Soundmondo compatibility, USB recording and the WobbleBass fix retained. Hardware speed improvement is being measured. Polyphony starts at four and can rise while you play if processing headroom allows. Hold SEL and press REC for Audio Timing: **VOICES active/limit** shows the allowance; **SYN/FX** show separate peak processing times and **5V** estimates five-voice cost. SAVE resets timing peaks.
+**v1.0.0-beta:** up to **seven adaptive voices**, available immediately after startup. USB MIDI, Soundmondo support, USB recording and the full editor are included. The firmware is tested regularly on an M-VAVE FM-1; the seven-voice hardware sweep completed with zero XRUNs. Polyphony adapts to the sound, effects and available processing time.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 
@@ -17,7 +17,7 @@ The sounds are arranged as **four banks of eight**, starting with **1–1 DigiCh
 3. Turn **PRESET** to try another sound. Drag a knob up or down, scroll over it, or focus it and use the arrow keys.
 4. Use **MASTER** for volume and **OCT− / OCT+** to change octave.
 
-From Home, turning **K1–K4** opens the operator Level screen and changes that operator's level immediately. Inside an editor page, the knobs edit the parameters shown on that page.
+Turning **ALGORITHM** opens the algorithm screen and changes the operator routing. From Home, turning **K1–K4** opens the operator Level screen and changes that operator's level immediately. Inside an editor page, the knobs edit the parameters shown on that page.
 
 Choosing a preset with PRESET or a MIDI program change returns the display to Home.
 
@@ -43,7 +43,7 @@ The large screen beside or below the instrument mirrors its display so you can r
 | **GLO / REC / HOME** | Voice/MIDI settings / Phaser Lab / home screen |
 | **Hold SEL + press FX** | Switch effects off or on |
 
-Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and four voices of polyphony. The supplied presets include basses, keys, bells, pads, leads and percussion.
+Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and up to seven adaptive voices. The supplied presets include basses, keys, bells, pads, leads and percussion.
 
 **Edits are temporary.** SAVE does not store a patch yet. Loading another preset or restarting discards your edits. ARP, SEQ and PLAY are not connected to a sequencer in this preview.
 
@@ -51,7 +51,7 @@ Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. Th
 
 Open the [web installer](https://copych.github.io/FM1-RDX/install/) in desktop **Chrome or Edge**, connect your **M-VAVE FM-1** with a USB data cable, and follow the page. Allow MIDI access when asked. Keep the cable connected until installation finishes.
 
-This is an **experimental preview**. The first hardware test confirmed boot, playback and USB MIDI; the latest fixes still need a hardware retest. Back up anything you want to keep using your current firmware's tools before replacing it. The installer includes a way to return to M-VAVE's stock firmware. It does not offer a bootloader replacement.
+This is **v1.0.0-beta**, tested regularly on M-VAVE FM-1 hardware. Back up anything you want to keep using your current firmware's tools before replacing it. The installer includes a way to return to M-VAVE's stock firmware. It does not offer a bootloader replacement.
 
 **Close the installer tab before opening your DAW or MIDI app.** It can hold the MIDI port and prevent another app from opening it. If you already see an error, close the installer, reconnect the FM-1 and reopen the MIDI device in your app.
 
@@ -61,7 +61,7 @@ With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; opera
 
 To record over USB, select **FM1-RDX reface DX** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
 
-For **Soundmondo**, install the latest preview, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. This is tested against the protocol and original voice files, with live Soundmondo hardware testing still pending. Downloaded voices replace the current RAM edit buffer; switching presets or restarting discards them. Soundmondo can capture the current voice without writing it to the FM-1's flash.
+For **Soundmondo**, install the latest preview, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; switching presets or restarting discards them. Soundmondo can capture the current voice without writing it to the FM-1's flash.
 
 The browser emulator's **MIDI ports** control can exchange MIDI/SysEx with a selected port. It does not create an operating-system MIDI device for Soundmondo.
 
@@ -69,7 +69,7 @@ Built-in keys currently use a fixed velocity. Permanent patch saving and phrase 
 
 ## Feedback
 
-Found a problem? [Open an issue](https://github.com/copych/FM1-RDX/issues) with the preset name, what you changed, and whether you were using the browser or an FM-1. For browser problems, **Copy session** can help describe what you played. Hardware feedback is especially useful while the preview is being tested.
+Found a problem? [Open an issue](https://github.com/copych/FM1-RDX/issues) with the preset name, what you changed, and whether you were using the browser or an FM-1. For browser problems, **Copy session** can help describe what you played. Hardware feedback helps improve the beta.
 
 Based on the RDX ESP32 project, [fm1-base](https://github.com/charlesvestal/fm1-base) and [felucca-bsp](https://github.com/hugelton/felucca-bsp). Independent community firmware; not an official Yamaha or M-VAVE product.
 

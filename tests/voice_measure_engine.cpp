@@ -27,7 +27,7 @@ int main(){
     rdx_measure_command(COST_START,8000);rdx_measure_prepare(8000);
     rdx_measure_command(COST_STOP,8001);assert(RDX_State::getState().controls.sustain&&pedal_down);
     rdx_sustain(0);
-    // Actual CPU1 adapter: force 6/7/8 while normal admission remains <=6.
+    // Actual CPU1 adapter: force 6/7/8 while normal admission remains <=7.
     rdx_panic();for(unsigned i=0;i<128;++i)rdx_render(l,r);
     rdx_dry_mode(1);rdx_measure_command(COST_START,10000);
     unsigned seen=0;
@@ -38,20 +38,20 @@ int main(){
         if(rdx_dry_publish())rdx_dry_service();
     }
     assert(voice_measure.state==COST_DONE&&voice_measure.target==8);
-    assert((seen&(7u<<6))==(7u<<6)&&engine->activeVoices()==0&&engine->voiceLimit()<=6);
+    assert((seen&(7u<<6))==(7u<<6)&&engine->activeVoices()==0&&engine->voiceLimit()<=RdxPipelineBudget::maximum);
     for(unsigned n=6;n<=8;++n)assert(voice_measure.rows[n].v[COST_ACTUAL]==n&&voice_measure.rows[n].v[COST_STEADY_BLOCKS]>0);
     // Late job: stop without touching worker-owned voices, record after release.
     rdx_measure_command(COST_START,28000);rdx_measure_prepare(28000);
     rdx_render(l,r);rdx_budget_observe(0,28000);assert(rdx_dry_publish()&&!rdx_dry_acquire());
     rdx_dry_late();assert(!voice_measure.active()&&dry.restore_pending&&voice_measure.state==COST_LIMIT);
     rdx_dry_service();rdx_measure_recover();
-    assert(!dry.restore_pending&&engine->activeVoices()==0&&engine->voiceLimit()<=6);
+    assert(!dry.restore_pending&&engine->activeVoices()==0&&engine->voiceLimit()<=RdxPipelineBudget::maximum);
     assert(voice_measure.rows[6].v[COST_ACTUAL]==6);
     // Platform overload is deferred when a forced worker job is in flight.
     rdx_measure_command(COST_START,29000);rdx_measure_prepare(29000);
     rdx_render(l,r);rdx_budget_observe(0,29000);assert(rdx_dry_publish());
     rdx_budget_overload(29000);assert(dry.restore_pending&&!voice_measure.active());
-    rdx_dry_service();rdx_measure_recover();assert(engine->activeVoices()==0&&engine->voiceLimit()<=6);
+    rdx_dry_service();rdx_measure_recover();assert(engine->activeVoices()==0&&engine->voiceLimit()<=RdxPipelineBudget::maximum);
     // Manual cancel must not train normal admission from the last forced job.
     rdx_measure_command(COST_START,30000);rdx_measure_prepare(30000);
     rdx_render(l,r);rdx_budget_observe(0,30000);assert(rdx_dry_publish());rdx_dry_service();
