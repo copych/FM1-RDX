@@ -4,6 +4,12 @@
 #include <assert.h>
 #include "../app/editor_api.h"
 #include "../app/engine_api.h"
+#include "../src/rdx_looper.h"
+static RdxLooper looper;
+static void store_commit(void){}
+uint32_t rdx_user_mask(void){return 0;}
+uint8_t rdx_patch_trim(void){return 0;}
+void rdx_preset_name(uint32_t i,char* name){(void)i;memset(name,0,11);}
 enum {NE=7,EVENT_ON,EVENT_OFF,EVENT_PANIC,EVENT_PRESET,EVENT_FX,EVENT_EDITOR,EVENT_BEND,EVENT_CC};
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
 typedef struct {uint32_t blocks,last,peak,control_peak,render_peak,output_peak,over90;} RdxTiming;

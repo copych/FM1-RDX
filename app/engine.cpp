@@ -4,6 +4,8 @@
 #include "../src/rdx_profile.cpp"
 #include "../src/rdx_effects.cpp"
 #include "../src/rdx_budget.h"
+#include "../src/rdx_user_store.h"
+static RdxUserStore user_store;
 #include "../src/rdx_pipeline_budget.h"
 #include "../src/rdx_measure.h"
 #if defined(RDX_FM1)
@@ -64,7 +66,7 @@ static uint32_t destination=1;
 static float preset_gain=1.0f;
 static bool external_patch;
 static uint8_t system_metadata[32];
-static float output_trim(){return !external_patch&&destination==10u?0.25f:1.0f;}
+static float output_trim(){return !external_patch&&(destination==10u||(destination>=33u&&user_store.trimmed(destination-33u)))?0.25f:1.0f;}
 static RDX_Patch pending_patch,edited_patch;
 static uint32_t editor_revision;
 static bool editor_pending,editor_dirty,editor_error;
@@ -93,6 +95,7 @@ static void event(DeferredEvent e) {
     else rdx_panic(); // explicit overload fallback: silence and discard
 }
 extern "C" void rdx_boot(void) {
+    user_store.reset();
     voice_measure=RdxVoiceMeasure{};measure_guarded_block=false;fx_last=0;
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
     budget.reset(0);budget_dirty=true;budget_keep_limit=false;budget_sample_valid=false;synth_ticks=0;
@@ -153,10 +156,11 @@ extern "C" void rdx_panic(void) {
 }
 extern "C" void rdx_fx_toggle(void) {effects_on=!effects_on;if(effects_on)budget_keep_limit=false;else if(!budget_dirty)budget_keep_limit=true;budget_dirty=true;}
 extern "C" uint32_t rdx_fx_status(void) {return !effects->valid() ? 2u : effects_on ? 1u : 0u;}
-extern "C" uint32_t rdx_preset_count(void) {return RdxEngine::presetCount();}
+extern "C" uint32_t rdx_preset_count(void) {return 65u;}
 extern "C" void rdx_preset_request(uint32_t i) {
-    if(i>=RdxEngine::presetCount())return;
-    RdxEngine::presetPatch(i,pending_patch);editor_pending=false;editor_dirty=editor_error=false;++editor_revision;
+    if(i>=65u)return;
+    if(i>=33u){const uint8_t* p=user_store.patch(i-33u);if(p)memcpy(&pending_patch,p,150);else RdxEngine::presetPatch(0,pending_patch);}
+    else RdxEngine::presetPatch(i,pending_patch);editor_pending=false;editor_dirty=editor_error=false;++editor_revision;
     external_patch=false;destination=i;fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
     budget_dirty=true;budget_keep_limit=false;
 }
@@ -172,7 +176,8 @@ extern "C" void rdx_system_export(uint8_t* bytes){memcpy(bytes,system_metadata,3
 extern "C" void rdx_system_import(const uint8_t* bytes){memcpy(system_metadata,bytes,32);midi_rx=bytes[1]==16?0:bytes[1]+1;midi_control=bytes[14]!=0;++editor_revision;}
 extern "C" void rdx_preset_name(uint32_t i,char* name) {
     RDX_Patch p{};
-    if(RdxEngine::presetPatch(i,p))memcpy(name,p.common.voiceName,10);
+    if(i>=33u&&i<65u){const uint8_t* bytes=user_store.patch(i-33u);memcpy(name,bytes?bytes:(const uint8_t*)"EMPTY     ",10);}
+    else if(RdxEngine::presetPatch(i,p))memcpy(name,p.common.voiceName,10);
     else memcpy(name,"UNKNOWN   ",10);
     name[10]=0;
 }
@@ -429,3 +434,9 @@ extern "C" void rdx_editor_adjust(uint8_t page,uint8_t op,uint8_t knob,int16_t d
     }
     stage_edit(p);
 }
+
+static bool user_valid(const uint8_t* p){return rdx_patch_valid(p)!=0;}
+extern "C" int rdx_user_decode(uint32_t bank,const uint8_t* p,uint32_t len){return user_store.decode(bank,p,len,user_valid);}
+extern "C" int rdx_user_encode(uint32_t slot,const uint8_t* p,uint8_t trim,uint8_t* out){return user_store.encodeWith(slot,p,trim!=0,out,user_valid);}
+extern "C" uint32_t rdx_user_mask(void){return user_store.usedMask();}
+extern "C" uint8_t rdx_patch_trim(void){return output_trim()<1.0f;}

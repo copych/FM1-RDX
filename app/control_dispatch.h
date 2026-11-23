@@ -9,7 +9,7 @@ static void control_midi(void){
         case 144:event_push(EVENT_ON,d1,d2);break;
         case 128:event_push(EVENT_OFF,d1,0);break;
         case 192:
-            if(d1<rdx_preset_count()){preset=d1==32u?0:(int32_t)d1+1;event_push(EVENT_PRESET,preset,0);preset_home();}
+            if(d1<rdx_preset_count()){preset=d1==32u?0:d1>=33u?(int32_t)d1:(int32_t)d1+1;event_push(EVENT_PRESET,preset,0);preset_home();}
             break;
         case 224:control_push((rdx_event_t){EVENT_BEND,0,0,0,(int16_t)(d1|(d2<<7))});break;
         case 176:event_push(EVENT_CC,d1,d2);break;
@@ -76,6 +76,11 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     control_request.home=preset_home_requested;preset_home_requested=0;
     control_request.channel=rdx_midi_receive_channel();
     rdx_editor_snapshot(&control_request.editor);
+    control_request.loop[0]=looper.state;control_request.loop[1]=looper.position;control_request.loop[2]=looper.length;control_request.loop[3]=looper.tempo;control_request.loop[4]=looper.tracks;
+    for(uint32_t i=0;i<4u;++i)control_request.loop[5]+=looper.count[i];
+    control_request.loop[6]=looper.full;
+    control_request.user_mask=rdx_user_mask();control_request.patch_trim=rdx_patch_trim();
+    for(uint32_t i=0;i<32u;++i)rdx_preset_name(i+33u,control_request.user_names[i]);
     rdx_cost_profile(control_request.cost);rdx_detail_profile(control_request.profile);rdx_detail_fine(control_request.fine);
     rdx_measure_snapshot(control_request.measure);
     rdx_dry_snapshot(control_request.dry);
@@ -121,6 +126,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     if(control_reply.system_pending){memcpy(sm_system,control_reply.system,32);sm_system_pending=1;}
     plat_unlock(f);
     if(control_reply.reset_timing)timing_reset();
+    store_commit();
 }
 void app_input_only(void){control_run(CONTROL_INPUT,0,0);}
 void app_frame(void){control_run(CONTROL_FRAME,0,0);}

@@ -1,0 +1,77 @@
+wait 600
+tap SAVE
+expect store 1
+expect store_writes 0
+shot store.png
+turn K2 1
+tap SAVE
+expect store 3
+expect user_mask 1
+expect preset 33
+expect store_writes 1
+shot saved.png
+tap HOME
+tap SAVE
+tap SAVE
+expect store 2
+expect store_writes 1
+shot overwrite.png
+tap HOME
+expect store 0
+reboot
+wait 600
+expect user_mask 1
+midi C0 21 00
+wait 100
+expect preset 33
+tap SAVE
+turn SELECT 16
+flash_fail 1
+tap SAVE
+expect store 4
+expect user_mask 1
+flash_fail 0
+tap HOME
+reboot
+wait 600
+expect user_mask 1
+midi C0 21 00
+wait 100
+tap REC
+wait 30
+expect loop 1
+shot armed.png
+midi 90 3C 64
+wait 300
+expect loop 2
+midi 80 3C 00
+wait 100
+expect loop_events 2
+tap REC
+wait 100
+expect loop 3
+shot looper.png
+tap SAVE
+tap SAVE
+tap SAVE
+expect store 4
+expect store_writes 1
+tap HOME
+midi 90 3C 64
+wait 30
+expect live_note60 1
+tap PLAY
+wait 30
+expect loop 0
+expect live_note60 1
+expect loop_note60 0
+midi 80 3C 00
+wait 30
+expect live_note60 0
+press SEL
+tap SAVE
+release SEL
+wait 30
+expect loop_events 0
+expect control_errors 0
+expect control_drops 0

@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {productOf, logicalImage, checkUfw} from '../platform/fm1-base/web/fm1pkg.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 process.chdir(root);
-const config=JSON.parse(fs.readFileSync('site/preview.json'));
+const config=JSON.parse(fs.readFileSync(process.argv[3]||'site/preview.json'));
 const hash=data=>crypto.createHash('sha256').update(data).digest('hex');
 const firmware=fs.readFileSync('app/build/rdx.fwsc');
 const wasm=fs.readFileSync('app/build/emu/app.wasm');
@@ -23,7 +23,9 @@ for(const [file,digest] of Object.entries(evidence.source))if(file.startsWith('s
 const out=path.resolve(process.argv[2]||'build/site');
 fs.mkdirSync(path.join(out,'install'),{recursive:true});
 fs.mkdirSync(path.join(out,'firmware'),{recursive:true});
-fs.copyFileSync('site/index.html',path.join(out,'index.html'));
+let home=fs.readFileSync('site/index.html','utf8');
+if(config.features)home=home.replace('Your sound edits are temporary, so you can explore and start again.','Save your sounds in 32 user slots, then record and overdub a MIDI phrase.').replace('1.0.0 beta · tested on FM-1',config.version+' · local feature preview').replace('Patch saving and phrase looping are not available yet.','This local preview adds named user voices and a four-take phrase looper. Stop playback before saving; flash writes briefly mute audio.');
+fs.writeFileSync(path.join(out,'index.html'),home);
 fs.writeFileSync(path.join(out,'.nojekyll'),'');
 fs.writeFileSync(path.join(out,'.gitattributes'),'* -text\n');
 const slug=config.version.toLowerCase().replaceAll(' ','-');
@@ -44,7 +46,7 @@ if(fs.existsSync('app/web/words'))copyRuntime('app/web/words',path.join(out,'wor
 const emuPath=path.join(out,'emu/index.html');
 let emu=fs.readFileSync(emuPath,'utf8');
 emu=emu.replace('<body>','<body><nav aria-label="Project navigation" style="padding:16px;font:16px system-ui;display:flex;gap:20px;flex-wrap:wrap"><a href="../">FM1-RDX home</a><a href="../install/">Install on FM-1</a><a href="https://github.com/copych/FM1-RDX/issues">Report a problem</a></nav>');
-emu=emu.replace(/<p>This tests the current prototype[\s\S]*?Browser performance does not measure FM-1 timing\.<\/p>/,'<p>Explore the sounds and editor without connecting an instrument. Edits are temporary and are lost when you load another preset or restart.</p>');
+emu=emu.replace(/<p>This tests the current prototype[\s\S]*?Browser performance does not measure FM-1 timing\.<\/p>/,'<p>Explore the sounds and editor without connecting an instrument. Use SAVE to keep a voice in a user slot. Browser saves stay in this browser; phrase loops last for the current session.</p>');
 fs.writeFileSync(emuPath,emu);
 let html=fs.readFileSync('platform/fm1-base/web/installer.html','utf8');
 const lib=['fm1ports.js','fm1pkg.js','fm1ota.js'].map(name=>fs.readFileSync(`platform/fm1-base/web/${name}`,'utf8').replace(/^export\s+/gm,'').replace(/^import .*?;\r?\n/gm,'')).join('\n');
@@ -57,7 +59,7 @@ if(!html.includes(anchor))throw Error('Installer template changed: review checks
 html=html.replace(anchor,`${anchor}\n    if (await sha256hex(pkg) !== meta.sha256) { sayK("badpkg"); return; }`);
 html=html.replace('Installing can lose what FM1-RDX has saved.','Installing replaces your current firmware and can erase saved data. Back up using your current firmware’s tools.');
 html=html.replace('Do not unplug the USB cable while writing.','Do not unplug the USB cable while writing. After installation, close this tab before opening a DAW or MIDI app so it can access the MIDI port.');
-html=html.replace('<h1>Install FM1-RDX</h1>','<nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>FM1-RDX · '+config.version+'</strong><br>Tested on M-VAVE FM-1 hardware. Up to seven adaptive voices, USB MIDI, Soundmondo support and USB recording. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><a href="../firmware/'+packageName+'" download>Download this firmware</a></p>');
+html=html.replace('<h1>Install FM1-RDX</h1>','<nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>FM1-RDX · '+config.version+'</strong><br>'+(config.features?'Local saving/looper preview; the earlier beta was tested on FM-1 hardware.':'Tested on M-VAVE FM-1 hardware.')+' Up to seven adaptive voices, USB MIDI, Soundmondo support and USB recording. '+(config.features?'32 user slots and a MIDI phrase looper. Saving briefly mutes audio.':'Patch edits are not saved permanently yet.')+' This installer does not replace the bootloader.</p><p><a href="../firmware/'+packageName+'" download>Download this firmware</a></p>');
 html=html.replace('This installer does not replace the bootloader.</p>','This installer does not replace the bootloader.</p><p><strong>After installation, close this tab before opening a DAW or MIDI app.</strong> This releases the USB MIDI port for the other app.</p>');
 if(/\{\{[A-Z_]+\}\}|\/\*(?:LIB|META|APP)\*\//.test(html))throw Error('Unfilled installer placeholder');
 fs.writeFileSync(path.join(out,'install/index.html'),html);

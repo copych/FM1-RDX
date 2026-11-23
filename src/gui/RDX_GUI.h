@@ -195,11 +195,11 @@ class RDX_GUI {
       ui_display().setTextScale(UITextScale::X1);
       if(ui_preset_index()==0) ui_display().drawText(2, 0, "INIT PATCH");
       else {
-      ui_display().drawText(2, 0, "Bank  -");
+      ui_display().drawText(2, 0, ui_preset_index()>=33?"User  -":"Bank  -");
 
       uint8_t m, l;
-      m = (ui_preset_index()-1) / 8 + 1;
-      l = (ui_preset_index()-1) % 8 + 1;
+      m = (ui_preset_index()>=33?ui_preset_index()-33:ui_preset_index()-1) / 8 + 1;
+      l = (ui_preset_index()>=33?ui_preset_index()-33:ui_preset_index()-1) % 8 + 1;
       char t[5];
       ui_snprintf(t, sizeof(t), "%d", m);
       ui_display().drawText(2 + 6 * 5, 0, t);

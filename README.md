@@ -40,12 +40,21 @@ The large screen beside or below the instrument mirrors its display so you can r
 | **Hold SEL + turn frequency** | Adjust fine tuning |
 | **SELECT** | Choose an operator on operator/AEG pages; browse related screens in other menus |
 | **ALGORITHM** | Change how the four operators connect |
-| **GLO / REC / HOME** | Voice/MIDI settings / Phaser Lab / home screen |
+| **GLO / HOME** | Voice/MIDI settings / home screen |
+| **SEL + GLO** | Phaser Lab |
+| **SAVE** | Store a named voice in a user slot |
+| **SEQ / REC / PLAY** | Looper screen / record or overdub / start or stop |
 | **Hold SEL + press FX** | Switch effects off or on |
 
 Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and up to seven adaptive voices. The supplied presets include basses, keys, bells, pads, leads and percussion.
 
-**Edits are temporary.** SAVE does not store a patch yet. Loading another preset or restarting discards your edits. ARP, SEQ and PLAY are not connected to a sequencer in this preview.
+**Saving and looping are available in the new local preview; the public installer still serves v1.0.0-beta.**
+
+Press **SAVE** to store a voice in one of **32 user slots**, separate from the factory bank. **SELECT** chooses a destination; **K1** selects one of the ten name characters and **K2** changes it. **K3/K4** choose bank/slot. Press SAVE again to store; an occupied slot asks for a second confirmation. **HOME** cancels. Saving briefly mutes audio, so stop the looper first. Stored voices survive power-off. In the emulator they stay in this browser while its site data is retained.
+
+Press **REC**, then play the first note to begin recording. Press REC again to finish and play the phrase in a loop. **PLAY** stops or restarts from the beginning. During playback, REC arms one overdub pass at the next loop boundary; REC can finish that pass early. **SEQ** opens/closes the looper screen; **K4** changes tempo there. **SEL + SAVE** clears a stopped phrase. HOME returns to sound editing while playback continues.
+
+The looper has four takes of up to 512 events each. It records notes, velocity, pitch bend, modulation, volume, expression and sustain. Phrases are temporary and disappear at power-off or browser reload. It does not record audio, patch changes or MIDI clock. ARP remains unassigned.
 
 ## Install on an FM-1
 
@@ -61,11 +70,11 @@ With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; opera
 
 To record over USB, select **FM1-RDX reface DX** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
 
-For **Soundmondo**, install the latest preview, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; switching presets or restarting discards them. Soundmondo can capture the current voice without writing it to the FM-1's flash.
+For **Soundmondo**, install the latest preview, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; use SAVE to keep a downloaded voice in a user slot. Soundmondo can capture the current voice without writing it to the FM-1's flash.
 
 The browser emulator's **MIDI ports** control can exchange MIDI/SysEx with a selected port. It does not create an operating-system MIDI device for Soundmondo.
 
-Built-in keys currently use a fixed velocity. Permanent patch saving and phrase looping are not available yet. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited or imported effect combinations exceed the available memory; the synth rejects those combinations. SysEx support targets the Reface voice edit buffer, not a full Yamaha system/looper implementation.
+Built-in keys currently use a fixed velocity. Keyboard rate scaling still awaits calibration; its stored KSC-R value does not change envelope rates. Some edited or imported effect combinations exceed the available memory; the synth rejects those combinations. SysEx support targets the Reface voice edit buffer, not a full Yamaha system/looper implementation.
 
 ## Feedback
 

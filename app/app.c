@@ -2,8 +2,9 @@
 #include "editor_api.h"
 #include "benchmark.h"
 #include "../src/rdx_encoder.h"
+#include "../src/rdx_looper.h"
 
-enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENT_MEASURE, EVENT_SPLIT, EVENTS_COUNT };
+enum eEventType { EVENT_ON, EVENT_OFF, EVENT_PANIC, EVENT_PRESET, EVENT_FX, EVENT_EDITOR, EVENT_BEND, EVENT_CC, EVENT_MEASURE, EVENT_SPLIT, EVENT_LOOP, EVENTS_COUNT };
 static void event_push(uint8_t,uint8_t,uint8_t);
 typedef struct {uint8_t type,note,velocity,control;int16_t delta;} rdx_event_t;
 static rdx_event_t events[128];
@@ -14,7 +15,34 @@ static volatile int32_t preset=1;
 static float left[APP_BLOCK],right[APP_BLOCK];
 static float master_gain;
 static uint8_t editor_page,editor_op,editor_tune,selector_used;
-static uint32_t save_notice_until;
+enum eStoreScreen { STORE_CLOSED,STORE_EDIT,STORE_CONFIRM,STORE_DONE,STORE_ERROR,STORE_SCREENS_COUNT };
+static uint8_t store_screen,store_slot,store_cursor,store_trim;
+static uint8_t store_patch[150],store_bank[RDX_USER_BANK_BYTES];
+static RdxLooper looper;
+static uint8_t looper_screen;
+enum eOverlay { OVERLAY_NONE,OVERLAY_STORE,OVERLAY_LOOP,OVERLAYS_COUNT };
+static uint8_t live_notes[128],loop_notes[128],live_cc[4]={0,127,127,0};
+static uint16_t live_bend=8192;
+static uint8_t loop_pedal;
+static void loop_release(void){
+    loop_pedal=0;
+    for(uint32_t n=0;n<128u;++n)if(loop_notes[n]){loop_notes[n]=0;if(!live_notes[n])rdx_note_off((uint8_t)n);}
+    rdx_control_change(1,live_cc[0]);rdx_control_change(7,live_cc[1]);rdx_control_change(11,live_cc[2]);rdx_control_change(64,live_cc[3]);rdx_pitch_bend(live_bend);
+}
+static void loop_emit(uint8_t type,uint8_t a,uint8_t b){
+    if(type==LOOP_RELEASE){loop_release();return;}
+    if(type==LOOP_NOTE){if(b){if(loop_notes[a]<255)++loop_notes[a];rdx_note_on(a,b);}else{if(loop_notes[a])--loop_notes[a];if(!loop_notes[a]&&!live_notes[a])rdx_note_off(a);}}
+    else if(type==LOOP_BEND)rdx_pitch_bend((uint16_t)(a|(b<<7)));
+    else if(type==LOOP_CC){if(a==64)loop_pedal=b;rdx_control_change(a,a==64&&live_cc[3]>=64?127:b);}
+}
+static void performance_event(uint8_t type,uint8_t a,uint8_t b){
+    if(type==LOOP_NOTE){if(b){if(live_notes[a]<255)++live_notes[a];rdx_note_on(a,b);}else{if(live_notes[a])--live_notes[a];if(!live_notes[a]&&!loop_notes[a])rdx_note_off(a);}}
+    else if(type==LOOP_BEND){live_bend=(uint16_t)(a|(b<<7));rdx_pitch_bend(live_bend);}
+    else if(type==LOOP_CC){if(a==121){live_bend=8192;live_cc[0]=live_cc[3]=0;live_cc[2]=127;loop_pedal=0;}if(a==1)live_cc[0]=b;else if(a==7)live_cc[1]=b;else if(a==11)live_cc[2]=b;else if(a==64)live_cc[3]=b;rdx_control_change(a,a==64&&loop_pedal>=64?127:b);}
+    if(type!=LOOP_CC||a==1||a==7||a==11||a==64)loop_capture(&looper,type,a,b);
+}
+static void phrase_panic(void){loop_stop(&looper);loop_release();memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);live_cc[3]=0;rdx_panic();}
+static void store_commit(void);
 static EditorSnapshot editor_view;
 static uint8_t editor_redraw;
 // Audio owns the counters. UI copies/resets only under interrupt exclusion.
@@ -125,9 +153,9 @@ static void editor_event(uint8_t page,uint8_t op,uint8_t control,int32_t delta,u
 }
 void app_init(void) {
     event_read=event_write=panic_requested=0;keys_before=buttons_before=0;
-    octave=0;preset=1;master_gain=0.0f;rdx_boot();
+    octave=0;preset=1;master_gain=0.0f;rdx_boot();loop_init(&looper);looper_screen=0;loop_pedal=0;live_cc[0]=live_cc[3]=0;live_cc[1]=live_cc[2]=127;live_bend=8192;memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);
     plat_usb_audio_full(1); // Record at fixed level; MASTER controls local monitoring.
-    editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;save_notice_until=0;
+    editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;
     editor_redraw=1;
     reset_knob_motion();
     timing_page=0;bench_started=bench_selection=profile_fine=0;preset_home_requested=0;timing_reset();
@@ -135,6 +163,8 @@ void app_init(void) {
     sm_reset();
     core_test_init();
     rdx_dry_set_kick(audio_kick);
+    for(uint32_t bank=0;bank<2u;++bank){int n=plat_store_load(OBJ_USER_BANK0+bank,store_bank,sizeof store_bank);if(n>0)rdx_user_decode(bank,store_bank,(uint32_t)n);}
+    store_screen=STORE_CLOSED;
     rdx_dry_mode(plat_cpu2_on()!=0);
 }
 void app_panic(void) {
@@ -145,7 +175,7 @@ void app_panic(void) {
     uint32_t f=audio_control_lock();
     rdx_measure_command(COST_STOP,plat_ms());
     rdx_dry_mode(0);
-    rdx_panic();event_read=event_write;panic_requested=0;
+    phrase_panic();event_read=event_write;panic_requested=0;
     plat_unlock(f);
 }
 void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
@@ -159,21 +189,27 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     const uint32_t t0=plat_ticks24();
     rdx_dry_block_start(t0);
     sm_audio();
-    if(panic_requested) {rdx_measure_command(COST_STOP,plat_ms());rdx_panic();event_read=event_write;panic_requested=0;}
+    if(panic_requested) {rdx_measure_command(COST_STOP,plat_ms());phrase_panic();event_read=event_write;panic_requested=0;}
     for(i=0;i<32u && event_read!=event_write;++i) {
         rdx_event_t e=events[event_read&127u];++event_read;
         if(e.type!=EVENT_MEASURE&&rdx_measure_active())rdx_measure_command(COST_STOP,plat_ms());
-        if(e.type==EVENT_ON)rdx_note_on(e.note,e.velocity);
-        else if(e.type==EVENT_OFF)rdx_note_off(e.note);
-        else if(e.type==EVENT_PANIC)rdx_panic();
+        if(e.type==EVENT_ON)performance_event(LOOP_NOTE,e.note,e.velocity);
+        else if(e.type==EVENT_OFF)performance_event(LOOP_NOTE,e.note,0);
+        else if(e.type==EVENT_PANIC)phrase_panic();
         else if(e.type==EVENT_PRESET)rdx_preset_request(e.note);
         else if(e.type==EVENT_FX)rdx_fx_toggle();
         else if(e.type==EVENT_EDITOR)rdx_editor_adjust(e.note,e.velocity,e.control&127u,e.delta,(e.control&128u)!=0);
-        else if(e.type==EVENT_BEND)rdx_pitch_bend((uint16_t)e.delta);
-        else if(e.type==EVENT_CC)rdx_control_change(e.note,e.velocity);
+        else if(e.type==EVENT_BEND)performance_event(LOOP_BEND,(uint8_t)(e.delta&127),(uint8_t)((uint16_t)e.delta>>7));
+        else if(e.type==EVENT_CC){
+            if(e.note==120||e.note==126||e.note==127)phrase_panic();
+            else if(e.note==123||e.note==124||e.note==125){loop_stop(&looper);loop_release();memset(live_notes,0,sizeof live_notes);}
+            performance_event(LOOP_CC,e.note,e.velocity);
+        }
         else if(e.type==EVENT_MEASURE)rdx_measure_command(e.note,plat_ms());
         else if(e.type==EVENT_SPLIT)rdx_dry_mode(e.note&&plat_cpu2_on());
+        else if(e.type==EVENT_LOOP){uint8_t before=looper.state;loop_command(&looper,e.note,e.delta);if((before==LOOP_RECORD&&looper.state==LOOP_PLAY)||looper.state==LOOP_STOP)loop_release();}
     }
+    loop_advance(&looper,loop_emit);
     rdx_measure_prepare(plat_ms());
     const uint32_t t1=plat_ticks24();
     rdx_render(left,right);
@@ -291,6 +327,41 @@ static void control_input(void) {
         // Keep keyboard/preset processing below; consume page/edit controls.
         pressed&=(1u<<B_HOME)|(1u<<B_OCTDN)|(1u<<B_OCTUP);
     }
+    if(!timing_page&&store_screen==STORE_CLOSED){
+        if(pressed&(1u<<B_SEQ)){looper_screen=!looper_screen;editor_redraw=1;}
+        if(pressed&(1u<<B_REC)){looper_screen=1;event_push(EVENT_LOOP,LOOP_REC,0);pressed&=~(1u<<B_REC);editor_redraw=1;}
+        if(pressed&(1u<<B_PLAY)){looper_screen=1;event_push(EVENT_LOOP,LOOP_TOGGLE,0);editor_redraw=1;}
+        if(pressed&(1u<<B_HOME)){looper_screen=0;editor_redraw=1;}
+        if(looper_screen){
+            int32_t v=plat_enc(EN_K4);if(v)control_push((rdx_event_t){EVENT_LOOP,LOOP_TEMPO,0,0,(int16_t)clamp(v,-127,127)});
+            if((pressed&(1u<<B_SAVE))&&(buttons&(1u<<B_SEL))){event_push(EVENT_LOOP,LOOP_CLEAR,0);selector_used=1;pressed&=~(1u<<B_SAVE);}
+            if(pressed&((1u<<B_EDIT)|(1u<<B_ENV)|(1u<<B_LFO)|(1u<<B_GLO)|(1u<<B_FX)))looper_screen=0;
+        }
+    }
+    if(!timing_page&&(pressed&(1u<<B_SAVE))&&store_screen==STORE_CLOSED){
+        memcpy(store_patch,control_request.editor.patch,150);store_trim=control_request.patch_trim;
+        store_slot=control_request.editor.preset>=33u?(uint8_t)(control_request.editor.preset-33u):0;store_cursor=0;store_screen=STORE_EDIT;
+        pressed&=~(1u<<B_SAVE);editor_redraw=1;
+    }
+    if(store_screen!=STORE_CLOSED){
+        if(pressed&(1u<<B_HOME)){store_screen=STORE_CLOSED;looper_screen=0;editor_page=EDITOR_HOME;editor_redraw=1;}
+        else if(store_screen==STORE_EDIT||store_screen==STORE_CONFIRM){
+            int32_t v=plat_enc(EN_SELECT);if(v){store_slot=wrap_selection(store_slot,v,32);store_screen=STORE_EDIT;}
+            v=plat_enc(EN_K1);if(v)store_cursor=wrap_selection(store_cursor,v,10);
+            v=plat_enc(EN_K2);if(v){int c=store_patch[store_cursor];if(c<32||c>126)c=32;store_patch[store_cursor]=(uint8_t)(32+wrap_selection(c-32,v,95));store_screen=STORE_EDIT;}
+            v=plat_enc(EN_K3);if(v){store_slot=(uint8_t)(wrap_selection(store_slot/8,v,4)*8+store_slot%8);store_screen=STORE_EDIT;}
+            v=plat_enc(EN_K4);if(v){store_slot=(uint8_t)(store_slot/8*8+wrap_selection(store_slot%8,v,8));store_screen=STORE_EDIT;}
+            if(pressed&(1u<<B_SAVE)){
+                if(store_screen==STORE_EDIT&&(control_request.user_mask&(1u<<store_slot)))store_screen=STORE_CONFIRM;
+                else if(control_request.loop[0]!=LOOP_STOP){store_screen=STORE_ERROR;}
+                else{control_reply.save_pending=1;control_reply.save_slot=store_slot;control_reply.save_trim=store_trim;memcpy(control_reply.save_patch,store_patch,150);}
+            }
+        }
+        // Always consume encoders while modal, but still deliver keyboard offs.
+        for(uint32_t i=0;i<NE;++i)(void)plat_enc(i);
+        goto keyboard_input;
+    }
+    if(looper_screen&&!timing_page){for(uint32_t i=0;i<NE;++i)(void)plat_enc(i);goto keyboard_input;}
     if((pressed|released)&(1u<<B_SEL))reset_knob_motion();
     if(pressed&(1u<<B_SEL))selector_used=0;
     if((released&(1u<<B_SEL))&&!selector_used)editor_op=(uint8_t)((editor_op+1u)%4u);
@@ -302,13 +373,12 @@ static void control_input(void) {
     }
     if(pressed&(1u<<B_ENV))editor_page=editor_page>=EDITOR_AEG_RATES&&editor_page<EDITOR_PEG_ON?(uint8_t)(editor_page+1u):EDITOR_AEG_RATES;
     if(pressed&(1u<<B_LFO))editor_page=editor_page>=EDITOR_LFO1&&editor_page<EDITOR_LFO3?(uint8_t)(editor_page+1u):EDITOR_LFO1;
-    if(pressed&(1u<<B_GLO))editor_page=editor_page==EDITOR_VOICE?EDITOR_MIDI:EDITOR_VOICE;
-    if(pressed&(1u<<B_REC))editor_page=EDITOR_LAB;
+    if(pressed&(1u<<B_GLO)){if(buttons&(1u<<B_SEL)){editor_page=EDITOR_LAB;selector_used=1;}else editor_page=editor_page==EDITOR_VOICE?EDITOR_MIDI:EDITOR_VOICE;}
     if(pressed&(1u<<B_FX)) {
         if(buttons&(1u<<B_SEL)){selector_used=1;event_push(EVENT_FX,0,0);}
         else editor_page=editor_page==EDITOR_FX1?EDITOR_FX2:EDITOR_FX1;
     }
-    if(pressed&(1u<<B_SAVE))save_notice_until=plat_ms()+2000u;
+
     int32_t move=plat_enc(EN_SELECT);
     if(move&&timing_page==6){cost_selection=wrap_selection(cost_follow?control_request.measure[1]:cost_selection,clamp(move,-127,127),COST_ROWS);cost_follow=0;timing_draw=0;}
     if(move&&timing_page==5){gui_enabled=!gui_enabled;editor_redraw=1;timing_draw=0;}
@@ -353,6 +423,7 @@ static void control_input(void) {
         octave=clamp(octave+((pressed&(1u<<B_OCTUP)) ? 1 : -1),-2,2);
         keys_before=keys; // held keys retire; new octave starts on next press
     }
+keyboard_input:
     for(k=0;k<NKEYS;++k) {
         uint32_t bit=1u<<k;uint8_t note=(uint8_t)(53+(int32_t)k+12*octave);
         if((keys&bit) && !(keys_before&bit))event_push(EVENT_ON,note,100);
@@ -385,6 +456,38 @@ static void timing_format(char* out,const char* fmt,uint32_t a,uint32_t b,const 
 static void control_frame(void) {
     audio_checkpoint();
     control_input();
+    static uint8_t last_overlay=OVERLAYS_COUNT;static uint32_t store_draw_hash,loop_draw_time,loop_draw_state=255;
+    uint8_t overlay=store_screen!=STORE_CLOSED?OVERLAY_STORE:looper_screen&&!timing_page?OVERLAY_LOOP:OVERLAY_NONE;
+    if(overlay!=last_overlay){lcd_fill(0,0,240,240,C_BLACK);last_overlay=overlay;store_draw_hash=0;loop_draw_time=0;editor_redraw=1;gui_ready=0;}
+    if(store_screen!=STORE_CLOSED){
+        uint32_t hash=gui_hash(store_patch,150)^((uint32_t)store_screen<<24)^((uint32_t)store_slot<<16)^((uint32_t)store_cursor<<8)^control_request.loop[0];
+        if(store_draw_hash==hash)return;
+        store_draw_hash=hash;
+        char row[40],name[11];memcpy(name,store_patch,10);name[10]=0;
+        for(uint32_t i=0;i<10u;++i)if(name[i]<32||name[i]>126)name[i]=' ';
+        draw_text_row(4,&FONT_M,"STORE VOICE",C_WHITE);
+        draw_text_row(46,&FONT_M,name,C_WHITE);
+        timing_format(row,"CHAR %lu  K1 CURSOR K2 EDIT",store_cursor+1u,0,"");draw_text_row(76,&FONT_B,row,C_HI);
+        timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,&FONT_M,row,C_WHITE);
+        draw_text_row(140,&FONT_B,control_request.user_names[store_slot],C_GRAY);
+        draw_text_row(168,&FONT_B,store_screen==STORE_CONFIRM?"REPLACE? SAVE TO CONFIRM":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP BEFORE SAVING":"SAVE FAILED - HOME TO RETRY":"SELECT: DESTINATION",C_HI);
+        draw_text_row(192,&FONT_B,"SAVE BRIEFLY MUTES AUDIO",C_WHITE);
+        draw_text_row(216,&FONT_B,"SAVE STORE / HOME EXIT",C_GRAY);return;
+    }
+    if(looper_screen&&!timing_page){
+        uint32_t now=plat_ms();if(loop_draw_time&&now-loop_draw_time<100u&&loop_draw_state==control_request.loop[0])return;
+        loop_draw_time=now;loop_draw_state=control_request.loop[0];
+        char row[40];const uint32_t* l=control_request.loop;
+        static const char* states[LOOP_STATES_COUNT]={"STOPPED","REC STANDBY","RECORDING","PLAYING","OVERDUB ARMED","OVERDUBBING"};
+        draw_text_row(4,&FONT_M,"PHRASE LOOPER",C_WHITE);
+        draw_text_row(46,&FONT_M,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
+        timing_format(row,"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(82,&FONT_M,row,C_WHITE);
+        timing_format(row,"TEMPO %lu BPM",l[3],0,"");draw_text_row(116,&FONT_M,row,C_WHITE);
+        timing_format(row,"TAKES %lu / 4  EVENTS %lu",l[4],l[5],"");draw_text_row(150,&FONT_B,row,C_WHITE);
+        draw_text_row(174,&FONT_B,l[6]?"TAKE FULL":"REC RECORD / OVERDUB",C_HI);
+        draw_text_row(196,&FONT_B,"PLAY START/STOP K4 TEMPO",C_WHITE);
+        draw_text_row(218,&FONT_B,"SEL+SAVE CLEAR HOME EXIT",C_GRAY);return;
+    }
     if(timing_page==6){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
         const uint32_t* m=control_request.measure;uint32_t selected=cost_follow?m[1]:cost_selection;if(selected>=COST_ROWS)selected=0;
@@ -537,9 +640,8 @@ static void control_frame(void) {
         timing_format(row,khz?"%s CLK %lu MHz":"%s CLK ?",khz/1000u,0,rdx_build_label());draw_text_row(216,&FONT_B,row,C_GRAY);return;
     }
     uint32_t lock=plat_lock();rdx_editor_snapshot(&editor_view);plat_unlock(lock);
-    static uint32_t last_revision=0,last_fx=99;static uint8_t last_page=255,last_op=255,last_tune=255,last_notice=255;
-    uint8_t notice=save_notice_until&&plat_ms()<save_notice_until;
-    if(!editor_redraw&&last_revision==editor_view.revision&&last_fx==editor_view.fx&&last_page==editor_page&&last_op==editor_op&&last_tune==editor_tune&&last_notice==notice)return;
+    static uint32_t last_revision=0,last_fx=99;static uint8_t last_page=255,last_op=255,last_tune=255;
+    if(!editor_redraw&&last_revision==editor_view.revision&&last_fx==editor_view.fx&&last_page==editor_page&&last_op==editor_op&&last_tune==editor_tune)return;
     if(gui_ready&&(gui_request.page!=editor_page||gui_request.op!=editor_op||gui_request.tune!=editor_tune))gui_ready=0;
     if(!gui_ready){
         gui_start(&editor_view,editor_page,editor_op,editor_tune);
@@ -549,7 +651,7 @@ static void control_frame(void) {
     // revision comparison schedules the newer state on the next frame.
     editor_view=gui_request.view;gui_ready=0;
     editor_redraw=0;
-    last_revision=editor_view.revision;last_fx=editor_view.fx;last_page=editor_page;last_op=editor_op;last_tune=editor_tune;last_notice=notice;
+    last_revision=editor_view.revision;last_fx=editor_view.fx;last_page=editor_page;last_op=editor_op;last_tune=editor_tune;
     // Each strip below includes its background. Never blank the whole LCD
     // before drawing: the physical panel exposes that intermediate black frame.
     draw_text_row(4,&FONT_M,rdx_editor_title(editor_page),C_WHITE);
@@ -571,7 +673,7 @@ static void control_frame(void) {
     char status[30]="OP 1  FX ON";status[3]=(char)('1'+editor_op);
     if(!editor_view.fx){status[9]='O';status[10]='F';status[11]='F';status[12]=0;}
     if(editor_view.dirty){uint32_t n=0;while(status[n])++n;status[n]='*';status[n+1]=0;}
-    draw_text_row(216,&FONT_B,notice?"RAM ONLY - NOT SAVED":editor_view.error?"FX MEMORY LIMIT":status,C_GRAY);
+    draw_text_row(216,&FONT_B,editor_view.error?"FX MEMORY LIMIT":status,C_GRAY);
 }
 #undef plat_lock
 #undef plat_unlock
@@ -596,9 +698,42 @@ static void control_frame(void) {
 void app_say(const char* a,const char* b) {(void)a;(void)b;}
 void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}
 
+// Main-loop only; no CPU1/UI job is active at this point. Saving deliberately
+// silences playback before the platform's flash critical section.
+static void store_commit(void){
+    if(!control_reply.save_pending)return;
+    if(looper.state!=LOOP_STOP){control_reply.save_pending=0;store_screen=STORE_ERROR;return;}
+    const uint32_t slot=control_reply.save_slot;control_reply.save_pending=0;
+    uint32_t f=audio_control_lock();
+    int encoded=rdx_user_encode(slot,control_reply.save_patch,control_reply.save_trim,store_bank);
+    uint32_t dry_state[8];rdx_dry_snapshot(dry_state);
+    rdx_dry_mode(0);phrase_panic();event_read=event_write;
+    plat_unlock(f);
+    // Dry completion precedes BSP return: retire that tail before flash guard.
+    plat_cpu2_wait();plat_cpu2_sync();
+    int ok=0;
+    if(encoded){
+        uint32_t hash=gui_hash(store_bank,sizeof store_bank);
+        if(!plat_store_save(OBJ_USER_BANK0+slot/16u,store_bank,sizeof store_bank)){
+            int n=plat_store_load(OBJ_USER_BANK0+slot/16u,store_bank,sizeof store_bank);
+            if(n==(int)sizeof store_bank&&hash==gui_hash(store_bank,sizeof store_bank))ok=rdx_user_decode(slot/16u,store_bank,(uint32_t)n);
+        }
+    }
+    f=plat_lock();
+    if(ok){preset=(int32_t)slot+33;rdx_preset_request((uint32_t)preset);}
+    rdx_dry_mode(dry_state[0]&&plat_cpu2_on());plat_unlock(f);
+    store_screen=ok?STORE_DONE:STORE_ERROR;editor_redraw=1;gui_ready=0;
+}
 #include "control_dispatch.h"
 #ifdef PLAT_HOST
 int app_expect(const char* what,int* got) {
+    if(!strcmp(what,"store")){*got=store_screen;return 1;}
+    if(!strcmp(what,"user_mask")){*got=(int)rdx_user_mask();return 1;}
+    if(!strcmp(what,"loop")){*got=looper.state;return 1;}
+    if(!strcmp(what,"live_note60")){*got=live_notes[60];return 1;}
+    if(!strcmp(what,"loop_note60")){*got=loop_notes[60];return 1;}
+    if(!strcmp(what,"loop_events")){*got=looper.count[0];return 1;}
+
     if(!strcmp(what,"preset"))*got=(int)preset;
     else if(!strcmp(what,"dry_enabled")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[0];}
     else if(!strcmp(what,"dry_jobs")){uint32_t d[8];rdx_dry_snapshot(d);*got=d[1]>0;}

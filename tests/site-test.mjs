@@ -15,7 +15,7 @@ assert(!html.includes('{{NAME}}'));
 if(meta.version==='1.0.0-beta'){
  assert(html.includes('Tested on M-VAVE FM-1 hardware.'));
  assert(!/hardware (?:retesting|testing) is pending|physical FM-1 testing is pending/.test(html));
-}else assert(html.includes('hardware retesting is pending'));
+}else assert(html.includes('32 user slots and a MIDI phrase looper.'));
 const manifest=JSON.parse(fs.readFileSync(`${dir}/manifest.json`));
 for(const [file,info] of Object.entries(manifest.files))assert.equal(createHash('sha256').update(fs.readFileSync(`${dir}/${file}`)).digest('hex'),info.sha256,file);
 for(const file of ['index.html',installer,'emu/index.html']){

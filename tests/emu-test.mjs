@@ -124,3 +124,21 @@ emu.run(16000);assert.equal(emu.run(100),0,'Completed pipeline sweep releases it
 midi(0x90,69,100);assert(emu.run(200)>0.001,'Normal MIDI plays after pipeline sweep');
 midi(0xb0,120);emu.run(100);
 console.log('PASS: WebAssembly CPU1 six/seven/eight sweep completes, releases test voices and returns to normal MIDI.');
+
+button(1<<6);midi(0xc0,32);emu.run(150);midi(0xb0,120);emu.run(50);
+button(1<<11);assert.equal(emu.run(100),0,'Looper arms silently until the first note');
+midi(0x90,60,100);emu.run(200);midi(0x80,60);emu.run(100);
+button(1<<11);const looped=emu.record(900);
+assert(looped.every(Number.isFinite)&&looped.some(v=>Math.abs(v)>0.001),'Recorded phrase plays without live keys');
+button(1<<10);midi(0xb0,120);emu.run(100);assert.equal(emu.run(100),0,'Loop stop/panic leaves no stuck note');
+button(1<<6);button(1<<7);emu.send({type:'enc',role:4,n:1});emu.run(40);button(1<<7);
+assert.equal(emu.ex.web_store_len(3),2416,'Save creates the versioned user bank');
+const stored=new Uint8Array(emu.ex.memory.buffer,emu.ex.web_store(3),2416).slice();
+assert.equal(stored[8]&1,1,'User slot occupied');
+assert(emu.take('frame').some(f=>f.store?.[3]?.length===2416),'Browser receives bank for localStorage persistence');
+const wasmReload=(await import('node:fs')).readFileSync(`${process.argv[2]||'app/build/emu'}/app.wasm`);
+await emu.send({type:'load',wasm:wasmReload.buffer.slice(wasmReload.byteOffset,wasmReload.byteOffset+wasmReload.byteLength),store:{3:stored},master:4096});
+emu.run(700);midi(0xc0,33);midi(0x90,60,100);
+assert(emu.run(200)>0.001,'Saved user voice plays after emulator reload');
+midi(0xb0,120);emu.run(50);
+console.log('PASS: WebAssembly phrase recording/playback/stop, user save, browser persistence handoff and reload.');

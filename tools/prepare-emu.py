@@ -6,7 +6,7 @@ page = source.read_text()
 # Keep the original MPL notice on this adapted page.
 page = page.replace('<title>{{NAME}} in the browser</title>', '<title>FM1-RDX Emulator</title>')
 page = '\n'.join(line for line in page.splitlines() if not ('<link' in line and ('fonts.googleapis.com' in line or 'fonts.gstatic.com' in line)))
-page = page.replace('<h1>{{NAME}}</h1>', '<h1>FM1-RDX Emulator</h1><p>Up to 8 adaptive voices · 33 presets · source effects</p>')
+page = page.replace('<h1>{{NAME}}</h1>', '<h1>FM1-RDX Emulator</h1><p>Up to 8 adaptive voices · 33 factory/init voices + 32 user slots · source effects</p>')
 # Keep the physical panel while providing a large, crisp LCD mirror.
 page = page.replace('</style>', '''
 .emulator-layout { display:grid; grid-template-columns:minmax(560px,1fr) 320px; gap:24px; align-items:start; }
@@ -47,9 +47,15 @@ page = page.replace('<div class="bar">', '''<aside class="help" style="margin:16
   <p>Turn parameter knobs slowly for small steps or quickly for accelerated movement. Hold <strong>SEL</strong> for precise steps. Presets, pages, switches and type selectors remain stepwise.</p>
   <p><strong>EDIT</strong>, <strong>ENV</strong>, <strong>LFO</strong> and <strong>FX</strong> cycle their pages.
   <strong>GLO</strong> cycles voice and MIDI settings. On MIDI, K1 selects the receive channel and K2 enables FM control CCs.
-  <strong>ENV</strong> also reaches per-operator pitch-EG switches. <strong>REC</strong> opens Phaser Lab.
+  <strong>ENV</strong> also reaches per-operator pitch-EG switches. <strong>SEL + GLO</strong> opens Phaser Lab.
   <strong>SEL + FX</strong> toggles the effects chain. <strong>HOME</strong> returns home.
-  Edits remain in RAM; <strong>SAVE</strong> does not write a patch yet.</p>
+  <strong>SAVE</strong> opens Store: SELECT chooses a user slot, K1 selects a name character and K2 changes it.
+  SAVE stores; occupied slots ask for confirmation. HOME cancels. Saving briefly mutes audio; stop the looper first.</p>
+  <p><strong>SEQ</strong> opens the phrase looper. <strong>REC</strong> arms first-note recording;
+  REC again finishes and loops the phrase. <strong>PLAY</strong> stops or restarts.
+  REC during playback arms one overdub pass at the next loop; K4 adjusts tempo.
+  <strong>SEL + SAVE</strong> clears a stopped phrase. Four takes of up to 512 MIDI events each;
+  phrases are lost when switched off. HOME returns to editing while playback continues.</p>
   <p>This tests the current prototype's app and synth code in your browser.
   The original ESP screen drawings are adapted to the FM-1 display and controls.
   Browser performance does not measure FM-1 timing.</p>

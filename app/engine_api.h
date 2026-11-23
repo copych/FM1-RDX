@@ -43,6 +43,11 @@ uint32_t rdx_fx_status(void);
 uint32_t rdx_preset_count(void);
 void rdx_preset_request(uint32_t index);
 void rdx_preset_name(uint32_t index,char* name11);
+enum {RDX_USER_SLOTS=32,RDX_USER_BANK_BYTES=2416};
+int rdx_user_decode(uint32_t bank,const uint8_t* bytes,uint32_t len);
+int rdx_user_encode(uint32_t slot,const uint8_t* patch,uint8_t trim,uint8_t* out);
+uint32_t rdx_user_mask(void);
+uint8_t rdx_patch_trim(void);
 #ifdef __cplusplus
 }
 #endif
