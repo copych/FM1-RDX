@@ -23,22 +23,21 @@ static uint8_t looper_screen;
 enum eOverlay { OVERLAY_NONE,OVERLAY_STORE,OVERLAY_LOOP,OVERLAYS_COUNT };
 static uint8_t live_notes[128],loop_notes[128],live_cc[4]={0,127,127,0};
 static uint16_t live_bend=8192;
-static uint8_t loop_pedal;
 static void loop_release(void){
-    loop_pedal=0;
-    for(uint32_t n=0;n<128u;++n)if(loop_notes[n]){loop_notes[n]=0;if(!live_notes[n])rdx_note_off((uint8_t)n);}
+    memset(loop_notes,0,sizeof loop_notes);rdx_phrase_release();
     rdx_control_change(1,live_cc[0]);rdx_control_change(7,live_cc[1]);rdx_control_change(11,live_cc[2]);rdx_control_change(64,live_cc[3]);rdx_pitch_bend(live_bend);
 }
 static void loop_emit(uint8_t type,uint8_t a,uint8_t b){
     if(type==LOOP_RELEASE){loop_release();return;}
-    if(type==LOOP_NOTE){if(b){if(loop_notes[a]<255)++loop_notes[a];rdx_note_on(a,b);}else{if(loop_notes[a])--loop_notes[a];if(!loop_notes[a]&&!live_notes[a])rdx_note_off(a);}}
-    else if(type==LOOP_BEND)rdx_pitch_bend((uint16_t)(a|(b<<7)));
-    else if(type==LOOP_CC){if(a==64)loop_pedal=b;rdx_control_change(a,a==64&&live_cc[3]>=64?127:b);}
+    if(type==LOOP_NOTE){if(b){if(loop_notes[a]<255)++loop_notes[a];rdx_phrase_note(a,b);}else{if(loop_notes[a])--loop_notes[a];rdx_phrase_note(a,0);}}
+    else if(type==LOOP_BEND)rdx_phrase_bend((uint16_t)(a|(b<<7)));
+    else if(type==LOOP_CC){rdx_phrase_cc(a,b);}
 }
 static void performance_event(uint8_t type,uint8_t a,uint8_t b){
-    if(type==LOOP_NOTE){if(b){if(live_notes[a]<255)++live_notes[a];rdx_note_on(a,b);}else{if(live_notes[a])--live_notes[a];if(!live_notes[a]&&!loop_notes[a])rdx_note_off(a);}}
+    if(looper.state==LOOP_ARMED&&type==LOOP_NOTE&&b&&!rdx_phrase_capture())loop_stop(&looper);
+    if(type==LOOP_NOTE){if(b){if(live_notes[a]<255)++live_notes[a];rdx_note_on(a,b);}else{if(live_notes[a])--live_notes[a];rdx_note_off(a);}}
     else if(type==LOOP_BEND){live_bend=(uint16_t)(a|(b<<7));rdx_pitch_bend(live_bend);}
-    else if(type==LOOP_CC){if(a==121){live_bend=8192;live_cc[0]=live_cc[3]=0;live_cc[2]=127;loop_pedal=0;}if(a==1)live_cc[0]=b;else if(a==7)live_cc[1]=b;else if(a==11)live_cc[2]=b;else if(a==64)live_cc[3]=b;rdx_control_change(a,a==64&&loop_pedal>=64?127:b);}
+    else if(type==LOOP_CC){if(a==121){live_bend=8192;live_cc[0]=live_cc[3]=0;live_cc[2]=127;}if(a==1)live_cc[0]=b;else if(a==7)live_cc[1]=b;else if(a==11)live_cc[2]=b;else if(a==64)live_cc[3]=b;rdx_control_change(a,b);}
     if(type!=LOOP_CC||a==1||a==7||a==11||a==64)loop_capture(&looper,type,a,b);
 }
 static void phrase_panic(void){loop_stop(&looper);loop_release();memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);live_cc[3]=0;rdx_panic();}
@@ -153,7 +152,7 @@ static void editor_event(uint8_t page,uint8_t op,uint8_t control,int32_t delta,u
 }
 void app_init(void) {
     event_read=event_write=panic_requested=0;keys_before=buttons_before=0;
-    octave=0;preset=1;master_gain=0.0f;rdx_boot();loop_init(&looper);looper_screen=0;loop_pedal=0;live_cc[0]=live_cc[3]=0;live_cc[1]=live_cc[2]=127;live_bend=8192;memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);
+    octave=0;preset=1;master_gain=0.0f;rdx_boot();loop_init(&looper);looper_screen=0;live_cc[0]=live_cc[3]=0;live_cc[1]=live_cc[2]=127;live_bend=8192;memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);
     plat_usb_audio_full(1); // Record at fixed level; MASTER controls local monitoring.
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;
     editor_redraw=1;
@@ -207,7 +206,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         }
         else if(e.type==EVENT_MEASURE)rdx_measure_command(e.note,plat_ms());
         else if(e.type==EVENT_SPLIT)rdx_dry_mode(e.note&&plat_cpu2_on());
-        else if(e.type==EVENT_LOOP){uint8_t before=looper.state;loop_command(&looper,e.note,e.delta);if((before==LOOP_RECORD&&looper.state==LOOP_PLAY)||looper.state==LOOP_STOP)loop_release();}
+        else if(e.type==EVENT_LOOP){uint8_t before=looper.state;loop_command(&looper,e.note,e.delta);if(e.note==LOOP_CLEAR&&before==LOOP_STOP)rdx_phrase_clear();if((before==LOOP_RECORD&&looper.state==LOOP_PLAY)||looper.state==LOOP_STOP)loop_release();}
     }
     loop_advance(&looper,loop_emit);
     rdx_measure_prepare(plat_ms());
@@ -483,8 +482,8 @@ static void control_frame(void) {
         draw_text_row(46,&FONT_M,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
         timing_format(row,"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(82,&FONT_M,row,C_WHITE);
         timing_format(row,"TEMPO %lu BPM",l[3],0,"");draw_text_row(116,&FONT_M,row,C_WHITE);
-        timing_format(row,"TAKES %lu / 4  EVENTS %lu",l[4],l[5],"");draw_text_row(150,&FONT_B,row,C_WHITE);
-        draw_text_row(174,&FONT_B,l[6]?"TAKE FULL":"REC RECORD / OVERDUB",C_HI);
+        timing_format(row,"TAKES %lu / 4  EVENTS %lu",l[4],l[5],"");draw_text_row(174,&FONT_B,l[6]?"TAKE FULL":row,C_HI);
+        draw_text_row(150,&FONT_B,control_request.phrase_name,C_WHITE);
         draw_text_row(196,&FONT_B,"PLAY START/STOP K4 TEMPO",C_WHITE);
         draw_text_row(218,&FONT_B,"SEL+SAVE CLEAR HOME EXIT",C_GRAY);return;
     }
@@ -730,6 +729,7 @@ int app_expect(const char* what,int* got) {
     if(!strcmp(what,"store")){*got=store_screen;return 1;}
     if(!strcmp(what,"user_mask")){*got=(int)rdx_user_mask();return 1;}
     if(!strcmp(what,"loop")){*got=looper.state;return 1;}
+    if(!strcmp(what,"phrase_name0")){*got=(unsigned char)control_request.phrase_name[0];return 1;}
     if(!strcmp(what,"live_note60")){*got=live_notes[60];return 1;}
     if(!strcmp(what,"loop_note60")){*got=loop_notes[60];return 1;}
     if(!strcmp(what,"loop_events")){*got=looper.count[0];return 1;}

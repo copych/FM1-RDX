@@ -6,7 +6,7 @@ static float profile_phase[DMA_BUFFER_LEN][4];
 uint32_t RdxProfile::prepare(RdxEngine* engine,uint8_t* slots,float* left){
     for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)left[i]=0.0f;
     uint32_t count=0;
-    if(engine->ready_)for(int v=0;v<(engine->mono_?1:RdxEngine::voiceCapacity);++v)
+    if(engine->ready_)for(int v=0;v<engine->slotCount();++v)
       if(engine->voices_[v].isActive()){slots[count++]=(uint8_t)v;engine->voices_[v].updateLfo();}
     engine->rendered_=(uint8_t)count;return count;
 }
@@ -38,6 +38,7 @@ void RdxProfile::preparedWaves(RDX_Voice* voice,uint32_t n){
 void RdxProfile::mix(RdxEngine* engine,uint32_t v,uint32_t n,float* left){
     for(uint32_t i=0;i<n;++i){
         float value=profile_wave[i];
+        if(engine->sources_[v]==RdxEngine::VOICE_PHRASE)value*=engine->phraseRatio_;
         if(engine->retiring_[v]){
             value*=engine->retiring_[v]*(1.0f/32.0f);
             if(!--engine->retiring_[v])engine->voices_[v].init();
@@ -62,7 +63,7 @@ void RdxProfile::render(RdxEngine& engine,float* left,float* right,uint32_t* tic
     for(uint32_t at=0;at<count;++at){
         const uint32_t v=slots[at],n=engine.retiring_[v]?engine.retiring_[v]:DMA_BUFFER_LEN;
         RDX_Voice* voice=&engine.voices_[v];
-        t=clock();RDX_FAR(mods)(voice,n,engine.mono_);ticks[RENDER_MOD]+=clock()-t;
+        t=clock();RDX_FAR(mods)(voice,n,engine.slotMono(v));ticks[RENDER_MOD]+=clock()-t;
         if(fine){
             t=clock();RDX_FAR(envelopeSteps)(voice,n);fine[RENDER_ENV_STEP]+=clock()-t;
             t=clock();RDX_FAR(envelopeGains)(n);fine[RENDER_ENV_GAIN]+=clock()-t;

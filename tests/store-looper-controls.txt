@@ -50,6 +50,12 @@ expect loop_events 2
 tap REC
 wait 100
 expect loop 3
+expect phrase_name0 69
+midi C0 01 00
+wait 150
+expect preset 2
+expect loop 3
+expect phrase_name0 69
 shot looper.png
 tap SAVE
 tap SAVE
@@ -75,3 +81,18 @@ wait 30
 expect loop_events 0
 expect control_errors 0
 expect control_drops 0
+
+tap HOME
+midi C0 20 00
+wait 150
+tap GLO
+turn K2 1
+wait 100
+midi 90 3C 64
+midi 90 3C 64
+wait 100
+midi 80 3C 00
+midi 80 3C 00
+wait 1500
+expect voice_active 0
+expect live_note60 0

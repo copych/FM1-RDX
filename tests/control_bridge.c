@@ -7,6 +7,7 @@
 #include "../src/rdx_looper.h"
 static RdxLooper looper;
 static void store_commit(void){}
+void rdx_phrase_name(char* out){memset(out,0,11);}
 uint32_t rdx_user_mask(void){return 0;}
 uint8_t rdx_patch_trim(void){return 0;}
 void rdx_preset_name(uint32_t i,char* name){(void)i;memset(name,0,11);}

@@ -14,8 +14,8 @@
 // ===============================
 class RDX_Operator {
 public:
-    RDX_Operator(int idx)
-        : params_(RDX_State::getState().workingPatch.ops[idx]), idx_(idx) {}
+    RDX_Operator(int idx,RDX_Patch& patch=RDX_State::getState().workingPatch,RDX_Controls& controls=RDX_State::getState().controls)
+        : params_(patch.ops[idx]),env_(patch.common),ctl_(controls),idx_(idx) {}
 
     inline void setParams(int note, int vel, float baseHz) {
         note_ = (uint8_t)note;
@@ -117,7 +117,7 @@ public:
 private:
     RDX_OpParams& params_;
     RDX_Envelope env_;
-    RDX_Controls& ctl_ = RDX_State::getState().controls;
+    RDX_Controls& ctl_;
 
     float scaling_ = 1.0f;
     float velogain_ = 1.0f;

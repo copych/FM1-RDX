@@ -130,6 +130,8 @@ button(1<<11);assert.equal(emu.run(100),0,'Looper arms silently until the first 
 midi(0x90,60,100);emu.run(200);midi(0x80,60);emu.run(100);
 button(1<<11);const looped=emu.record(900);
 assert(looped.every(Number.isFinite)&&looped.some(v=>Math.abs(v)>0.001),'Recorded phrase plays without live keys');
+midi(0xc0,1);emu.run(600);const switchedLoop=emu.record(600);
+assert(switchedLoop.every(Number.isFinite)&&switchedLoop.some(v=>Math.abs(v)>0.001),'Captured phrase survives switching the live preset and shared FX');
 button(1<<10);midi(0xb0,120);emu.run(100);assert.equal(emu.run(100),0,'Loop stop/panic leaves no stuck note');
 button(1<<6);button(1<<7);emu.send({type:'enc',role:4,n:1});emu.run(40);button(1<<7);
 assert.equal(emu.ex.web_store_len(3),2416,'Save creates the versioned user bank');

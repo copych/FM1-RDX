@@ -7,6 +7,7 @@
 
 class  RDX_Envelope {
 public:
+    explicit RDX_Envelope(RDX_Common& common=RDX_State::getState().workingPatch.common):common_(common){}
     enum class Stage { ATTACK, DECAY1, DECAY2, RELEASE, SUSTAIN, IDLE };
 
     inline void initAEG(const uint8_t rates[4], const uint8_t levels[4], bool need_reset = true) {
@@ -84,7 +85,7 @@ public:
 
 private:
 
-    RDX_Common& common_ = RDX_State::getState().workingPatch.common;
+    RDX_Common& common_;
     static RDX_RAM_CODE void controlStage(RDX_Envelope* self,Stage s){self->enterStage(s);}
     RDX_RAM_CODE void enterStage(Stage s) {
         targetL_ = levelIndices_[static_cast<int>(s)];

@@ -14,7 +14,7 @@ typedef struct {
     uint32_t dry_detail[8];
     uint32_t ui[5];
     uint32_t lcd_errors,user_mask,patch_trim,loop[7];
-    char user_names[32][11];
+    char user_names[32][11],phrase_name[11];
     RdxTiming timing;
     uint8_t patch[150],system[32],sysex[640];uint32_t sysex_size;
 } ControlRequest;

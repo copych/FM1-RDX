@@ -14,6 +14,8 @@
 
 class  RDX_Voice {
 public:
+    RDX_Voice(RDX_Patch& patch=RDX_State::getState().workingPatch,RDX_Controls& controls=RDX_State::getState().controls)
+      :ops_{RDX_Operator(0,patch,controls),RDX_Operator(1,patch,controls),RDX_Operator(2,patch,controls),RDX_Operator(3,patch,controls)},patch_(patch),ctl_(controls){}
 inline __attribute__((always_inline)) void init() {
     for (auto& op : ops_) op.reset();
     peg_.reset();
@@ -430,16 +432,11 @@ private:
     bool justAllocated_         = false; // score modifier
     float sampleRate_ = (float)SAMPLE_RATE;
 
-    RDX_Operator ops_[4] = { // a bit of verbose so the ops would know who they are on creation, and could have a firm ref to their params structs
-        RDX_Operator(0),
-        RDX_Operator(1),
-        RDX_Operator(2),
-        RDX_Operator(3)
-    };
+    RDX_Operator ops_[4];
 
     RDX_PEG             peg_;             // per-voice PEG
-    RDX_Patch&          patch_          = RDX_State::getState().workingPatch; 
-    RDX_Controls&       ctl_            = RDX_State::getState().controls;
+    RDX_Patch&          patch_;
+    RDX_Controls&       ctl_;
     float               phaseMod_[4]    = {0.0f, 0.0f, 0.0f, 0.0f};         // per-operator PM input
     float               ampMod_[4]      = {1.0f, 1.0f, 1.0f, 1.0f};         // per-operator AM input
     float               score_ = 0.f;

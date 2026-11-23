@@ -76,6 +76,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     control_request.home=preset_home_requested;preset_home_requested=0;
     control_request.channel=rdx_midi_receive_channel();
     rdx_editor_snapshot(&control_request.editor);
+    rdx_phrase_name(control_request.phrase_name);
     control_request.loop[0]=looper.state;control_request.loop[1]=looper.position;control_request.loop[2]=looper.length;control_request.loop[3]=looper.tempo;control_request.loop[4]=looper.tracks;
     for(uint32_t i=0;i<4u;++i)control_request.loop[5]+=looper.count[i];
     control_request.loop[6]=looper.full;

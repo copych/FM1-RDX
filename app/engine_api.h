@@ -4,6 +4,13 @@
 extern "C" {
 #endif
 void rdx_boot(void);
+int rdx_phrase_capture(void);
+void rdx_phrase_clear(void);
+void rdx_phrase_release(void);
+void rdx_phrase_note(uint8_t note,uint8_t velocity);
+void rdx_phrase_bend(uint16_t bend);
+void rdx_phrase_cc(uint8_t controller,uint8_t value);
+void rdx_phrase_name(char* name11);
 void rdx_note_on(uint8_t note, uint8_t velocity);
 void rdx_note_off(uint8_t note);
 void rdx_sustain(uint8_t down);

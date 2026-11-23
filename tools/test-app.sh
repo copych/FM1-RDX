@@ -52,6 +52,7 @@ mkdir -p build/store-looper-controls
 app/build/host/rdx_host tests/store-looper-controls.txt build/store-looper-controls
 bash tools/test-user-store.sh
 bash tools/test-looper.sh
+bash tools/test-phrase-voice.sh
 bash tools/test-isolation.sh
 bash tools/test-voice-cost.sh
 bash tools/test-dry.sh

@@ -72,6 +72,9 @@ static uint32_t editor_revision;
 static bool editor_pending,editor_dirty,editor_error;
 static uint8_t midi_rx=1,midi_control=0,modulation=0,midi_volume=127,expression=127;
 static int bend=0;
+static int phrase_bend,phrase_start_bend;
+static uint8_t phrase_mod,phrase_start_mod;
+static char phrase_name[11];
 static float performance_gain=1.0f;
 static void stage_edit(const RDX_Patch& p) {
     if(!RdxEngine::validPatch(p)||RdxEffects::required(p)>RdxEffects::arenaFloats){editor_error=true;++editor_revision;return;}
@@ -95,7 +98,7 @@ static void event(DeferredEvent e) {
     else rdx_panic(); // explicit overload fallback: silence and discard
 }
 extern "C" void rdx_boot(void) {
-    user_store.reset();
+    user_store.reset();phrase_bend=phrase_start_bend=0;phrase_mod=phrase_start_mod=0;memset(phrase_name,0,11);
     voice_measure=RdxVoiceMeasure{};measure_guarded_block=false;fx_last=0;
     destination=1;fade=PRESET_STEADY;deferred_count=0;pedal_down=pedal_before=false;
     budget.reset(0);budget_dirty=true;budget_keep_limit=false;budget_sample_valid=false;synth_ticks=0;
@@ -232,7 +235,7 @@ extern "C" void rdx_render(float* l,float* r) {
                 for(uint32_t i=0;i<RENDER_FINE_PARTS_COUNT;++i)detail_fine[i]=detail_enabled==DETAIL_FINE?fine[i]:0;}
         }
         if(synth_ticks>synth_peak)synth_peak=synth_ticks;
-        budget_sample_valid=fade==PRESET_STEADY&&RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY;
+        budget_sample_valid=fade==PRESET_STEADY&&(engine->hasPhrase()||RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY);
         // The completed dry bus has been copied to l/r. Reuse its storage for
         // the NEXT block now, overlapping generation with this block's FX and
         // output. Patch/fade transitions dispatch at callback end instead.
@@ -440,3 +443,25 @@ extern "C" int rdx_user_decode(uint32_t bank,const uint8_t* p,uint32_t len){retu
 extern "C" int rdx_user_encode(uint32_t slot,const uint8_t* p,uint8_t trim,uint8_t* out){return user_store.encodeWith(slot,p,trim!=0,out,user_valid);}
 extern "C" uint32_t rdx_user_mask(void){return user_store.usedMask();}
 extern "C" uint8_t rdx_patch_trim(void){return output_trim()<1.0f;}
+
+static void phrase_performance(){
+    const float pitch=(float)phrase_bend*(phrase_bend<0?1.0f/8192.0f:1.0f/8191.0f)*engine->phraseBendRange();
+    engine->phrasePerformance(pitch,(float)phrase_mod*(1.0f/127.0f));
+}
+extern "C" int rdx_phrase_capture(){
+    RDX_Patch p;rdx_patch_export((uint8_t*)&p);
+    if(!engine->capturePhrase(p))return 0;
+    phrase_bend=phrase_start_bend=bend;phrase_mod=phrase_start_mod=modulation;
+    memcpy(phrase_name,p.common.voiceName,10);phrase_name[10]=0;phrase_performance();budget_dirty=true;return 1;
+}
+extern "C" void rdx_phrase_clear(){engine->clearPhrase();memset(phrase_name,0,11);budget_dirty=true;}
+extern "C" void rdx_phrase_release(){engine->releasePhrase();phrase_bend=phrase_start_bend;phrase_mod=phrase_start_mod;phrase_performance();}
+extern "C" void rdx_phrase_note(uint8_t n,uint8_t v){if(v)engine->phraseNoteOn(n,v);else engine->phraseNoteOff(n);}
+extern "C" void rdx_phrase_bend(uint16_t v){if(v<=16383u){phrase_bend=(int)v-8192;phrase_performance();}}
+extern "C" void rdx_phrase_cc(uint8_t cc,uint8_t v){
+    if(v>127)return;
+    if(cc==1){phrase_mod=v;phrase_performance();}
+    else if(cc==64)engine->phraseSustain(v>=64);
+    else if(cc==7||cc==11)rdx_control_change(cc,v); // shared output controls
+}
+extern "C" void rdx_phrase_name(char* out){memcpy(out,phrase_name,11);}

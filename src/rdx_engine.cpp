@@ -47,51 +47,82 @@ bool RdxEngine::validPatch(const RDX_Patch& p) {
 
 bool RdxEngine::applyPatch(const RDX_Patch& p) {
     if(!validPatch(p)) return false; // atomic from the caller's point of view
-    panic();
+    if(phraseReady_)panicLive();else panic();
     auto& s=RDX_State::getState();
     s.controls=RDX_Controls{};
     s.workingPatch=p;
     s.storedPatch=p;
     updateDerived();
-    for(auto& v:voices_) {v.init();v.cacheParams();v.syncLFO();}
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==VOICE_LIVE){auto& v=voices_[i];v.init();v.cacheParams();v.syncLFO();}
     ready_=true;
     return true;
 }
 bool RdxEngine::updatePatch(const RDX_Patch& p) {
     if(!validPatch(p))return false;
-    if(p.common.monoPoly!=RDX_State::getState().workingPatch.common.monoPoly)panic();
+    if(p.common.monoPoly!=RDX_State::getState().workingPatch.common.monoPoly){if(phraseReady_)panicLive();else panic();}
     RDX_State::getState().workingPatch=p;
     updateDerived();
     // Keep phases/gates and running envelopes. EG metadata takes effect on
     // subsequent segments/notes, rather than retriggering the voice on a turn.
-    for(auto& v:voices_)v.cacheParams();
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==VOICE_LIVE)voices_[i].cacheParams();
     return true;
 }
+static float algorithmGain(uint8_t algo);
 void RdxEngine::updateDerived() {
     auto& s=RDX_State::getState();const auto& p=s.workingPatch;
     mono_=p.common.monoPoly!=RDX_MODE_POLY;
-    s.controls.portaTimeS=AM_DEPTH[p.common.portaTime]*2.5f;
-    for(int i=0;i<4;++i) {
-        const auto& op=p.ops[i];
-        s.controls.freqCoef[i]=op.freqMode == RDX_FREQ_RATIO
-            ? (op.freqCoarse ? op.freqCoarse+op.freqFine*0.01f : 0.5f+op.freqFine*0.005f)
-            : (op.freqCoarse<8 ? 1.0f : op.freqCoarse<16 ? 10.0f : op.freqCoarse<24 ? 100.0f : 1000.0f)*fixedFine[op.freqFine];
-        s.controls.detuneCoef[i]=detuneRatio[op.freqDetune];
-    }
+    derive(s.workingPatch,s.controls);
     const int algo=p.common.algorithm;
     // Keep the ESP32-S3 reference drive level independent of this port's voice
     // ceiling. Voice-capacity normalization otherwise changes distortion tone.
     outputGain_=0.07071067811865475f*(algo>=5 && algo<=7 ? ONE_DIV_SQRT2 : algo>=8 && algo<=10 ? ONE_DIV_SQRT3 : algo==11 ? 0.5f : 1.0f);
+    if(phraseReady_)phraseRatio_=algorithmGain(phrasePatch_.common.algorithm)/algorithmGain(p.common.algorithm);
+}
+
+void RdxEngine::derive(RDX_Patch& p,RDX_Controls& controls){
+    controls.portaTimeS=AM_DEPTH[p.common.portaTime]*2.5f;
+    for(int i=0;i<4;++i) {
+        const auto& op=p.ops[i];
+        controls.freqCoef[i]=op.freqMode == RDX_FREQ_RATIO
+            ? (op.freqCoarse ? op.freqCoarse+op.freqFine*0.01f : 0.5f+op.freqFine*0.005f)
+            : (op.freqCoarse<8 ? 1.0f : op.freqCoarse<16 ? 10.0f : op.freqCoarse<24 ? 100.0f : 1000.0f)*fixedFine[op.freqFine];
+        controls.detuneCoef[i]=detuneRatio[op.freqDetune];
+    }
+}
+static float algorithmGain(uint8_t algo){return algo>=5&&algo<=7?ONE_DIV_SQRT2:algo>=8&&algo<=10?ONE_DIV_SQRT3:algo==11?0.5f:1.0f;}
+bool RdxEngine::capturePhrase(const RDX_Patch& p){
+    if(!validPatch(p))return false;
+    clearPhrase();phrasePatch_=p;phraseControls_=RDX_State::getState().controls;phraseControls_.sustain=false;
+    derive(phrasePatch_,phraseControls_);phraseReady_=true;
+    phraseRatio_=algorithmGain(p.common.algorithm)/algorithmGain(RDX_State::getState().workingPatch.common.algorithm);
+    return true;
+}
+void RdxEngine::releasePhrase(){
+    phraseControls_.sustain=false;phraseCount_=0;
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==VOICE_PHRASE&&(voices_[i].isHeld()||voices_[i].isSustained()))voices_[i].noteOff();
+}
+void RdxEngine::clearPhrase(){
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==VOICE_PHRASE){
+        new(&voices_[i])RDX_Voice;voices_[i].init();voices_[i].cacheParams();sources_[i]=VOICE_LIVE;retiring_[i]=0;
+    }
+    if(mono_&&!voices_[0].isActive())for(int i=1;i<voiceCapacity;++i)if(sources_[i]==VOICE_LIVE&&voices_[i].isActive()){
+        new(&voices_[0])RDX_Voice(voices_[i]);voices_[i].init();retiring_[0]=retiring_[i];retiring_[i]=0;voiceAge_[0]=voiceAge_[i];break;
+    }
+    phraseCount_=0;phraseReady_=false;phraseRatio_=1.0f;
+}
+void RdxEngine::panicLive(){
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==VOICE_LIVE){voices_[i].init();retiring_[i]=0;voiceAge_[i]=0;}
+    heldCount_=0;RDX_State::getState().controls.sustain=false;
 }
 
 void RdxEngine::panic() {
     for(auto& v:voices_) v.init();
     for(auto& age:voiceAge_)age=0;
     for(auto& fade:retiring_)fade=0;
-    heldCount_=0;
+    heldCount_=phraseCount_=0;phraseControls_.sustain=false;
     RDX_State::getState().controls.sustain=false;
 }
-uint8_t RdxEngine::voiceLimit() const {return RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY?limit_:1;}
+uint8_t RdxEngine::voiceLimit() const {return phraseReady_||RDX_State::getState().workingPatch.common.monoPoly==RDX_MODE_POLY?limit_:1;}
 uint8_t RdxEngine::activeVoices() const {uint8_t count=0;for(const auto& v:voices_)if(v.isActive())++count;return count;}
 int RdxEngine::cheapestVoice(bool skipRetiring){
     int slot=-1;float lowest=1.0e30f;
@@ -103,60 +134,61 @@ int RdxEngine::cheapestVoice(bool skipRetiring){
 }
 void RdxEngine::setVoiceLimit(uint8_t limit){
     limit_=limit<1?1:limit>voiceCapacity?voiceCapacity:limit;
-    if(RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY)return;
+    if(!phraseReady_&&RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY)return;
     int count=0;for(int i=0;i<voiceCapacity;++i)if(voices_[i].isActive()&&!retiring_[i])++count;
     while(count>limit_){const int slot=cheapestVoice(true);if(slot<0)break;retiring_[slot]=32;--count;}
 }
 
-void RdxEngine::noteOn(uint8_t note, uint8_t velocity) {
-    if(!ready_ || note>127 || velocity>127) return;
-    if(!velocity) {noteOff(note);return;}
-    const auto mode=RDX_State::getState().workingPatch.common.monoPoly;
-    int slot=0;
-    if(mode!=RDX_MODE_POLY) {
-        if(heldCount_==16) {
-            for(int i=1;i<16;++i) {heldNotes_[i-1]=heldNotes_[i];heldVelocity_[i-1]=heldVelocity_[i];}
-            --heldCount_;
-        }
-        heldNotes_[heldCount_]=note;
-        heldVelocity_[heldCount_++]=velocity;
-    } else {
-        // Protect developing carrier attacks. Among other voices prefer the
-        // lowest envelope/velocity score; use age only to break equal costs.
-        slot=-1;
-        if(activeVoices()<limit_)for(int i=0;i<voiceCapacity;++i)if(!voices_[i].isActive()){slot=i;break;}
-        if(slot<0)slot=cheapestVoice(true);
-        if(slot<0)slot=cheapestVoice(false);
-        if(slot<0)slot=0;
+void RdxEngine::noteOn(uint8_t n,uint8_t v){noteOnSource(VOICE_LIVE,n,v);}
+void RdxEngine::noteOff(uint8_t n){noteOffSource(VOICE_LIVE,n);}
+void RdxEngine::sustain(bool down){sustainSource(VOICE_LIVE,down);}
+void RdxEngine::noteOnSource(eVoiceSource source,uint8_t note,uint8_t velocity){
+    if(!ready_||note>127||velocity>127||(source==VOICE_PHRASE&&!phraseReady_))return;
+    if(!velocity){noteOffSource(source,note);return;}
+    const bool mono=patchFor(source).common.monoPoly!=RDX_MODE_POLY;
+    auto* held=source==VOICE_PHRASE?phraseHeld_:heldNotes_;
+    auto* vel=source==VOICE_PHRASE?phraseVelocity_:heldVelocity_;
+    auto& count=source==VOICE_PHRASE?phraseCount_:heldCount_;
+    int slot=-1;
+    if(mono){
+        for(int i=0;i<voiceCapacity;++i)if(sources_[i]==source&&voices_[i].isActive()){slot=i;break;}
+        if(count==16){for(int i=1;i<16;++i){held[i-1]=held[i];vel[i-1]=vel[i];}--count;}
+        held[count]=note;vel[count++]=velocity;
+    }
+    if(slot<0){
+        if(!phraseReady_&&mono)slot=0;
+        else if(activeVoices()<limit_)for(int i=0;i<voiceCapacity;++i)if(!voices_[i].isActive()){slot=i;break;}
+        if(slot<0)slot=cheapestVoice(true);if(slot<0)slot=cheapestVoice(false);if(slot<0)slot=0;
         retiring_[slot]=0;
-        const uint8_t previousAge=voiceAge_[slot];
-        for(int i=0;i<voiceCapacity;++i)if(i!=slot&&voiceAge_[i]<=previousAge&&voiceAge_[i]<voiceCapacity)++voiceAge_[i];
+        const uint8_t age=voiceAge_[slot];
+        for(int i=0;i<voiceCapacity;++i)if(i!=slot&&voiceAge_[i]<=age&&voiceAge_[i]<voiceCapacity)++voiceAge_[i];
         voiceAge_[slot]=0;
+    }
+    if(sources_[slot]!=source){
+        new(&voices_[slot])RDX_Voice(patchFor(source),controlsFor(source));
+        sources_[slot]=source;voices_[slot].init();voices_[slot].cacheParams();
     }
     voices_[slot].noteOn(note,velocity);
 }
-
-void RdxEngine::noteOff(uint8_t note) {
-    if(!ready_ || note>127) return;
-    if(RDX_State::getState().workingPatch.common.monoPoly!=RDX_MODE_POLY) {
-        int found=-1;
-        for(int i=0;i<heldCount_;++i) if(heldNotes_[i]==note) {found=i;break;}
-        if(found<0) return;
-        const bool top=found==heldCount_-1;
-        for(int i=found+1;i<heldCount_;++i) {heldNotes_[i-1]=heldNotes_[i];heldVelocity_[i-1]=heldVelocity_[i];}
-        --heldCount_;
-        if(top && heldCount_) voices_[0].noteOn(heldNotes_[heldCount_-1],heldVelocity_[heldCount_-1]);
-        else if(!heldCount_) voices_[0].noteOff();
-        return;
+void RdxEngine::noteOffSource(eVoiceSource source,uint8_t note){
+    if(!ready_||note>127)return;
+    if(patchFor(source).common.monoPoly!=RDX_MODE_POLY){
+        auto* held=source==VOICE_PHRASE?phraseHeld_:heldNotes_;auto* vel=source==VOICE_PHRASE?phraseVelocity_:heldVelocity_;
+        auto& count=source==VOICE_PHRASE?phraseCount_:heldCount_;int found=-1;
+        for(int i=0;i<count;++i)if(held[i]==note){found=i;break;}if(found<0)return;
+        bool top=found==count-1;
+        for(int i=found+1;i<count;++i){held[i-1]=held[i];vel[i-1]=vel[i];}--count;
+        for(int i=0;i<voiceCapacity;++i)if(sources_[i]==source&&voices_[i].isHeld()){
+            if(top&&count)voices_[i].noteOn(held[count-1],vel[count-1]);else if(!count)voices_[i].noteOff();
+        }return;
     }
-    for(auto& v:voices_) if(v.note()==note && v.isHeld()) v.noteOff();
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==source&&voices_[i].note()==note&&voices_[i].isHeld())voices_[i].noteOff();
+}
+void RdxEngine::sustainSource(eVoiceSource source,bool down){
+    controlsFor(source).sustain=down;
+    if(!down)for(int i=0;i<voiceCapacity;++i)if(sources_[i]==source&&voices_[i].isSustained())voices_[i].noteOff();
 }
 
-void RdxEngine::sustain(bool down) {
-    auto& ctl=RDX_State::getState().controls;
-    ctl.sustain=down;
-    if(!down) for(auto& v:voices_) if(v.isSustained()) v.noteOff();
-}
 void RdxEngine::allNotesOff() {
     heldCount_=0;
     for(auto& v:voices_)if(v.isHeld())v.noteOff();
@@ -167,9 +199,8 @@ void RdxEngine::renderBlock(float* left,float* right) {
         for(uint32_t i=0;i<DMA_BUFFER_LEN;++i) left[i]=right[i]=0.0f;
         return;
     }
-    const bool mono=mono_;
     uint8_t slots[voiceCapacity];int count=0;
-    for(int v=0;v<(mono?1:voiceCapacity);++v)if(voices_[v].isActive()){
+    for(int v=0;v<slotCount();++v)if(voices_[v].isActive()){
         slots[count++]=(uint8_t)v;voices_[v].updateLfo();
     }
     rendered_=(uint8_t)count;
@@ -183,7 +214,8 @@ void RdxEngine::renderBlock(float* left,float* right) {
             uint32_t n=RDX_RENDER_CHUNK;
             if(n>DMA_BUFFER_LEN-offset)n=DMA_BUFFER_LEN-offset;
             if(retiring_[v]&&n>retiring_[v])n=retiring_[v];
-            voices_[v].renderChunk(render_scratch,n,mono);
+            voices_[v].renderChunk(render_scratch,n,slotMono(v));
+            if(sources_[v]==VOICE_PHRASE)for(uint32_t i=0;i<n;++i)render_scratch.wave[0][i]*=phraseRatio_;
             for(uint32_t i=0;i<n;++i){
                 float value=render_scratch.wave[0][i];
                 if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}
@@ -208,7 +240,7 @@ void RdxEngine::renderDry(float (*dry)[DMA_BUFFER_LEN]) {
     uint8_t slots[voiceCapacity];int count=0;
     for(int v=0;v<voiceCapacity;++v){
         for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)dry[v][i]=0.0f;
-        if(ready_&&v<(mono_?1:voiceCapacity)&&voices_[v].isActive()){
+        if(ready_&&v<slotCount()&&voices_[v].isActive()){
             slots[count++]=(uint8_t)v;voices_[v].updateLfo();
         }
     }
@@ -219,7 +251,8 @@ void RdxEngine::renderDry(float (*dry)[DMA_BUFFER_LEN]) {
             uint32_t n=RDX_RENDER_CHUNK;
             if(n>DMA_BUFFER_LEN-offset)n=DMA_BUFFER_LEN-offset;
             if(retiring_[v]&&n>retiring_[v])n=retiring_[v];
-            voices_[v].renderChunk(render_scratch,n,mono_);
+            voices_[v].renderChunk(render_scratch,n,slotMono(v));
+            if(sources_[v]==VOICE_PHRASE)for(uint32_t i=0;i<n;++i)render_scratch.wave[0][i]*=phraseRatio_;
             for(uint32_t i=0;i<n;++i){
                 float value=render_scratch.wave[0][i];
                 if(retiring_[v]){value*=retiring_[v]*(1.0f/32.0f);if(!--retiring_[v]){voices_[v].init();slots[at]=255;}}

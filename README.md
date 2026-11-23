@@ -54,6 +54,8 @@ Press **SAVE** to store a voice in one of **32 user slots**, separate from the f
 
 Press **REC**, then play the first note to begin recording. Press REC again to finish and play the phrase in a loop. **PLAY** stops or restarts from the beginning. During playback, REC arms one overdub pass at the next loop boundary; REC can finish that pass early. **SEQ** opens/closes the looper screen; **K4** changes tempo there. **SEL + SAVE** clears a stopped phrase. HOME returns to sound editing while playback continues.
 
+The first recorded note captures the current voice, including unsaved edits. That voice is used for the entire phrase and every overdub. Changing presets or editing the sound affects live playing; the loop keeps its captured FM voice. Both feed the current shared effects and output controls. The looper screen shows the captured voice name.
+
 The looper has four takes of up to 512 events each. It records notes, velocity, pitch bend, modulation, volume, expression and sustain. Phrases are temporary and disappear at power-off or browser reload. It does not record audio, patch changes or MIDI clock. ARP remains unassigned.
 
 ## Install on an FM-1
