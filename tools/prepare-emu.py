@@ -55,7 +55,7 @@ page = page.replace('<div class="bar">', '''<aside class="help" style="margin:16
   REC again finishes and loops the phrase. <strong>PLAY</strong> stops or restarts.
   REC during playback arms one overdub pass at the next loop; K4 adjusts tempo.
   <strong>SEL + SAVE</strong> clears a stopped phrase. Four takes of up to 512 MIDI events each;
-  phrases are lost when switched off. The first note captures one voice for the entire phrase and all overdubs; live presets can change while the loop keeps that voice. Effects stay shared and live. HOME returns to editing while playback continues.</p>
+  unsaved phrases are lost when switched off. ARP opens four draft slots: SELECT chooses, SAVE stores and PLAY recalls; press again to confirm. K1 selects click OFF/AUTO/ON. PRESET changes the live sound while the looper stays visible. Octave changes preserve held notes. The first note captures one voice for the entire phrase and all overdubs; live presets can change while the loop keeps that voice. Effects stay shared and live. HOME returns to editing while playback continues.</p>
   <p>This tests the current prototype's app and synth code in your browser.
   The original ESP screen drawings are adapted to the FM-1 display and controls.
   Browser performance does not measure FM-1 timing.</p>

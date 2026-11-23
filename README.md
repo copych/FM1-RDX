@@ -48,15 +48,15 @@ The large screen beside or below the instrument mirrors its display so you can r
 
 Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and up to seven adaptive voices. The supplied presets include basses, keys, bells, pads, leads and percussion.
 
-**Saving and looping are available in the new local preview; the public installer still serves v1.0.0-beta.**
+**Saving, drafts and looping are available in the new local preview; the public installer still serves v1.0.0-beta.**
 
 Press **SAVE** to store a voice in one of **32 user slots**, separate from the factory bank. **SELECT** chooses a destination; **K1** selects one of the ten name characters and **K2** changes it. **K3/K4** choose bank/slot. Press SAVE again to store; an occupied slot asks for a second confirmation. **HOME** cancels. Saving briefly mutes audio, so stop the looper first. Stored voices survive power-off. In the emulator they stay in this browser while its site data is retained.
 
-Press **REC**, then play the first note to begin recording. Press REC again to finish and play the phrase in a loop. **PLAY** stops or restarts from the beginning. During playback, REC arms one overdub pass at the next loop boundary; REC can finish that pass early. **SEQ** opens/closes the looper screen; **K4** changes tempo there. **SEL + SAVE** clears a stopped phrase. HOME returns to sound editing while playback continues.
+Press **REC**, then play the first note to begin recording. Press REC again to finish and play the phrase in a loop. **PLAY** stops or restarts from the beginning. During playback, REC arms one overdub pass at the next loop boundary; REC can finish that pass early. **SEQ** opens/closes the looper screen; **K4** changes tempo there. **K1** sets the click to OFF, AUTO (arming/recording/overdub) or ON (also during playback). The click uses no synth voice. Turn **PRESET** to change the live sound while staying on the looper screen; both the live and captured voice names are shown. **SEL + SAVE** clears a stopped phrase. HOME returns to sound editing while playback continues.
 
 The first recorded note captures the current voice, including unsaved edits. That voice is used for the entire phrase and every overdub. Changing presets or editing the sound affects live playing; the loop keeps its captured FM voice. Both feed the current shared effects and output controls. The looper screen shows the captured voice name.
 
-The looper has four takes of up to 512 events each. It records notes, velocity, pitch bend, modulation, volume, expression and sustain. Phrases are temporary and disappear at power-off or browser reload. It does not record audio, patch changes or MIDI clock. ARP remains unassigned.
+The looper has four takes of up to 512 events each. It records notes, velocity, pitch bend, modulation, volume, expression and sustain. Unsaved phrases disappear at power-off or browser reload. Press **ARP** for four draft slots. Each draft stores the complete phrase, captured voice and tempo. **SELECT** chooses a slot, **SAVE** stores and **PLAY** recalls; press the same button again to confirm replacement. Stop playback before saving or loading. ARP returns to the looper; HOME exits. Saved drafts survive power-off (and stay in browser site storage in the emulator). It does not record audio, patch changes or MIDI clock. Octave buttons shift new keyboard notes without interrupting held notes, effects or the loop. Keys light for held/live or looped notes in the displayed keyboard range. REC indicates recording/arming, PLAY pulses with the beat, the active menu is lit, and dim SAVE/FX/ARP indicate unsaved edits, enabled effects and available drafts.
 
 ## Install on an FM-1
 

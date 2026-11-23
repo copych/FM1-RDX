@@ -22,6 +22,10 @@ int main(){
  test.phraseSustain(true);test.phraseNoteOff(60);test.sustain(false);test.renderBlock(b,br);
  for(unsigned i=0;i<200;++i)test.renderBlock(b,br);assert(test.activeVoices()==1);
  test.phraseSustain(false);for(unsigned i=0;i<200;++i)test.renderBlock(b,br);assert(!test.activeVoices());test.panic();
+ // Overlapping physical keys can map to the same pitch after an octave shift.
+ test.noteOn(60,100);test.noteOn(60,100);test.noteOff(60);
+ for(unsigned i=0;i<200;++i)test.renderBlock(b,br);assert(test.activeVoices()==1);
+ test.noteOff(60);for(unsigned i=0;i<200;++i)test.renderBlock(b,br);assert(!test.activeVoices());
  // One pool: many notes in both parts never allocate beyond the common limit.
  for(unsigned n=0;n<20;++n){test.noteOn(45+n,100);test.phraseNoteOn(70+n,100);assert(test.activeVoices()<=7);}
  test.panic();

@@ -76,6 +76,7 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     control_request.home=preset_home_requested;preset_home_requested=0;
     control_request.channel=rdx_midi_receive_channel();
     rdx_editor_snapshot(&control_request.editor);
+    control_request.guide=guide_mode;control_request.draft_mask=draft_mask;memcpy(control_request.draft_names,draft_names,sizeof draft_names);
     rdx_phrase_name(control_request.phrase_name);
     control_request.loop[0]=looper.state;control_request.loop[1]=looper.position;control_request.loop[2]=looper.length;control_request.loop[3]=looper.tempo;control_request.loop[4]=looper.tracks;
     for(uint32_t i=0;i<4u;++i)control_request.loop[5]+=looper.count[i];
@@ -127,7 +128,8 @@ static void control_run(uint32_t kind,const uint8_t* sysex,uint32_t size){
     if(control_reply.system_pending){memcpy(sm_system,control_reply.system,32);sm_system_pending=1;}
     plat_unlock(f);
     if(control_reply.reset_timing)timing_reset();
-    store_commit();
+    store_commit();draft_commit();
+    if(kind==CONTROL_FRAME)app_lights();
 }
 void app_input_only(void){control_run(CONTROL_INPUT,0,0);}
 void app_frame(void){control_run(CONTROL_FRAME,0,0);}

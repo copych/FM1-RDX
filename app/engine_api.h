@@ -5,6 +5,8 @@ extern "C" {
 #endif
 void rdx_boot(void);
 int rdx_phrase_capture(void);
+int rdx_phrase_export(uint8_t* patch150,uint8_t* performance3);
+int rdx_phrase_restore(const uint8_t* patch150,const uint8_t* performance3);
 void rdx_phrase_clear(void);
 void rdx_phrase_release(void);
 void rdx_phrase_note(uint8_t note,uint8_t velocity);

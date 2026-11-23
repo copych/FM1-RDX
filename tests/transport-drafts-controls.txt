@@ -1,0 +1,140 @@
+wait 600
+midi C0 20 00
+wait 150
+key 0 down
+wait 100
+expect live_note53 1
+tap OCT+
+wait 100
+expect live_note53 1
+expect octave 1
+expect voice_active 1
+key 0 up
+wait 600
+expect live_note53 0
+expect voice_active 0
+key 0 down
+wait 100
+expect live_note65 1
+tap OCT-
+wait 50
+expect live_note65 1
+key 0 up
+wait 600
+expect live_note65 0
+expect voice_active 0
+
+key 12 down
+wait 100
+tap OCT+
+key 0 down
+wait 100
+expect voice_active 2
+key 0 up
+wait 600
+expect voice_active 1
+key 12 up
+wait 600
+expect voice_active 0
+tap OCT-
+
+tap REC
+wait 700
+expect loop 1
+expect guide 1
+expect beat_pulses 2
+peakreset
+wait 600
+expect peak_db_min -50
+expect beat_pulses 3
+midi 90 3C 64
+wait 300
+midi 80 3C 00
+wait 100
+tap REC
+wait 50
+expect loop 3
+expect loop_length 96
+turn PRESET 1
+wait 150
+expect preset 1
+expect loop 3
+expect loop_view 1
+tap OCT+
+wait 50
+expect loop 3
+expect octave 1
+tap PLAY
+wait 50
+expect loop 0
+tap ARP
+expect draft 1
+shot drafts-empty.png
+tap SAVE
+expect draft 2
+tap SAVE
+expect draft 4
+expect draft_mask 1
+expect store_writes 4
+shot draft-saved.png
+tap ARP
+press SEL
+tap SAVE
+release SEL
+wait 50
+expect loop_length 0
+reboot
+wait 600
+expect draft_mask 1
+expect loop_length 0
+tap ARP
+tap PLAY
+expect draft 3
+tap PLAY
+expect draft 5
+expect loop_length 96
+expect loop_tempo 120
+expect loop 0
+shot draft-loaded.png
+tap ARP
+turn K4 3
+wait 50
+expect loop_tempo 123
+tap ARP
+tap SAVE
+flash_fail 1
+tap SAVE
+expect draft 6
+expect draft_mask 1
+flash_fail 0
+reboot
+wait 600
+tap ARP
+tap PLAY
+tap PLAY
+expect draft 5
+expect loop_tempo 120
+tap ARP
+tap PLAY
+wait 600
+expect loop 3
+tap PLAY
+wait 50
+expect loop 0
+press SEL
+tap SAVE
+release SEL
+wait 50
+turn K1 -1
+wait 50
+expect guide 0
+midi B0 78 00
+wait 100
+tap REC
+wait 100
+peakreset
+wait 700
+expect peak_db_max -100
+expect control_errors 0
+expect control_drops 0
+shot looper-click-off.png

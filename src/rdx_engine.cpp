@@ -182,7 +182,12 @@ void RdxEngine::noteOffSource(eVoiceSource source,uint8_t note){
             if(top&&count)voices_[i].noteOn(held[count-1],vel[count-1]);else if(!count)voices_[i].noteOff();
         }return;
     }
-    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==source&&voices_[i].note()==note&&voices_[i].isHeld())voices_[i].noteOff();
+    // MIDI note-offs pair with note-ons in arrival order. Releasing every
+    // matching voice cuts another held key when octave shifts overlap pitches.
+    int oldest=-1;
+    for(int i=0;i<voiceCapacity;++i)if(sources_[i]==source&&voices_[i].note()==note&&voices_[i].isHeld())
+        if(oldest<0||voiceAge_[i]>voiceAge_[oldest])oldest=i;
+    if(oldest>=0)voices_[oldest].noteOff();
 }
 void RdxEngine::sustainSource(eVoiceSource source,bool down){
     controlsFor(source).sustain=down;

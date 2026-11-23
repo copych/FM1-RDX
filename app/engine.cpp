@@ -465,3 +465,14 @@ extern "C" void rdx_phrase_cc(uint8_t cc,uint8_t v){
     else if(cc==7||cc==11)rdx_control_change(cc,v); // shared output controls
 }
 extern "C" void rdx_phrase_name(char* out){memcpy(out,phrase_name,11);}
+
+extern "C" int rdx_phrase_export(uint8_t* p,uint8_t* perf){
+    if(!engine->exportPhrase(p))return 0;
+    uint16_t bend=(uint16_t)(phrase_start_bend+8192);perf[0]=(uint8_t)bend;perf[1]=(uint8_t)(bend>>8);perf[2]=phrase_start_mod;return 1;
+}
+extern "C" int rdx_phrase_restore(const uint8_t* p,const uint8_t* perf){
+    RDX_Patch patch;memcpy(&patch,p,150);uint16_t v=(uint16_t)(perf[0]|(perf[1]<<8));
+    if(v>16383u||perf[2]>127u||!engine->capturePhrase(patch))return 0;
+    phrase_bend=phrase_start_bend=(int)v-8192;phrase_mod=phrase_start_mod=perf[2];
+    memcpy(phrase_name,p,10);phrase_name[10]=0;phrase_performance();budget_dirty=true;return 1;
+}

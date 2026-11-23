@@ -50,6 +50,9 @@ mkdir -p build/polyphony-controls
 app/build/host/rdx_host tests/polyphony-controls.txt build/polyphony-controls
 mkdir -p build/store-looper-controls
 app/build/host/rdx_host tests/store-looper-controls.txt build/store-looper-controls
+mkdir -p build/transport-drafts-controls
+app/build/host/rdx_host tests/transport-drafts-controls.txt build/transport-drafts-controls
+bash tools/test-drafts.sh
 bash tools/test-user-store.sh
 bash tools/test-looper.sh
 bash tools/test-phrase-voice.sh

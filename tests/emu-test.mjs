@@ -126,7 +126,8 @@ midi(0xb0,120);emu.run(100);
 console.log('PASS: WebAssembly CPU1 six/seven/eight sweep completes, releases test voices and returns to normal MIDI.');
 
 button(1<<6);midi(0xc0,32);emu.run(150);midi(0xb0,120);emu.run(50);
-button(1<<11);assert.equal(emu.run(100),0,'Looper arms silently until the first note');
+button(1<<11);assert(emu.run(600)>0.001,'Metronome sounds while armed before the first note');
+assert(emu.take('frame').some(f=>f.buttons&(1<<9)),'Looper SEQ LED is lit');
 midi(0x90,60,100);emu.run(200);midi(0x80,60);emu.run(100);
 button(1<<11);const looped=emu.record(900);
 assert(looped.every(Number.isFinite)&&looped.some(v=>Math.abs(v)>0.001),'Recorded phrase plays without live keys');
@@ -144,3 +145,19 @@ emu.run(700);midi(0xc0,33);midi(0x90,60,100);
 assert(emu.run(200)>0.001,'Saved user voice plays after emulator reload');
 midi(0xb0,120);emu.run(50);
 console.log('PASS: WebAssembly phrase recording/playback/stop, user save, browser persistence handoff and reload.');
+// Musical drafts persist through the same browser-store handoff as user voices.
+button(1<<6);midi(0xc0,32);emu.run(150);
+assert(emu.ex.web_lit_buttons()&(1<<6),'Home menu LED is lit');
+emu.send({type:'keys',mask:1});emu.run(50);
+assert(emu.ex.web_lit_keys()&1,'Held panel key LED is lit');
+emu.send({type:'keys',mask:0});midi(0xb0,120);emu.run(100);
+button(1<<11);midi(0x90,60,100);emu.run(200);midi(0x80,60);emu.run(100);button(1<<11);emu.run(100);button(1<<10);
+button(1<<8);button(1<<7);button(1<<7);emu.run(100);
+assert.equal(emu.ex.web_store_len(5),40,'Draft manifest committed');
+const draftStore={};for(let o=0;o<emu.ex.web_nobj();o++){const n=emu.ex.web_store_len(o);if(n>0)draftStore[o]=new Uint8Array(emu.ex.memory.buffer,emu.ex.web_store(o),n).slice();}
+assert(emu.take('frame').some(f=>f.store?.[5]?.length===40),'Browser receives musical draft for persistence');
+await emu.send({type:'load',wasm:wasmReload.buffer.slice(wasmReload.byteOffset,wasmReload.byteOffset+wasmReload.byteLength),store:draftStore,master:4096});
+emu.run(700);button(1<<8);button(1<<10);button(1<<10);button(1<<8);button(1<<10);
+const recalled=emu.record(1200);assert(recalled.every(Number.isFinite)&&recalled.some(v=>Math.abs(v)>0.001),'Saved draft recalls and plays after emulator reload');
+button(1<<10);midi(0xb0,120);emu.run(100);
+console.log('PASS: WebAssembly metronome, menu/transport/key LEDs, musical draft save, browser persistence and audible recall.');

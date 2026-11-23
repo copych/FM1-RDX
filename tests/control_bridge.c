@@ -7,6 +7,10 @@
 #include "../src/rdx_looper.h"
 static RdxLooper looper;
 static void store_commit(void){}
+static void app_lights(void){}
+static uint8_t guide_mode,draft_mask;
+static char draft_names[4][11];
+static void draft_commit(void){}
 void rdx_phrase_name(char* out){memset(out,0,11);}
 uint32_t rdx_user_mask(void){return 0;}
 uint8_t rdx_patch_trim(void){return 0;}

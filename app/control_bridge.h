@@ -13,6 +13,8 @@ typedef struct {
     uint32_t dry[8];
     uint32_t dry_detail[8];
     uint32_t ui[5];
+    uint32_t guide,draft_mask;
+    char draft_names[4][11];
     uint32_t lcd_errors,user_mask,patch_trim,loop[7];
     char user_names[32][11],phrase_name[11];
     RdxTiming timing;
@@ -22,6 +24,7 @@ typedef struct {
     uint32_t sequence,core,ticks,count,overflow,reset_timing,detail_changed,detail;
     rdx_event_t commands[CONTROL_COMMANDS];
     uint8_t patch[150],system[32];
+    uint32_t draft_action,draft_slot;
     uint32_t save_pending,save_slot,save_trim;
     uint8_t save_patch[150];
     uint32_t patch_pending,patch_full,system_pending,sysex_result,hash,valid;

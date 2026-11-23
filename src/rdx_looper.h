@@ -2,9 +2,9 @@
 #include <stdint.h>
 // CPU0 block-boundary phrase engine. Four sequential takes, 512 events each.
 // No sorting, allocation, I/O or variable-time search in the renderer.
-enum eLoopEventType { LOOP_NOTE,LOOP_BEND,LOOP_CC,LOOP_EVENT_TYPES_COUNT,LOOP_RELEASE=255 };
+enum eLoopEventType { LOOP_NOTE=0,LOOP_BEND=1,LOOP_CC=2,LOOP_EVENT_TYPES_COUNT,LOOP_RELEASE=255 };
 enum eLoopState { LOOP_STOP,LOOP_ARMED,LOOP_RECORD,LOOP_PLAY,LOOP_OVERDUB_ARMED,LOOP_OVERDUB,LOOP_STATES_COUNT };
-enum eLoopCommand { LOOP_REC,LOOP_TOGGLE,LOOP_CLEAR,LOOP_TEMPO,LOOP_COMMANDS_COUNT };
+enum eLoopCommand { LOOP_REC,LOOP_TOGGLE,LOOP_CLEAR,LOOP_TEMPO,LOOP_GUIDE,LOOP_COMMANDS_COUNT };
 enum {LOOP_TRACKS=4,LOOP_EVENTS=512,LOOP_MAX_TICKS=57600};
 typedef struct {uint16_t tick;uint8_t type,a,b,pad;} LoopEvent;
 typedef struct {

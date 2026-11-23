@@ -9,6 +9,7 @@ public:
     static constexpr int voiceCapacity = 8;
     enum eVoiceSource { VOICE_LIVE,VOICE_PHRASE,VOICE_SOURCES_COUNT };
     bool capturePhrase(const RDX_Patch& patch);
+    bool exportPhrase(uint8_t* patch)const{if(!phraseReady_)return false;memcpy(patch,&phrasePatch_,150);return true;}
     void clearPhrase();
     bool hasPhrase()const{return phraseReady_;}
     void phraseNoteOn(uint8_t note,uint8_t velocity){noteOnSource(VOICE_PHRASE,note,velocity);}
