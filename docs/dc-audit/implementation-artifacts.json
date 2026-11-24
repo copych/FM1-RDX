@@ -1,0 +1,15 @@
+{
+  "version": "1.0.2-dev",
+  "firmwareSha256": "5a0deffd35cad7a0f6a0b25ec3ff9305d51b76a63c0f093646e2effccfc2bae9",
+  "wasmSha256": "81fe7ac615d878bd6adb04f89d14acd176b7e2649b0e67ef8b6b266d792519ab",
+  "validationCases": 244,
+  "fxCases": 156,
+  "fxAcRmsDeltaDb": [
+    -1.3631522684347033,
+    1.879585791347104
+  ],
+  "imageBytes": 211188,
+  "ramCodeBytes": 22656,
+  "dataBssBytes": 92764,
+  "poolBytes": 333572
+}

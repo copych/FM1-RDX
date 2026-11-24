@@ -29,7 +29,7 @@ uint32_t RdxEffects::required(const RDX_Patch& p) {
     return slotSize(p.common.effects[0][0],p.common.effects[0][2])+slotSize(p.common.effects[1][0],p.common.effects[1][2]);
 }
 void RdxEffects::init(float* arena) {
-    arena_=arena;
+    inputDc_={};arena_=arena;
     for(uint8_t i=0;i<2;++i) {
         auto& s=slots_[i];
         s.distortion.init(SAMPLE_RATE,i);s.wah.init(SAMPLE_RATE,i);
@@ -38,7 +38,7 @@ void RdxEffects::init(float* arena) {
     }
 }
 bool RdxEffects::begin(const RDX_Patch& p) {
-    prepared_=false;valid_=false;used_=cleared_=0;
+    inputDc_={};prepared_=false;valid_=false;used_=cleared_=0;
     for(uint8_t i=0;i<2;++i) {
         auto& s=slots_[i];s.~Slot();new(&s) Slot;
         s.distortion.init(SAMPLE_RATE,i);s.wah.init(SAMPLE_RATE,i);
@@ -102,6 +102,7 @@ void RdxEffects::process(float* l,float* r,bool matchLevels) {
     default:break;
         }
         if(matchLevels&&s.id!=EFFECT_THRU){
+            rdx_dc_process(&s.dc,l,r,DMA_BUFFER_LEN);
             uint32_t k=0;while(k<2u&&s.levelPower>effectLevelPower[k+1u])++k;
             float x=(s.levelPower-effectLevelPower[k])*effectLevelInvPowerSpan[k];if(x<0.0f)x=0.0f;if(x>1.0f)x=1.0f;
             float target=s.levelAt[k]+(s.levelAt[k+1u]-s.levelAt[k])*x;

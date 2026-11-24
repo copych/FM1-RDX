@@ -1,4 +1,5 @@
 #pragma once
+#include "rdx_dc.h"
 #include "fx/fx_distortion.h"
 #include "fx/fx_touch_wah.h"
 #include "fx/fx_chorus.h"
@@ -18,6 +19,7 @@ public:
     void init(float* arena);
     bool begin(const RDX_Patch& patch);
     bool serviceClear();
+    void processInput(float* l,float* r){rdx_dc_process(&inputDc_,l,r,DMA_BUFFER_LEN);}
     void process(float* left,float* right,bool matchLevels=true);
     bool valid() const {return valid_;}
     uint32_t used() const {return used_;}
@@ -27,6 +29,7 @@ public:
 private:
     struct Slot {
         uint8_t id=EFFECT_THRU,levelP1=255,levelP2=255;
+        RdxDc dc{};
         float levelAt[4]={1.0f,1.0f,1.0f,1.0f},levelPower=0.0f,levelWetPower=0.0f,levelGain=1.0f;
         uint32_t offset=0,size=0;
         FxDistortion distortion;
@@ -37,6 +40,7 @@ private:
         FxDelay delay;
         FxReverb reverb;
     } slots_[2];
+    RdxDc inputDc_{};
     float* arena_=nullptr;
     uint32_t used_=0,cleared_=0;
     bool prepared_=false,valid_=false;

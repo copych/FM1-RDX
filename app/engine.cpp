@@ -241,6 +241,7 @@ extern "C" void rdx_render(float* l,float* r) {
         // output. Patch/fade transitions dispatch at callback end instead.
         if(dry.enabled&&fade==PRESET_STEADY&&dry.kick&&rdx_dry_publish())dry.kick();
         const uint32_t fx_start=budget_ticks();
+        effects->processInput(l,r);
         if(effects_on)effects->process(l,r);
         const uint32_t fx_ticks=budget_ticks()-fx_start;fx_last=fx_ticks;if(fx_ticks>fx_peak)fx_peak=fx_ticks;
     } else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;

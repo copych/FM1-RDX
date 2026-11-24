@@ -1,15 +1,17 @@
 #pragma once
 #include <stdint.h>
+#include "rdx_dc.h"
 
 // One-block stereo-linked lookahead, after effects/click and before MASTER.
 // Start gain is already safe for the delayed block; the ramp endpoint is safe
 // for both that block and the arriving block. No sample can exceed the ceiling.
 enum { RDX_OUTPUT_FRAMES=128 };
-typedef struct {float delay[2][RDX_OUTPUT_FRAMES],gain,previous_required;} RdxOutput;
+typedef struct {RdxDc dc;float delay[2][RDX_OUTPUT_FRAMES],gain,previous_required;} RdxOutput;
 static void rdx_output_init(RdxOutput* s){memset(s,0,sizeof *s);s->gain=s->previous_required=1.0f;}
 static void rdx_output_process(RdxOutput* s,float* l,float* r,uint32_t n){
     const float ceiling=0.8912509f;
     if(n!=RDX_OUTPUT_FRAMES){for(uint32_t i=0;i<n;++i)l[i]=r[i]=0.0f;return;}
+    rdx_dc_process(&s->dc,l,r,n);
     float peak=0.0f;
     for(uint32_t i=0;i<n;++i){
         float a=l[i],b=r[i];
