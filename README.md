@@ -48,6 +48,8 @@ The large screen beside or below the instrument mirrors its display so you can r
 
 Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and up to seven adaptive voices. The supplied presets include basses, keys, bells, pads, leads and percussion.
 
+The instrument display uses the original RDX bitmap font throughout, with a monochrome Reface-style editor, Store and Looper screens.
+
 **Saving, drafts and looping are available in the new local preview; the public installer still serves v1.0.0-beta.**
 
 Press **SAVE** to store a voice in one of **32 user slots**, separate from the factory bank. **SELECT** chooses a destination; **K1** selects one of the ten name characters and **K2** changes it. **K3/K4** choose bank/slot. Press SAVE again to store; an occupied slot asks for a second confirmation. **HOME** cancels. Saving briefly mutes audio, so stop the looper first. Stored voices survive power-off. In the emulator they stay in this browser while its site data is retained.

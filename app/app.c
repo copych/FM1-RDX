@@ -2,6 +2,7 @@
 #include "editor_api.h"
 #include "benchmark.h"
 #include "../src/rdx_encoder.h"
+#include "../src/gui/font_mo.h"
 #include "../src/rdx_looper.h"
 #include "../src/rdx_drafts.h"
 
@@ -301,14 +302,26 @@ static void control_begin(uint32_t w,uint32_t h,uint16_t color){
     const uint32_t start=ui_ticks();cv_begin(w,h,color);ui_record(UI_CLEAR,start);
     audio_checkpoint_at(DRY_AT_CLEAR);
 }
-static int32_t control_text(int32_t x,int32_t y,const felucca_font_t* font,const char* text,uint16_t color){
-    // The original rasterizer advances independently per byte/glyph; preserving
-    // its returned x retains clipping, blending and glyph placement exactly.
-    for(;*text;++text){
-        const char one[2]={*text,0};audio_checkpoint_at(DRY_AT_TEXT);
-        const uint32_t start=ui_ticks();x=cv_text(x,y,font,one,color);ui_record(UI_TEXT,start);
+enum ePixelStyle { PIXEL_BODY,PIXEL_LARGE,PIXEL_STYLES_COUNT };
+// Same source glyphs and 15/8 pixel magnification as the original ESP panel.
+// Strips remain bounded; the audio worker is serviced between every glyph.
+static uint32_t pixel_length(const char* text){uint32_t n=0;while(text[n]&&n<39u)++n;return n;}
+static int32_t pixel_text(int32_t x,int32_t y,const char* text,uint32_t length,uint32_t numerator){
+    static const uint8_t columns[2][19]={{0,0,1,1,2,2,3,3,4,4,0,0,0,0,0,0,0,0,0},{0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,4,4,4,4}};
+    static const uint8_t rows[2][26]={{1,1,2,2,4,4,8,8,16,16,32,32,64,0,0,0,0,0,0,0,0,0,0,0,0,0},{1,1,1,1,2,2,2,2,4,4,4,4,8,8,8,16,16,16,16,32,32,32,32,64,64,64}};
+    const uint32_t large=numerator==30u,height=large?26u:13u,width=large?19u:10u;
+    for(uint32_t at=0;at<length;++at){
+        audio_checkpoint_at(DRY_AT_TEXT);const uint32_t start=ui_ticks();
+        uint8_t c=(uint8_t)text[at];if(c<16u)c=' ';
+        const uint8_t* glyph=font_mo[c-16u];
+        const int32_t left=x+(int32_t)(at*6u*numerator/8u);
+        for(uint32_t dy=0;dy<height;++dy){int32_t yy=y+(int32_t)dy;if(yy<0||yy>=8)continue;
+            uint32_t mask=rows[large][dy];
+            for(uint32_t dx=0;dx<width;++dx)if(glyph[columns[large][dx]]&mask)cv_pset(left+(int32_t)dx,yy,C_WHITE);
+        }
+        ui_record(UI_TEXT,start);
     }
-    audio_checkpoint_at(DRY_AT_TEXT);return x;
+    audio_checkpoint_at(DRY_AT_TEXT);return x+(int32_t)(length*6u*numerator/8u);
 }
 static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t color){
     if(x>=240u||y>=240u||!w||!h)return;
@@ -317,7 +330,6 @@ static void control_fill(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint16_t co
 }
 #define cv_blit control_blit
 #define cv_begin control_begin
-#define cv_text control_text
 #define lcd_fill control_fill
 #define plat_lock control_lock
 #define plat_unlock control_unlock
@@ -482,12 +494,33 @@ keyboard_input:
     }
     keys_before=keys;buttons_before=buttons;
 }
-static void draw_text_row(uint32_t y,const felucca_font_t* font,const char* text,uint16_t color) {
-    for(uint32_t band=0;band<font->h;band+=8u) {
-        uint32_t height=font->h-band;if(height>8u)height=8u;
-        cv_begin(240,height,C_BLACK);
-        cv_text(10,-(int32_t)band,font,text,color);
-        cv_blit(0,y+band);
+static void pixel_line(uint32_t y,const char* text,uint32_t length,uint32_t numerator){
+    if(y>=240u)return;
+    const uint32_t height=7u*numerator/8u,width=length*6u*numerator/8u;
+    for(uint32_t band=0;band<height&&y+band<240u;band+=8u){uint32_t h=height-band;if(h>8u)h=8u;if(h>240u-y-band)h=240u-y-band;
+        cv_begin(240,h,C_BLACK);pixel_text((240-(int32_t)width)/2,-(int32_t)band,text,length,numerator);cv_blit(0,y+band);
+    }
+}
+static void draw_text_row(uint32_t y,uint8_t style,const char* text,uint16_t color){
+    (void)color;uint32_t length=pixel_length(text);
+    if(y==4u){for(uint32_t band=0;band<24u;band+=8u){cv_begin(240,8,C_BLACK);cv_blit(0,band);}pixel_line(4,text,length,15u);
+        cv_begin(240,1,C_WHITE);cv_blit(0,28);return;}
+    if(style==PIXEL_LARGE&&length<=10u){pixel_line(y,text,length,30u);return;}
+    // Diagnostic rows may use two lines. User-facing copy stays within 20 cells.
+    if(length>20u){pixel_line(y,text,20u,15u);pixel_line(y+13u,text+20u,length-20u,15u);}
+    else pixel_line(y,text,length,15u);
+}
+static void pixel_controls(const char* const labels[4],const char* const values[4]){
+    for(uint32_t band=0;band<34u;band+=8u){uint32_t h=34u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
+        for(uint32_t row=0;row<h;++row){uint32_t yy=band+row;
+            if(yy==0u||yy==33u){for(uint32_t x=0;x<240u;++x)cv_pset(x,row,C_WHITE);}
+            else{for(uint32_t x=0;x<240u;x+=60u)cv_pset(x,row,C_WHITE);cv_pset(239,row,C_WHITE);}
+        }
+        for(uint32_t k=0;k<4u;++k){uint32_t n=pixel_length(labels[k]);if(n>5u)n=5u;
+            int32_t x=(int32_t)(60u*k)+(60-(int32_t)(n*6u*15u/8u))/2;
+            pixel_text(x,(values?3:10)-(int32_t)band,labels[k],n,15u);
+            if(values&&values[k]){n=pixel_length(values[k]);if(n>5u)n=5u;x=(int32_t)(60u*k)+(60-(int32_t)(n*6u*15u/8u))/2;pixel_text(x,18-(int32_t)band,values[k],n,15u);}
+        }cv_blit(0,180u+band);
     }
 }
 // Bounded UI-only formatter; target has no snprintf.
@@ -514,15 +547,15 @@ static void control_frame(void) {
         uint32_t hash=gui_hash(control_request.draft_names[draft_slot],11)^((uint32_t)draft_screen<<24)^((uint32_t)draft_slot<<16)^control_request.draft_mask^control_request.loop[0];
         if(!editor_redraw&&draft_draw_valid&&hash==draft_draw_hash)return;draft_draw_valid=1;draft_draw_hash=hash;
         char row[40];
-        draw_text_row(4,&FONT_M,"MUSICAL DRAFTS",C_WHITE);
-        timing_format(row,"DRAFT %lu / 4",draft_slot+1u,0,"");draw_text_row(46,&FONT_M,row,C_WHITE);
-        draw_text_row(82,&FONT_M,control_request.draft_mask&(1u<<draft_slot)?control_request.draft_names[draft_slot]:"EMPTY",C_WHITE);
-        const char* status=draft_screen==DRAFT_SAVE_CONFIRM?"SAVE REPLACES THIS SLOT":draft_screen==DRAFT_LOAD_CONFIRM?"LOAD REPLACES CURRENT LOOP":draft_screen==DRAFT_SAVED?"DRAFT SAVED":draft_screen==DRAFT_LOADED?"DRAFT LOADED":draft_screen==DRAFT_ERROR?(control_request.loop[0]!=LOOP_STOP?"STOP LOOP BEFORE SAVING":"EMPTY OR DRAFT I/O ERROR"):"SELECT: CHOOSE SLOT";
-        draw_text_row(126,&FONT_B,status,C_HI);
-        draw_text_row(154,&FONT_B,"FLASH WRITES MUTE AUDIO",C_GRAY);
-        draw_text_row(178,&FONT_B,"SAVE STORE / PLAY LOAD",C_WHITE);
-        draw_text_row(202,&FONT_B,"PRESS AGAIN TO CONFIRM",C_WHITE);
-        draw_text_row(222,&FONT_B,"ARP LOOPER / HOME EXIT",C_GRAY);editor_redraw=0;return;
+        draw_text_row(4,PIXEL_LARGE,"DRAFTS",C_WHITE);
+        timing_format(row,"%lu / 4",draft_slot+1u,0,"");draw_text_row(46,PIXEL_LARGE,row,C_WHITE);
+        draw_text_row(82,PIXEL_LARGE,control_request.draft_mask&(1u<<draft_slot)?control_request.draft_names[draft_slot]:"EMPTY",C_WHITE);
+        const char* status=draft_screen==DRAFT_SAVE_CONFIRM?"REPLACE THIS DRAFT?":draft_screen==DRAFT_LOAD_CONFIRM?"REPLACE THIS LOOP?":draft_screen==DRAFT_SAVED?"DRAFT SAVED":draft_screen==DRAFT_LOADED?"DRAFT LOADED":draft_screen==DRAFT_ERROR?(control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"EMPTY / READ ERROR"):"SELECT: CHOOSE SLOT";
+        draw_text_row(126,PIXEL_BODY,status,C_HI);
+        draw_text_row(146,PIXEL_BODY,"SAVE MUTES AUDIO",C_GRAY);
+        draw_text_row(164,PIXEL_BODY,"PRESS AGAIN: CONFIRM",C_WHITE);
+        static const char* draft_keys[4]={"SLOT","SAVE","PLAY","HOME"};pixel_controls(draft_keys,0);
+        draw_text_row(222,PIXEL_BODY,"ARP LOOP / HOME EXIT",C_GRAY);editor_redraw=0;return;
     }
     if(store_screen!=STORE_CLOSED){
         uint32_t hash=gui_hash(store_patch,150)^((uint32_t)store_screen<<24)^((uint32_t)store_slot<<16)^((uint32_t)store_cursor<<8)^control_request.loop[0];
@@ -530,52 +563,56 @@ static void control_frame(void) {
         store_draw_hash=hash;
         char row[40],name[11];memcpy(name,store_patch,10);name[10]=0;
         for(uint32_t i=0;i<10u;++i)if(name[i]<32||name[i]>126)name[i]=' ';
-        draw_text_row(4,&FONT_M,"STORE VOICE",C_WHITE);
-        draw_text_row(46,&FONT_M,name,C_WHITE);
-        timing_format(row,"CHAR %lu  K1 CURSOR K2 EDIT",store_cursor+1u,0,"");draw_text_row(76,&FONT_B,row,C_HI);
-        timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,&FONT_M,row,C_WHITE);
-        draw_text_row(140,&FONT_B,control_request.user_names[store_slot],C_GRAY);
-        draw_text_row(168,&FONT_B,store_screen==STORE_CONFIRM?"REPLACE? SAVE TO CONFIRM":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP BEFORE SAVING":"SAVE FAILED - HOME TO RETRY":"SELECT: DESTINATION",C_HI);
-        draw_text_row(192,&FONT_B,"SAVE BRIEFLY MUTES AUDIO",C_WHITE);
-        draw_text_row(216,&FONT_B,"SAVE STORE / HOME EXIT",C_GRAY);editor_redraw=0;return;
+        draw_text_row(4,PIXEL_LARGE,"STORE",C_WHITE);
+        draw_text_row(46,PIXEL_LARGE,name,C_WHITE);
+        control_fill(7u+store_cursor*180u/8u,74u,18u,2u,C_WHITE);
+        timing_format(row,"CHAR %lu / 10",store_cursor+1u,0,"");draw_text_row(84,PIXEL_BODY,row,C_HI);
+        timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,PIXEL_LARGE,row,C_WHITE);
+        draw_text_row(140,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
+        draw_text_row(168,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
+        static const char* store_keys[4]={"CHAR","EDIT","BANK","SLOT"};pixel_controls(store_keys,0);
+        draw_text_row(222,PIXEL_BODY,"SAVE STORE / HOME",C_WHITE);editor_redraw=0;return;
     }
     if(looper_screen&&!timing_page){
         uint32_t now=plat_ms();if(!editor_redraw&&loop_draw_time&&now-loop_draw_time<100u&&loop_draw_state==control_request.loop[0])return;
         loop_draw_time=now;loop_draw_state=control_request.loop[0];
         char row[40];const uint32_t* l=control_request.loop;
         static const char* states[LOOP_STATES_COUNT]={"STOPPED","REC STANDBY","RECORDING","PLAYING","OVERDUB ARMED","OVERDUBBING"};
-        draw_text_row(4,&FONT_M,"PHRASE LOOPER",C_WHITE);
-        draw_text_row(46,&FONT_M,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
-        timing_format(row,"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(76,&FONT_B,row,C_WHITE);
-        timing_format(row,"TEMPO %lu BPM",l[3],0,"");draw_text_row(100,&FONT_M,row,C_WHITE);
-        timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(134,&FONT_B,row,C_WHITE);
+        draw_text_row(4,PIXEL_LARGE,"LOOPER",C_WHITE);
+        draw_text_row(46,PIXEL_BODY,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
+        timing_format(row,l[6]?"TAKE FULL":!l[2]?(l[0]==LOOP_ARMED?"PLAY FIRST NOTE":l[0]==LOOP_STOP?"REC TO BEGIN":"BEAT %lu"):"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(76,PIXEL_BODY,row,C_WHITE);
+        cv_begin(240,8,C_BLACK);for(uint32_t x=6;x<234u;++x){cv_pset(x,0,C_WHITE);cv_pset(x,7,C_WHITE);}for(uint32_t yy=0;yy<8u;++yy){cv_pset(6,yy,C_WHITE);cv_pset(233,yy,C_WHITE);}
+        uint32_t progress=l[2]?l[1]*224u/l[2]:0;if(progress>224u)progress=224u;for(uint32_t xx=0;xx<progress;++xx)for(uint32_t yy=2;yy<6u;++yy)cv_pset(8u+xx,yy,C_WHITE);cv_blit(0,32);
+        timing_format(row,"%lu BPM",l[3],0,"");draw_text_row(100,PIXEL_LARGE,row,C_WHITE);
+        timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(134,PIXEL_BODY,row,C_WHITE);
         char live[11];memcpy(live,control_request.editor.patch,10);live[10]=0;
-        timing_format(row,"LIVE %s",0,0,live);draw_text_row(154,&FONT_B,row,C_WHITE);
+        timing_format(row,"LIVE %s",0,0,live);draw_text_row(154,PIXEL_BODY,row,C_WHITE);
         static const char* guides[GUIDE_MODES_COUNT]={"OFF","AUTO","ON"};
-        timing_format(row,"K1 CLICK %s",0,0,guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO]);draw_text_row(176,&FONT_B,l[6]?"TAKE FULL":row,C_HI);
-        draw_text_row(198,&FONT_B,"PLAY STOP  K4 TEMPO",C_WHITE);
-        draw_text_row(218,&FONT_B,"ARP DRAFTS SEL+SAVE CLEAR",C_GRAY);editor_redraw=0;return;
+        timing_format(row,"K1 CLICK %s",0,0,guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO]);
+        char tempo[8];timing_format(row,"%lu",l[3],0,"");memset(tempo,0,sizeof tempo);for(uint32_t i=0;i<sizeof tempo-1u&&row[i];++i)tempo[i]=row[i];
+        static const char* loop_keys[4]={"CLICK","REC","PLAY","TEMPO"};const char* loop_values[4]={guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO],"","",tempo};pixel_controls(loop_keys,loop_values);
+        draw_text_row(222,PIXEL_BODY,"REC PLAY  ARP DRAFTS",C_WHITE);editor_redraw=0;return;
     }
     if(timing_page==6){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
         const uint32_t* m=control_request.measure;uint32_t selected=cost_follow?m[1]:cost_selection;if(selected>=COST_ROWS)selected=0;
         const uint32_t* row=m+COST_HEADER_WORDS+selected*COST_ROW_WORDS;
         static const char* states[COST_STATES_COUNT]={"IDLE","WAIT","SETTLE","MEASURE","DONE","STOP","LIMIT","VOICE LOSS","POLY ONLY","CHANGED"};char text[40];
-        draw_text_row(4,&FONT_M,control_request.dry[0]?"CPU1 VOICE SWEEP":"VOICE COST SWEEP",C_WHITE);
-        timing_format(text,"TEST %luV %s",m[1],0,states[m[0]<COST_STATES_COUNT?m[0]:COST_IDLE]);draw_text_row(46,&FONT_B,text,C_WHITE);
-        timing_format(text,"ROW %luV ACT %lu",selected,row[COST_ACTUAL],"");draw_text_row(72,&FONT_B,text,C_WHITE);
-        timing_format(text,control_request.dry[0]?"END %lu WORK %lu us":"APP %lu SYN %lu us",(row[COST_APP]+23u)/24u,(row[COST_SYN]+23u)/24u,"");draw_text_row(98,&FONT_B,text,C_WHITE);
+        draw_text_row(4,PIXEL_LARGE,control_request.dry[0]?"CPU1 VOICE SWEEP":"VOICE COST SWEEP",C_WHITE);
+        timing_format(text,"TEST %luV %s",m[1],0,states[m[0]<COST_STATES_COUNT?m[0]:COST_IDLE]);draw_text_row(46,PIXEL_BODY,text,C_WHITE);
+        timing_format(text,"ROW %luV ACT %lu",selected,row[COST_ACTUAL],"");draw_text_row(72,PIXEL_BODY,text,C_WHITE);
+        timing_format(text,control_request.dry[0]?"END %lu WORK %lu us":"APP %lu SYN %lu us",(row[COST_APP]+23u)/24u,(row[COST_SYN]+23u)/24u,"");draw_text_row(98,PIXEL_BODY,text,C_WHITE);
         if(control_request.dry[0])timing_format(text,"Q %lu TURN %lu us",(row[COST_QUEUE]+23u)/24u,(row[COST_TURN]+23u)/24u,"");
         else timing_format(text,"FX %lu P6 %lu us",(row[COST_FX]+23u)/24u,(m[3]+23u)/24u,"");
-        draw_text_row(124,&FONT_B,text,C_WHITE);
-        timing_format(text,"STEADY %lu XRUN %lu",row[COST_STEADY_BLOCKS],plat_xruns()-cost_xruns,"");draw_text_row(150,&FONT_B,text,C_WHITE);
+        draw_text_row(124,PIXEL_BODY,text,C_WHITE);
+        timing_format(text,"STEADY %lu XRUN %lu",row[COST_STEADY_BLOCKS],plat_xruns()-cost_xruns,"");draw_text_row(150,PIXEL_BODY,text,C_WHITE);
 #ifdef PLAT_HOST
-        draw_text_row(174,&FONT_B,"HOST: NO DEVICE TIMING",C_GRAY);
+        draw_text_row(174,PIXEL_BODY,"HOST: NO DEVICE TIMING",C_GRAY);
 #else
-        timing_format(text,"90%% GUARD %lu us",(m[4]+23u)/24u,0,"");draw_text_row(174,&FONT_B,text,C_GRAY);
+        timing_format(text,"90%% GUARD %lu us",(m[4]+23u)/24u,0,"");draw_text_row(174,PIXEL_BODY,text,C_GRAY);
 #endif
-        draw_text_row(198,&FONT_B,"SAVE START/STOP HOME",C_HI);
-        timing_format(text,"SELECT ROW / %lu s",m[2]/1000u,0,"");draw_text_row(216,&FONT_B,text,C_GRAY);return;
+        draw_text_row(198,PIXEL_BODY,"SAVE START/STOP HOME",C_HI);
+        timing_format(text,"SELECT ROW / %lu s",m[2]/1000u,0,"");draw_text_row(216,PIXEL_BODY,text,C_GRAY);return;
     }
     if(timing_page==7){
         uint32_t now=plat_ms();char row[40];
@@ -585,54 +622,54 @@ static void control_frame(void) {
         static const char* at[DRY_CHECKPOINTS_COUNT]={"IDLE","CONTROL","LCD","TEXT","SCALE","EDITOR","PROTO","WAIT","CLEAR","SUBMIT"};
         if(dry_view){
             const uint32_t* u=control_request.ui;
-            draw_text_row(4,&FONT_M,"GUI / LCD PROFILE",C_WHITE);
-            timing_format(row,"WAIT %lu CLEAR %lu us",(u[UI_DMA_WAIT]+23u)/24u,(u[UI_CLEAR]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-            timing_format(row,"TEXT %lu SUBMIT %lu us",(u[UI_TEXT]+23u)/24u,(u[UI_SUBMIT]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-            timing_format(row,"EDITOR %lu us / CPU%lu",(u[UI_EDITOR]+23u)/24u,plat_core(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
-            timing_format(row,"QMAX %lu AT %s",(q[0]+23u)/24u,0,at[q[3]<DRY_CHECKPOINTS_COUNT?q[3]:DRY_AT_IDLE]);draw_text_row(124,&FONT_B,row,C_WHITE);
-            timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
-            timing_format(row,"LATE %lu XRUN %lu",d[4],plat_xruns()-timing_xruns,"");draw_text_row(174,&FONT_B,row,C_WHITE);
-            timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(198,&FONT_B,row,C_HI);
-            timing_format(row,"LCD ERR %lu / K1: QUEUE",control_request.lcd_errors,0,"");draw_text_row(216,&FONT_B,row,C_GRAY);return;
+            draw_text_row(4,PIXEL_LARGE,"GUI / LCD PROFILE",C_WHITE);
+            timing_format(row,"WAIT %lu CLEAR %lu us",(u[UI_DMA_WAIT]+23u)/24u,(u[UI_CLEAR]+23u)/24u,"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"TEXT %lu SUBMIT %lu us",(u[UI_TEXT]+23u)/24u,(u[UI_SUBMIT]+23u)/24u,"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"EDITOR %lu us / CPU%lu",(u[UI_EDITOR]+23u)/24u,plat_core(),"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"QMAX %lu AT %s",(q[0]+23u)/24u,0,at[q[3]<DRY_CHECKPOINTS_COUNT?q[3]:DRY_AT_IDLE]);draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(150,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"LATE %lu XRUN %lu",d[4],plat_xruns()-timing_xruns,"");draw_text_row(174,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(198,PIXEL_BODY,row,C_HI);
+            timing_format(row,"LCD ERR %lu / K1: QUEUE",control_request.lcd_errors,0,"");draw_text_row(216,PIXEL_BODY,row,C_GRAY);return;
         }
-        draw_text_row(4,&FONT_M,"DRY CORE PIPELINE",C_WHITE);
-        timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"QMAX %lu WORK %lu",(q[0]+23u)/24u,(q[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"AT %s / %luV WHY %lu",q[4],q[7],at[q[3]<DRY_CHECKPOINTS_COUNT?q[3]:DRY_AT_IDLE]);draw_text_row(98,&FONT_B,row,C_WHITE);
-        timing_format(row,"APP %lu FX %lu us",(timing.peak+23u)/24u,(control_request.cost[1]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
-        timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
-        timing_format(row,"LATE %lu FAULT %lu",d[4],plat_cpu2_gave_up(),"");draw_text_row(174,&FONT_B,row,C_WHITE);
-        timing_format(row,"XRUN %lu / SYN CPU%lu",plat_xruns()-timing_xruns,d[0]?1u:0u,"");draw_text_row(198,&FONT_B,row,C_HI);
-        draw_text_row(216,&FONT_B,"K1: LCD / SAVE RESET",C_GRAY);return;
+        draw_text_row(4,PIXEL_LARGE,"DRY CORE PIPELINE",C_WHITE);
+        timing_format(row,"WORK %lu TURN %lu",(d[2]+23u)/24u,(d[3]+23u)/24u,"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"QMAX %lu WORK %lu",(q[0]+23u)/24u,(q[1]+23u)/24u,"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"AT %s / %luV WHY %lu",q[4],q[7],at[q[3]<DRY_CHECKPOINTS_COUNT?q[3]:DRY_AT_IDLE]);draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"APP %lu FX %lu us",(timing.peak+23u)/24u,(control_request.cost[1]+23u)/24u,"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"VOICE %lu/%lu",(control_request.voices>>8)&255u,control_request.voices&255u,"");draw_text_row(150,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"LATE %lu FAULT %lu",d[4],plat_cpu2_gave_up(),"");draw_text_row(174,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"XRUN %lu / SYN CPU%lu",plat_xruns()-timing_xruns,d[0]?1u:0u,"");draw_text_row(198,PIXEL_BODY,row,C_HI);
+        draw_text_row(216,PIXEL_BODY,"K1: LCD / SAVE RESET",C_GRAY);return;
     }
     if(timing_page==5){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
         uint32_t f=plat_lock(),peak=timing.peak,cost[3];rdx_cost_profile(cost);plat_unlock(f);char row[40];
-        draw_text_row(4,&FONT_M,"AUDIO ISOLATION",C_WHITE);
-        timing_format(row,"CTL CPU%lu JOBS %lu",control_last_core,control_jobs,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"ERR %lu FAULT %lu",control_errors,plat_cpu2_gave_up(),"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"CTL %lu us STK %lu",(control_peak+23u)/24u,plat_cpu2_stack(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
-        timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
-        timing_format(row,"XRUN %lu / %lu s",plat_xruns()-timing_xruns,(now-timing_started)/1000u,"");draw_text_row(150,&FONT_B,row,C_WHITE);
-        draw_text_row(174,&FONT_B,control_failed?"FAILED / CPU0 CONTROL":gui_enabled?"SELECT: CPU1 CONTROL":"SELECT: CPU0 CONTROL",C_WHITE);
-        draw_text_row(198,&FONT_B,"SAVE RESET / HOME TEST",C_HI);
-        timing_format(row,"MIDI %lu DROP %lu",control_midi_count,control_drops,"");draw_text_row(216,&FONT_B,row,C_GRAY);return;
+        draw_text_row(4,PIXEL_LARGE,"AUDIO ISOLATION",C_WHITE);
+        timing_format(row,"CTL CPU%lu JOBS %lu",control_last_core,control_jobs,"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"ERR %lu FAULT %lu",control_errors,plat_cpu2_gave_up(),"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"CTL %lu us STK %lu",(control_peak+23u)/24u,plat_cpu2_stack(),"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"XRUN %lu / %lu s",plat_xruns()-timing_xruns,(now-timing_started)/1000u,"");draw_text_row(150,PIXEL_BODY,row,C_WHITE);
+        draw_text_row(174,PIXEL_BODY,control_failed?"FAILED / CPU0 CONTROL":gui_enabled?"SELECT: CPU1 CONTROL":"SELECT: CPU0 CONTROL",C_WHITE);
+        draw_text_row(198,PIXEL_BODY,"SAVE RESET / HOME TEST",C_HI);
+        timing_format(row,"MIDI %lu DROP %lu",control_midi_count,control_drops,"");draw_text_row(216,PIXEL_BODY,row,C_GRAY);return;
     }
     if(timing_page==4){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
         uint32_t f=plat_lock(),peak=timing.peak,over=timing.over90,cost[3];rdx_cost_profile(cost);plat_unlock(f);char row[40];
-        draw_text_row(4,&FONT_M,"CONTROL CORE TEST",C_WHITE);
-        timing_format(row,"CORE %lu FAULT %lu",plat_cpu2_on(),plat_cpu2_gave_up(),"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"OK %lu ERR %lu",core_done,core_errors,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"ROUND %lu ms LATE %lu",core_roundtrip,core_late,"");draw_text_row(98,&FONT_B,row,C_WHITE);
-        timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
-        timing_format(row,"XRUN %lu >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(150,&FONT_B,row,C_WHITE);
-        timing_format(row,"%s / %lu s",(now-timing_started)/1000u,0,core_mode==CORE_TEST_BUSY?"BUSY":core_mode==CORE_TEST_IDLE?"IDLE":"OFF");draw_text_row(174,&FONT_B,row,C_WHITE);
-        draw_text_row(198,&FONT_B,core_selection==CORE_TEST_BUSY?"SELECT: BUSY / SAVE RUN":"SELECT: IDLE / SAVE RUN",C_HI);
+        draw_text_row(4,PIXEL_LARGE,"CONTROL CORE TEST",C_WHITE);
+        timing_format(row,"CORE %lu FAULT %lu",plat_cpu2_on(),plat_cpu2_gave_up(),"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"OK %lu ERR %lu",core_done,core_errors,"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"ROUND %lu ms LATE %lu",core_roundtrip,core_late,"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"APP %lu SYN %lu us",(peak+23u)/24u,(cost[0]+23u)/24u,"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"XRUN %lu >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(150,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"%s / %lu s",(now-timing_started)/1000u,0,core_mode==CORE_TEST_BUSY?"BUSY":core_mode==CORE_TEST_IDLE?"IDLE":"OFF");draw_text_row(174,PIXEL_BODY,row,C_WHITE);
+        draw_text_row(198,PIXEL_BODY,core_selection==CORE_TEST_BUSY?"SELECT: BUSY / SAVE RUN":"SELECT: IDLE / SAVE RUN",C_HI);
 #ifdef PLAT_HOST
-        draw_text_row(216,&FONT_B,"HOST: SIMULATED CORE",C_GRAY);
+        draw_text_row(216,PIXEL_BODY,"HOST: SIMULATED CORE",C_GRAY);
 #else
-        draw_text_row(216,&FONT_B,"SAVE STOP/RESET / HOME",C_GRAY);
+        draw_text_row(216,PIXEL_BODY,"SAVE STOP/RESET / HOME",C_GRAY);
 #endif
         return;
     }
@@ -640,33 +677,33 @@ static void control_frame(void) {
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<500u)return;timing_draw=now;
         uint32_t p[9],fine[4],f=plat_lock();rdx_detail_profile(p);rdx_detail_fine(fine);plat_unlock(f);char row[40];
         if(profile_fine){
-            draw_text_row(4,&FONT_M,"FINE RENDER",C_WHITE);
-            timing_format(row,"ENV STEP %lu us",(fine[0]+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-            timing_format(row,"ENV GAIN %lu us",(fine[1]+23u)/24u,0,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-            timing_format(row,"PITCH %lu  WAVE %lu us",(fine[2]+23u)/24u,(fine[3]+23u)/24u,"");draw_text_row(98,&FONT_B,row,C_WHITE);
-            timing_format(row,"MOD %lu  MIX %lu us",(p[1]+23u)/24u,(p[4]+23u)/24u,"");draw_text_row(124,&FONT_B,row,C_WHITE);
-            timing_format(row,"TOTAL %lu us VOICES %lu",(p[5]+23u)/24u,p[8],"");draw_text_row(150,&FONT_B,row,C_WHITE);
-            draw_text_row(174,&FONT_B,p[7]?"ON / SAVE: STOP":"OFF / SAVE: START",C_HI);
-            draw_text_row(198,&FONT_B,"SELECT: COARSE / HOME",C_WHITE);
+            draw_text_row(4,PIXEL_LARGE,"FINE RENDER",C_WHITE);
+            timing_format(row,"ENV STEP %lu us",(fine[0]+23u)/24u,0,"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"ENV GAIN %lu us",(fine[1]+23u)/24u,0,"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"PITCH %lu  WAVE %lu us",(fine[2]+23u)/24u,(fine[3]+23u)/24u,"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"MOD %lu  MIX %lu us",(p[1]+23u)/24u,(p[4]+23u)/24u,"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+            timing_format(row,"TOTAL %lu us VOICES %lu",(p[5]+23u)/24u,p[8],"");draw_text_row(150,PIXEL_BODY,row,C_WHITE);
+            draw_text_row(174,PIXEL_BODY,p[7]?"ON / SAVE: STOP":"OFF / SAVE: START",C_HI);
+            draw_text_row(198,PIXEL_BODY,"SELECT: COARSE / HOME",C_WHITE);
 #ifdef PLAT_HOST
-            draw_text_row(216,&FONT_B,"HOST: NO TIMING",C_GRAY);
+            draw_text_row(216,PIXEL_BODY,"HOST: NO TIMING",C_GRAY);
 #else
-            draw_text_row(216,&FONT_B,"WORST TOTAL BLOCK",C_GRAY);
+            draw_text_row(216,PIXEL_BODY,"WORST TOTAL BLOCK",C_GRAY);
 #endif
             return;
         }
-        draw_text_row(4,&FONT_M,"RENDER PROFILE",C_WHITE);
-        timing_format(row,"PREP %lu  MOD %lu us",(p[0]+23u)/24u,(p[1]+23u)/24u,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"ENV %lu  OPS %lu us",(p[2]+23u)/24u,(p[3]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"MIX %lu  TOTAL %lu us",(p[4]+23u)/24u,(p[5]+23u)/24u,"");draw_text_row(98,&FONT_B,row,C_WHITE);
-        timing_format(row,"VOICES %lu BLOCKS %lu",p[8],p[6],"");draw_text_row(124,&FONT_B,row,C_WHITE);
-        draw_text_row(150,&FONT_B,p[7]?"ON / SAVE: STOP":"OFF / SAVE: START",C_HI);
-        draw_text_row(174,&FONT_B,"WORST TOTAL BLOCK",C_GRAY);
-        draw_text_row(198,&FONT_B,"SELECT: FINE / HOME",C_WHITE);
+        draw_text_row(4,PIXEL_LARGE,"RENDER PROFILE",C_WHITE);
+        timing_format(row,"PREP %lu  MOD %lu us",(p[0]+23u)/24u,(p[1]+23u)/24u,"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"ENV %lu  OPS %lu us",(p[2]+23u)/24u,(p[3]+23u)/24u,"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"MIX %lu  TOTAL %lu us",(p[4]+23u)/24u,(p[5]+23u)/24u,"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"VOICES %lu BLOCKS %lu",p[8],p[6],"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        draw_text_row(150,PIXEL_BODY,p[7]?"ON / SAVE: STOP":"OFF / SAVE: START",C_HI);
+        draw_text_row(174,PIXEL_BODY,"WORST TOTAL BLOCK",C_GRAY);
+        draw_text_row(198,PIXEL_BODY,"SELECT: FINE / HOME",C_WHITE);
 #ifdef PLAT_HOST
-        draw_text_row(216,&FONT_B,"HOST: NO TIMING",C_GRAY);
+        draw_text_row(216,PIXEL_BODY,"HOST: NO TIMING",C_GRAY);
 #else
-        draw_text_row(216,&FONT_B,"SPLIT PATH / IRQ ON",C_GRAY);
+        draw_text_row(216,PIXEL_BODY,"SPLIT PATH / IRQ ON",C_GRAY);
 #endif
         return;
     }
@@ -674,18 +711,18 @@ static void control_frame(void) {
         rdx_bench_tick();
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<200u)return;timing_draw=now;
         uint32_t result[4];rdx_bench_result(bench_selection,result);char row[40];
-        draw_text_row(4,&FONT_M,"DSP BENCHMARK",C_WHITE);
-        draw_text_row(46,&FONT_B,rdx_bench_name(bench_selection),C_WHITE);
-        timing_format(row,"MIN %lu MAX %lu ticks",result[0],result[1],"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,"MIN %lu ns / op",result[0]*1000u/(24u*256u),0,"");draw_text_row(98,&FONT_B,row,C_WHITE);
-        timing_format(row,"CASE %lu/15 REP %lu",result[2],result[3],"");draw_text_row(124,&FONT_B,row,C_WHITE);
-        draw_text_row(150,&FONT_B,!bench_started?"SAVE: START":result[2]>=BENCH_CASES_COUNT?"DONE / SAVE: RERUN":"RUNNING / SAVE: RERUN",C_HI);
-        draw_text_row(174,&FONT_B,"SELECT: RESULT",C_WHITE);
-        draw_text_row(198,&FONT_B,"256 OPS / IRQ ON",C_GRAY);
+        draw_text_row(4,PIXEL_LARGE,"DSP BENCHMARK",C_WHITE);
+        draw_text_row(46,PIXEL_BODY,rdx_bench_name(bench_selection),C_WHITE);
+        timing_format(row,"MIN %lu MAX %lu ticks",result[0],result[1],"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"MIN %lu ns / op",result[0]*1000u/(24u*256u),0,"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"CASE %lu/15 REP %lu",result[2],result[3],"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        draw_text_row(150,PIXEL_BODY,!bench_started?"SAVE: START":result[2]>=BENCH_CASES_COUNT?"DONE / SAVE: RERUN":"RUNNING / SAVE: RERUN",C_HI);
+        draw_text_row(174,PIXEL_BODY,"SELECT: RESULT",C_WHITE);
+        draw_text_row(198,PIXEL_BODY,"256 OPS / IRQ ON",C_GRAY);
 #ifdef PLAT_HOST
-        draw_text_row(216,&FONT_B,"HOST: NO TIMING",C_GRAY);
+        draw_text_row(216,PIXEL_BODY,"HOST: NO TIMING",C_GRAY);
 #else
-        draw_text_row(216,&FONT_B,"24MHz TICKS / HOME EXIT",C_GRAY);
+        draw_text_row(216,PIXEL_BODY,"24MHz TICKS / HOME EXIT",C_GRAY);
 #endif
         return;
     }
@@ -695,17 +732,17 @@ static void control_frame(void) {
         uint32_t peak=timing.peak,over=timing.over90,cost[3];rdx_cost_profile(cost);
         plat_unlock(f);
         char row[40];
-        draw_text_row(4,&FONT_M,"AUDIO TIMING",C_WHITE);
-        timing_format(row,"APP MAX %lu us",(peak+23u)/24u,0,"");draw_text_row(46,&FONT_B,row,C_WHITE);
-        timing_format(row,"SYN %lu  FX %lu us",(cost[0]+23u)/24u,(cost[1]+23u)/24u,"");draw_text_row(72,&FONT_B,row,C_WHITE);
-        timing_format(row,control_request.dry[0]?"7V %lu us CPU %lu%%":"6V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,&FONT_B,row,C_WHITE);
-        timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,&FONT_B,row,C_WHITE);
-        timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,&FONT_B,row,C_WHITE);
+        draw_text_row(4,PIXEL_LARGE,"AUDIO TIMING",C_WHITE);
+        timing_format(row,"APP MAX %lu us",(peak+23u)/24u,0,"");draw_text_row(46,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"SYN %lu  FX %lu us",(cost[0]+23u)/24u,(cost[1]+23u)/24u,"");draw_text_row(72,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,control_request.dry[0]?"7V %lu us CPU %lu%%":"6V %lu us CPU %lu%%",(cost[2]+23u)/24u,plat_cpu_pct(),"");draw_text_row(98,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"XRUN %lu  >90%% %lu",plat_xruns()-timing_xruns,over,"");draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"%lu s  P%lu  FX %s",(now-timing_started)/1000u,(uint32_t)preset,rdx_fx_status()?"ON":"OFF");draw_text_row(150,PIXEL_BODY,row,C_WHITE);
         f=plat_lock();uint32_t voices=rdx_voice_status();plat_unlock(f);
-        timing_format(row,control_request.dry[0]?"VOICES %lu/%lu  MAX 7":"VOICES %lu/%lu  MAX 6",(voices>>8)&255u,voices&255u,"");draw_text_row(174,&FONT_B,row,C_WHITE);
-        draw_text_row(198,&FONT_B,"SAVE RESET / HOME EXIT",C_HI);
+        timing_format(row,control_request.dry[0]?"VOICES %lu/%lu  MAX 7":"VOICES %lu/%lu  MAX 6",(voices>>8)&255u,voices&255u,"");draw_text_row(174,PIXEL_BODY,row,C_WHITE);
+        draw_text_row(198,PIXEL_BODY,"SAVE RESET / HOME EXIT",C_HI);
         uint32_t khz=plat_cpu_khz();
-        timing_format(row,khz?"%s CLK %lu MHz":"%s CLK ?",khz/1000u,0,rdx_build_label());draw_text_row(216,&FONT_B,row,C_GRAY);return;
+        timing_format(row,khz?"%s CLK %lu MHz":"%s CLK ?",khz/1000u,0,rdx_build_label());draw_text_row(216,PIXEL_BODY,row,C_GRAY);return;
     }
     uint32_t lock=plat_lock();rdx_editor_snapshot(&editor_view);plat_unlock(lock);
     static uint32_t last_revision=0,last_fx=99;static uint8_t last_page=255,last_op=255,last_tune=255;
@@ -722,7 +759,8 @@ static void control_frame(void) {
     last_revision=editor_view.revision;last_fx=editor_view.fx;last_page=editor_page;last_op=editor_op;last_tune=editor_tune;
     // Each strip below includes its background. Never blank the whole LCD
     // before drawing: the physical panel exposes that intermediate black frame.
-    draw_text_row(4,&FONT_M,rdx_editor_title(editor_page),C_WHITE);
+    char context[11];memcpy(context,editor_view.patch,10);context[10]=0;
+    draw_text_row(4,PIXEL_BODY,editor_page==EDITOR_HOME?"VOICE":context,C_WHITE);
     const uint8_t* pixels=gui_reply.pixels;
     for(uint32_t y=0;y<120;y+=8) {
         cv_begin(240,8,C_BLACK);
@@ -733,15 +771,13 @@ static void control_frame(void) {
         cv_blit(0,44u+y);
     }
     cv_begin(240,8,C_BLACK);cv_blit(0,174);
-    for(uint32_t band=0;band<FONT_B.h;band+=8u) {
-        cv_begin(240,8,C_BLACK);
-        for(uint8_t k=0;k<4;++k)cv_text(k*60u+3u,-(int32_t)band,&FONT_B,gui_reply.labels[k],C_HI);
-        cv_blit(0,184u+band);
-    }
+    const char* labels[4];
+    for(uint32_t k=0;k<4u;++k){labels[k]=gui_reply.labels[k];if(!memcmp(labels[k],"ON/OFF",7))labels[k]="ON";else if(!memcmp(labels[k],"DETUNE",7))labels[k]="DTUNE";else if(!memcmp(labels[k],"SELECT",7))labels[k]="SEL";else if(!memcmp(labels[k],"FL.DEP",7))labels[k]="F.DEP";else if(!memcmp(labels[k],"FL.OFF",7))labels[k]="F.OFF";}
+    pixel_controls(labels,0);
     char status[30]="OP 1  FX ON";status[3]=(char)('1'+editor_op);
     if(!editor_view.fx){status[9]='O';status[10]='F';status[11]='F';status[12]=0;}
     if(editor_view.dirty){uint32_t n=0;while(status[n])++n;status[n]='*';status[n+1]=0;}
-    draw_text_row(216,&FONT_B,editor_view.error?"FX MEMORY LIMIT":status,C_GRAY);
+    draw_text_row(222,PIXEL_BODY,editor_view.error?"FX MEMORY LIMIT":status,C_GRAY);
 }
 #undef plat_lock
 #undef plat_unlock
@@ -761,7 +797,6 @@ static void control_frame(void) {
 #undef timing
 #undef cv_blit
 #undef cv_begin
-#undef cv_text
 #undef lcd_fill
 void app_say(const char* a,const char* b) {(void)a;(void)b;}
 void app_ui_init(void) {gui_collect(1);gui_ready=0;editor_redraw=1;rdx_editor_boot();lcd_fill(0,0,240,240,C_BLACK);}

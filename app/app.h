@@ -2,7 +2,7 @@
 #include "plat.h"
 #define APP_NAME "FM1-RDX"
 #ifndef APP_VERSION
-#define APP_VERSION "1.0.0-beta.3-dev"
+#define APP_VERSION "1.0.0-beta.4-dev"
 #endif
 #define APP_SPLASH_RGB RGB(64,160,220)
 #define APP_BLOCK 128u
