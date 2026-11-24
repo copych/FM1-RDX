@@ -229,7 +229,7 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
         }
         else if(e.type==EVENT_MEASURE)rdx_measure_command(e.note,plat_ms());
         else if(e.type==EVENT_SPLIT)rdx_dry_mode(e.note&&plat_cpu2_on());
-        else if(e.type==EVENT_LOOP){if(e.note==LOOP_GUIDE){if(e.delta>=0&&e.delta<GUIDE_MODES_COUNT)guide_mode=(uint8_t)e.delta;continue;}uint8_t before=looper.state;loop_command(&looper,e.note,e.delta);if(e.note==LOOP_CLEAR&&before==LOOP_STOP)rdx_phrase_clear();if((before==LOOP_STOP&&looper.state!=LOOP_STOP)||(before==LOOP_RECORD&&looper.state==LOOP_PLAY))guide_restart();if((before==LOOP_RECORD&&looper.state==LOOP_PLAY)||looper.state==LOOP_STOP)loop_release();}
+        else if(e.type==EVENT_LOOP){if(e.note==LOOP_GUIDE){if(e.delta>=0&&e.delta<GUIDE_MODES_COUNT)guide_mode=(uint8_t)e.delta;continue;}uint8_t before=looper.state,before_quant=looper.quantize;loop_command(&looper,e.note,e.delta);if(e.note==LOOP_QUANTIZE&&before_quant!=looper.quantize&&before>=LOOP_PLAY){loop_release();looper.position=0;looper.fraction=0;looper.deferred_count=0;memset(looper.cursor,0,sizeof looper.cursor);guide_restart();}if(e.note==LOOP_CLEAR&&before==LOOP_STOP)rdx_phrase_clear();if((before==LOOP_STOP&&looper.state!=LOOP_STOP)||(before==LOOP_RECORD&&looper.state==LOOP_PLAY))guide_restart();if((before==LOOP_RECORD&&looper.state==LOOP_PLAY)||looper.state==LOOP_STOP)loop_release();}
     }
     loop_advance(&looper,loop_emit);
     rdx_measure_prepare(plat_ms());
@@ -400,6 +400,7 @@ static void control_input(void) {
         if(looper_screen){
             int32_t v=plat_enc(EN_PRESET);if(v){preset=clamp(preset+v,0,(int32_t)rdx_preset_count()-1);event_push(EVENT_PRESET,(uint8_t)preset,0);}
             v=plat_enc(EN_K1);if(v)control_push((rdx_event_t){EVENT_LOOP,LOOP_GUIDE,0,0,(int16_t)wrap_selection((uint8_t)control_request.guide,v,GUIDE_MODES_COUNT)});
+            v=plat_enc(EN_K2);if(v)control_push((rdx_event_t){EVENT_LOOP,LOOP_QUANTIZE,0,0,(int16_t)wrap_selection((uint8_t)control_request.loop[7],v,LOOP_QUANT_MODES_COUNT)});
             v=plat_enc(EN_K4);if(v)control_push((rdx_event_t){EVENT_LOOP,LOOP_TEMPO,0,0,(int16_t)clamp(v,-127,127)});
             if((pressed&(1u<<B_SAVE))&&(buttons&(1u<<B_SEL))){event_push(EVENT_LOOP,LOOP_CLEAR,0);selector_used=1;pressed&=~(1u<<B_SAVE);}
             if(pressed&((1u<<B_EDIT)|(1u<<B_ENV)|(1u<<B_LFO)|(1u<<B_GLO)|(1u<<B_FX)))looper_screen=0;
@@ -594,7 +595,8 @@ static void control_frame(void) {
         static const char* guides[GUIDE_MODES_COUNT]={"OFF","AUTO","ON"};
         timing_format(row,"K1 CLICK %s",0,0,guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO]);
         char tempo[8];timing_format(row,"%lu",l[3],0,"");memset(tempo,0,sizeof tempo);for(uint32_t i=0;i<sizeof tempo-1u&&row[i];++i)tempo[i]=row[i];
-        static const char* loop_keys[4]={"CLICK","REC","PLAY","TEMPO"};const char* loop_values[4]={guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO],"","",tempo};pixel_controls(loop_keys,loop_values);
+        static const char* quant_labels[LOOP_QUANT_MODES_COUNT]={"OFF","1/4","1/4T","1/8","1/8T","1/16","1/16T","1/32","1/32T"};
+        static const char* loop_keys[4]={"CLICK","QUANT","PLAY","TEMPO"};const char* loop_values[4]={guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO],quant_labels[control_request.loop[7]<LOOP_QUANT_MODES_COUNT?control_request.loop[7]:LOOP_QUANT_OFF],"",tempo};pixel_controls(loop_keys,loop_values);
         draw_text_row(222,PIXEL_BODY,"REC PLAY  ARP DRAFTS",C_WHITE);editor_redraw=0;return;
     }
     if(timing_page==6){
@@ -881,6 +883,7 @@ int app_expect(const char* what,int* got) {
     if(!strcmp(what,"draft_mask")){*got=draft_mask;return 1;}
     if(!strcmp(what,"guide")){*got=guide_mode;return 1;}
     if(!strcmp(what,"beat_pulses")){*got=beat_pulses;return 1;}
+    if(!strcmp(what,"quantize")){*got=looper.quantize;return 1;}
     if(!strcmp(what,"loop_view")){*got=looper_screen;return 1;}
     if(!strcmp(what,"loop_length")){*got=looper.length;return 1;}
     if(!strcmp(what,"loop_tempo")){*got=looper.tempo;return 1;}

@@ -1,0 +1,18 @@
+# Optional whole-loop quantization
+
+Local preview 1.0.2-dev, build 5DE81398, baseline 401ca96. K2 on Looper selects OFF, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T. T is a triplet grid: ticks 64/32/16/8; straight grids use 96/48/24/12 at 96 PPQN.
+
+Playback projects all recorded takes and controller events onto the nearest grid without rewriting recorded events. OFF restores original timing. Ties round forward; points beyond the loop end clamp to its final valid grid point. Very short on/off pairs sounding in one block defer the note-off to the next block, within the shared 32-event dispatch budget. Dense bursts retain the existing safe-stop limit. Changing grid while playing releases phrase-owned notes and restarts at tick zero; live notes are untouched. Selection is locked during recording/overdub to avoid resetting an active take. The mode persists across Clear but defaults OFF at boot and draft recall; saved drafts keep original event timing and do not store the playback mode.
+
+| Compliance category | Status / evidence |
+| --- | --- |
+| Target/build/ABI | PASS: matched AC79 SDK/pi32v2 build, existing O2 engine/editor and Os app/platform flags, product/integrity checks. build/quant-target.log; artifacts quantize-artifacts.json. |
+| Audio hot path/numerics | PASS (source/target): bounded block-boundary projection, integer grid arithmetic only, fixed 16-byte onset mask and 32-byte deferred note list. No heap, I/O, waits, float/double or math-library calls added. Existing 32-event budget covers deferred offs and recorded events. Target no-soft-double and RAM closure checks pass. Projection adds integer division per head/event; actual hardware cost remains to be measured. |
+| Execution ownership/synchronization | PASS (source/host): K2 command through existing bounded UI/control queue; CPU0 owns looper and projects during block dispatch. Published snapshot gains one grid word. No extra cross-core mutable access. |
+| Memory/storage/I/O | PASS (static/host): image 205272 B; RAM code 22656/32768, data+BSS 91660/98304, pool 333572/344064. No storage format/object-map or flash scheduling change. Draft corruption/roundtrip suites retained. |
+| Dependencies/includes/licenses | PASS: none added; existing notices retained. |
+| Compatibility/package/recovery | PASS (source/package): existing draft timestamps and wire format retained; default OFF, explicit new command appended. FM-1_9900 identity, loader and installer SHA/corruption checks retained. Public 1.0.1 unchanged. |
+| Host functional validation | PASS: tools/test-app.sh, including 1188 exact normal/dry scenarios, ASAN/UBSAN looper tests for monotone bounded reversible grids/triplets, short-note lifetime, multiple takes, recording locks and mode bounds; tests/quantize-controls.txt through native app; tests/emu-test.mjs; tests/site-test.mjs build/feature-site. Logs build/quant-host.log, quant-controls.log and quant-emu.log. Screenshot build/quantize-controls/quantize-triplet.png visually checked. New control scenario also registered in tools/test-app.sh. |
+| Hardware real-time validation | UNVERIFIED for quantization: run seven voices with heavy FX/modulation and all four takes at each straight/triplet grid; observe XRUN/LATE/LCD, WORK/TURN/Q. Check short/staccato notes, sustain, repeated pitches, near-end notes, changing grids, OFF restoration and draft recall. |
+
+44.1 kHz, 128 frames/block (2902.49 us period). No device flashing, hardware soak, stack measurement or full unrelated BSP board suite performed. Existing optional screen-reader voice assets absent; prior compiler warnings unchanged. Prior regular user hardware testing remains applicable to its tested builds, not a timing qualification of this feature.

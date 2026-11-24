@@ -15,7 +15,7 @@ typedef struct {
     uint32_t ui[5];
     uint32_t guide,draft_mask;
     char draft_names[4][11];
-    uint32_t lcd_errors,user_mask,patch_trim,loop[7];
+    uint32_t lcd_errors,user_mask,patch_trim,loop[8];
     char user_names[32][11],phrase_name[11];
     RdxTiming timing;
     uint8_t patch[150],system[32],sysex[640];uint32_t sysex_size;

@@ -52,6 +52,8 @@ mkdir -p build/store-looper-controls
 app/build/host/rdx_host tests/store-looper-controls.txt build/store-looper-controls
 mkdir -p build/transport-drafts-controls
 app/build/host/rdx_host tests/transport-drafts-controls.txt build/transport-drafts-controls
+mkdir -p build/quantize-controls
+app/build/host/rdx_host tests/quantize-controls.txt build/quantize-controls
 bash tools/test-drafts.sh
 bash tools/test-user-store.sh
 bash tools/test-looper.sh

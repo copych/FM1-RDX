@@ -1,0 +1,30 @@
+wait 600
+tap SEQ
+expect loop_view 1
+expect quantize 0
+turn K2 2
+wait 120
+expect quantize 2
+tap REC
+midi 90 3C 64
+wait 200
+turn K2 1
+wait 120
+expect quantize 2
+midi 80 3C 00
+wait 100
+tap REC
+wait 150
+expect loop 3
+turn K2 2
+wait 150
+expect quantize 4
+expect loop 3
+shot quantize-triplet.png
+turn K2 -4
+wait 150
+expect quantize 0
+expect loop 3
+tap PLAY
+expect loop 0
+expect control_errors 0
