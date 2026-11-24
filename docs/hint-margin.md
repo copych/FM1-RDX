@@ -1,0 +1,5 @@
+# Hint bottom margin
+
+Baseline a1a6485, build 51895DD6. Hint block moves from y179 to y176, retaining the 16-pixel pitch/three-pixel gaps. Last glyph row ends at y236, leaving y237..239 black. The strip pass clears through y239. Adjacent Store rows and Draft confirmation move up to preserve separation.
+
+Compliance: target/build/ABI PASS (build/hint-margin-target.log, existing matched SDK/compiler and integrity checks); audio/numerics and execution/synchronization PASS (UI coordinates only, unchanged DSP and cooperative ownership); memory/storage/I/O PASS (same bounded canvas and persistent formats); dependencies/licenses PASS (none added); compatibility/package/recovery PASS (unchanged loader/format, pinned installer checks); host validation PASS (native Store/Looper/Draft scenarios, build/hint-margin-store.log and hint-margin-transport.log; site checks). Hardware readability/timing UNVERIFIED: inspect bottom margin and adjacent status rows on FM-1. Full DSP/host and unrelated BSP suites not repeated for coordinate-only adjustment; no device flash or soak. Exact artifacts: hint-margin-artifacts.json.

@@ -519,10 +519,10 @@ static void draw_text_row(uint32_t y,uint8_t style,const char* text,uint16_t col
 // from their actions. Knob assignments belong beside their editable values.
 static void button_hints(const char* a,const char* b,const char* c,const char* d){
     const char* rows[4]={a,b,c,d};
-    for(uint32_t band=0;band<61u;band+=8u){uint32_t h=61u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
+    for(uint32_t band=0;band<64u;band+=8u){uint32_t h=64u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
         for(uint32_t row=0;row<4u;++row)if(rows[row]){uint32_t n=pixel_length(rows[row]);if(n>20u)n=20u;
             pixel_text(6,(int32_t)(row*16u)-(int32_t)band,rows[row],n,15u);
-        }cv_blit(0,179u+band);
+        }cv_blit(0,176u+band);
     }
 }
 // Bounded UI-only formatter; target has no snprintf.
@@ -555,7 +555,7 @@ static void control_frame(void) {
         const char* status=draft_screen==DRAFT_SAVE_CONFIRM?"REPLACE THIS DRAFT?":draft_screen==DRAFT_LOAD_CONFIRM?"REPLACE THIS LOOP?":draft_screen==DRAFT_SAVED?"DRAFT SAVED":draft_screen==DRAFT_LOADED?"DRAFT LOADED":draft_screen==DRAFT_ERROR?(control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"EMPTY / READ ERROR"):"SELECT: CHOOSE SLOT";
         draw_text_row(126,PIXEL_BODY,status,C_HI);
         draw_text_row(146,PIXEL_BODY,"SELECT: SLOT",C_GRAY);
-        draw_text_row(164,PIXEL_BODY,"PRESS AGAIN: CONFIRM",C_WHITE);
+        draw_text_row(162,PIXEL_BODY,"PRESS AGAIN: CONFIRM",C_WHITE);
         button_hints(draft_screen==DRAFT_SAVE_CONFIRM?"[SAVE] CONFIRM":"[SAVE] STORE",draft_screen==DRAFT_LOAD_CONFIRM?"[PLAY] CONFIRM":"[PLAY] LOAD","[ARP] LOOPER","[HOME] EXIT");editor_redraw=0;return;
     }
     if(store_screen!=STORE_CLOSED){
@@ -569,9 +569,9 @@ static void control_frame(void) {
         control_fill(7u+store_cursor*180u/8u,74u,18u,2u,C_WHITE);
         draw_text_row(84,PIXEL_BODY,"K1 POS  K2 CHAR",C_WHITE);
         timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,PIXEL_LARGE,row,C_WHITE);
-        draw_text_row(138,PIXEL_BODY,"K3 BANK  K4 SLOT",C_WHITE);
-        draw_text_row(153,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
-        draw_text_row(166,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
+        draw_text_row(135,PIXEL_BODY,"K3 BANK  K4 SLOT",C_WHITE);
+        draw_text_row(150,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
+        draw_text_row(163,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
         if(store_screen==STORE_DONE||store_screen==STORE_ERROR)button_hints("[HOME] EXIT",0,0,0);
         else button_hints(store_screen==STORE_CONFIRM?"[SAVE] REPLACE":"[SAVE] STORE","[HOME] CANCEL",0,0);editor_redraw=0;return;
     }
