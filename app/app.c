@@ -556,7 +556,7 @@ static void control_frame(void) {
         draw_text_row(126,PIXEL_BODY,status,C_HI);
         draw_text_row(146,PIXEL_BODY,"SELECT: SLOT",C_GRAY);
         draw_text_row(162,PIXEL_BODY,"PRESS AGAIN: CONFIRM",C_WHITE);
-        button_hints(draft_screen==DRAFT_SAVE_CONFIRM?"[SAVE] CONFIRM":"[SAVE] STORE",draft_screen==DRAFT_LOAD_CONFIRM?"[PLAY] CONFIRM":"[PLAY] LOAD","[ARP] LOOPER","[HOME] EXIT");editor_redraw=0;return;
+        button_hints(draft_screen==DRAFT_SAVE_CONFIRM?"[SAVE] confirm":"[SAVE] store",draft_screen==DRAFT_LOAD_CONFIRM?"[PLAY] confirm":"[PLAY] load","[ARP] looper","[HOME] exit");editor_redraw=0;return;
     }
     if(store_screen!=STORE_CLOSED){
         uint32_t hash=gui_hash(store_patch,150)^((uint32_t)store_screen<<24)^((uint32_t)store_slot<<16)^((uint32_t)store_cursor<<8)^control_request.loop[0];
@@ -572,8 +572,8 @@ static void control_frame(void) {
         draw_text_row(135,PIXEL_BODY,"K3 BANK  K4 SLOT",C_WHITE);
         draw_text_row(150,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
         draw_text_row(163,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
-        if(store_screen==STORE_DONE||store_screen==STORE_ERROR)button_hints("[HOME] EXIT",0,0,0);
-        else button_hints(store_screen==STORE_CONFIRM?"[SAVE] REPLACE":"[SAVE] STORE","[HOME] CANCEL",0,0);editor_redraw=0;return;
+        if(store_screen==STORE_DONE||store_screen==STORE_ERROR)button_hints("[HOME] exit",0,0,0);
+        else button_hints(store_screen==STORE_CONFIRM?"[SAVE] replace":"[SAVE] store","[HOME] cancel",0,0);editor_redraw=0;return;
     }
     if(looper_screen&&!timing_page){
         uint32_t now=plat_ms();if(!editor_redraw&&loop_draw_time&&now-loop_draw_time<100u&&loop_draw_state==control_request.loop[0])return;
@@ -593,10 +593,10 @@ static void control_frame(void) {
         timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(144,PIXEL_BODY,row,C_WHITE);
         char live[11];memcpy(live,control_request.editor.patch,10);live[10]=0;
         timing_format(row,"LIVE %s",0,0,live);draw_text_row(162,PIXEL_BODY,row,C_WHITE);
-        const char* rec=l[0]==LOOP_RECORD||l[0]==LOOP_OVERDUB?"[REC] FINISH":l[0]==LOOP_ARMED||l[0]==LOOP_OVERDUB_ARMED?"[REC] CANCEL":l[2]?"[REC] OVERDUB":"[REC] RECORD";
-        if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_STOP)rec="[SEL+SAVE] CLEAR";
-        else if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_PLAY)rec="[SEQ] CLOSE";
-        button_hints(rec,l[0]==LOOP_STOP?l[2]?"[PLAY] START":"[SEQ] CLOSE":"[PLAY] STOP","[ARP] DRAFTS","[HOME] EDIT");editor_redraw=0;return;
+        const char* rec=l[0]==LOOP_RECORD||l[0]==LOOP_OVERDUB?"[REC] finish":l[0]==LOOP_ARMED||l[0]==LOOP_OVERDUB_ARMED?"[REC] cancel":l[2]?"[REC] overdub":"[REC] record";
+        if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_STOP)rec="[SEL+SAVE] clear";
+        else if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_PLAY)rec="[SEQ] close";
+        button_hints(rec,l[0]==LOOP_STOP?l[2]?"[PLAY] start":"[SEQ] close":"[PLAY] stop","[ARP] drafts","[HOME] edit");editor_redraw=0;return;
     }
     if(timing_page==6){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -776,16 +776,16 @@ static void control_frame(void) {
         cv_blit(0,44u+y);
     }
     cv_begin(240,8,C_BLACK);cv_blit(0,174);
-    if(editor_view.error){button_hints("FX MEMORY LIMIT","[FX] EDIT EFFECTS","[HOME] HOME",0);}
-    else if(editor_page==EDITOR_HOME){button_hints("[EDIT] EDIT VOICE","[ENV] ENVELOPES","[SAVE] STORE","[REC] RECORD");}
+    if(editor_view.error){button_hints("FX MEMORY LIMIT","[FX] edit effects","[HOME] home",0);}
+    else if(editor_page==EDITOR_HOME){button_hints("[EDIT] edit voice","[ENV] envelopes","[SAVE] store","[REC] record");}
     else{
         // SEL selects an operator only where the page actually has operators.
-        const char* first=((editor_page>=EDITOR_OP1&&editor_page<=EDITOR_OP3)||editor_page==EDITOR_AEG_RATES||editor_page==EDITOR_AEG_LEVELS)?"[SEL] NEXT OP":
-            editor_page==EDITOR_FX1||editor_page==EDITOR_FX2?"[FX] NEXT SLOT":
-            editor_page>=EDITOR_LFO1&&editor_page<=EDITOR_LFO3?"[LFO] NEXT PAGE":
-            editor_page>=EDITOR_PEG_RATES&&editor_page<=EDITOR_PEG_ON?"[ENV] NEXT PAGE":
-            editor_page==EDITOR_VOICE||editor_page==EDITOR_MIDI?"[GLO] NEXT PAGE":"[EDIT] NEXT PAGE";
-        button_hints(first,"[SAVE] STORE",editor_view.fx?"[SEL+FX] FX OFF":"[SEL+FX] FX ON","[HOME] HOME");
+        const char* first=((editor_page>=EDITOR_OP1&&editor_page<=EDITOR_OP3)||editor_page==EDITOR_AEG_RATES||editor_page==EDITOR_AEG_LEVELS)?"[SEL] next op":
+            editor_page==EDITOR_FX1||editor_page==EDITOR_FX2?"[FX] next slot":
+            editor_page>=EDITOR_LFO1&&editor_page<=EDITOR_LFO3?"[LFO] next page":
+            editor_page>=EDITOR_PEG_RATES&&editor_page<=EDITOR_PEG_ON?"[ENV] next page":
+            editor_page==EDITOR_VOICE||editor_page==EDITOR_MIDI?"[GLO] next page":"[EDIT] next page";
+        button_hints(first,"[SAVE] store",editor_view.fx?"[SEL+FX] fx off":"[SEL+FX] fx on","[HOME] home");
     }
 }
 #undef plat_lock

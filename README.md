@@ -48,7 +48,7 @@ The large screen beside or below the instrument mirrors its display so you can r
 
 Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and up to seven adaptive voices. The supplied presets include basses, keys, bells, pads, leads and percussion.
 
-The instrument display uses the original RDX bitmap font throughout, with a monochrome Reface-style editor, Store and Looper screens. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] DRAFTS. Knob assignments stay with the editor or the values they change. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] DRAFTS. Knob assignments stay with the editor or the values they change.
+The instrument display uses the original RDX bitmap font throughout, with a monochrome Reface-style editor, Store and Looper screens. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] drafts. Knob assignments stay with the editor or the values they change. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] DRAFTS. Knob assignments stay with the editor or the values they change.
 
 ## Features in 1.0.1
 

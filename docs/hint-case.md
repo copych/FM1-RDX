@@ -1,0 +1,5 @@
+# Lowercase button actions
+
+Baseline 85fd00a. Button-hint text now keeps physical button names uppercase and action text lowercase, for example [ARP] drafts and [REC] finish. Positions, three-pixel line gaps and bottom margin are unchanged. Original bitmap font already contains lowercase glyphs.
+
+Compliance: target/build/ABI PASS (build/hint-case-target.log, matched existing SDK/compiler and integrity checks); audio/numerics, execution/synchronization, memory/storage/I/O, dependencies/licenses and compatibility/package/recovery PASS in unchanged-source/static/package scope (UI string literals only; no new dependencies or format/control changes). Host functional validation PASS: native Store/Looper/Draft scenarios (build/hint-case-store.log and hint-case-transport.log), visual screenshot review and site package checks. Hardware readability/timing UNVERIFIED for new lettering; inspect the footer on the FM-1. Full DSP/host and unrelated BSP suites not repeated for text-only changes; no hardware flashing or soak. Artifact identity: hint-case-artifacts.json.
