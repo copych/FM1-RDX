@@ -6,9 +6,15 @@ A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha refac
 
 No hardware or download is needed to try the browser version.
 
-**v1.0.1:** up to **seven adaptive voices**, available immediately after startup. USB MIDI, Soundmondo support, USB recording and the full editor are included. The firmware is tested regularly on an M-VAVE FM-1; the seven-voice hardware sweep completed with zero XRUNs. Polyphony adapts to the sound, effects and available processing time.
+**v1.0.2:** up to **seven adaptive voices**, available immediately after startup. USB MIDI, Soundmondo support, USB recording and the full editor are included. The firmware is tested regularly on an M-VAVE FM-1; the seven-voice hardware sweep completed with zero XRUNs. Polyphony adapts to the sound, effects and available processing time.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
+
+## Screens
+
+| Operator envelopes | Phrase looper |
+| --- | --- |
+| <img src="docs/images/operator-envelope.png" width="320" alt="OP 2 amplitude envelope editor with operator number in the header"> | <img src="docs/images/looper.png" width="320" alt="Stopped looper with click, triplet quantization, tempo and button hints"> |
 
 ## Start playing
 
@@ -48,18 +54,20 @@ The large screen beside or below the instrument mirrors its display so you can r
 
 Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. There are 12 FM algorithms and up to seven adaptive voices. The supplied presets include basses, keys, bells, pads, leads and percussion.
 
-The instrument display uses the original RDX bitmap font throughout, with a monochrome Reface-style editor, Store and Looper screens. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] drafts. Knob assignments stay with the editor or the values they change. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] DRAFTS. Knob assignments stay with the editor or the values they change.
+The instrument display uses the original RDX bitmap font throughout, with a monochrome Reface-style editor, Store and Looper screens. Bottom hints show physical buttons in brackets followed by their current action, such as [ARP] drafts. Knob assignments stay with the editor or the values they change.
 
-## Features in 1.0.1
+## Features in 1.0.2
 
 - Four-operator FM synthesis, 12 algorithms and up to seven adaptive voices.
 - 32 factory sounds, Init Voice and 32 named user voice slots.
 - Full operator, envelope, LFO and dual-effects editing.
 - Phrase recording and overdubbing with one captured voice for the entire loop; live playing can use another voice with shared effects.
-- Four persistent musical draft slots containing the phrase, captured voice and tempo.
+- Four persistent musical draft slots containing the phrase, captured voice, tempo and quantization.
+- Reversible whole-loop quantization with straight and triplet grids, from 1/4 to 1/32.
 - Audible metronome with OFF, AUTO and ON modes, plus tempo control.
 - Panel LEDs for notes, recording, beats, menus and saved drafts.
-- Consistent monochrome bitmap GUI, including Store, Looper and Draft screens.
+- Compact Reface-style pixel GUI, clear operator numbers, and contextual button hints.
+- DC removal and calibrated effects output levels; factory presets retain their original settings.
 - Octave shifts that preserve held notes, and preset selection directly from the looper.
 - USB MIDI, Soundmondo voice exchange and lossless stereo USB recording.
 - Browser emulator with voice and draft saving in browser storage.
@@ -68,7 +76,7 @@ The instrument display uses the original RDX bitmap font throughout, with a mono
 
 Press **SAVE** to store a voice in one of **32 user slots**, separate from the factory bank. **SELECT** chooses a destination; **K1** selects one of the ten name characters and **K2** changes it. **K3/K4** choose bank/slot. Press SAVE again to store; an occupied slot asks for a second confirmation. **HOME** cancels. Saving briefly mutes audio, so stop the looper first. Stored voices survive power-off. In the emulator they stay in this browser while its site data is retained.
 
-Press **REC**, then play the first note to begin recording. Press REC again to finish and play the phrase in a loop. **PLAY** stops or restarts from the beginning. During playback, REC arms one overdub pass at the next loop boundary; REC can finish that pass early. **SEQ** opens/closes the looper screen; **K4** changes tempo there. **K1** sets the click to OFF, AUTO (arming/recording/overdub) or ON (also during playback). The click uses no synth voice. **K2** selects whole-loop playback quantization: OFF, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32 or 1/32T (T means triplets). OFF restores the recorded timing. Changing the grid during playback restarts the loop; finish the current recording/overdub before changing it. Quantization is saved and restored with each musical draft; older drafts recall with quantization OFF. Turn **PRESET** to change the live sound while staying on the looper screen; both the live and captured voice names are shown. **SEL + SAVE** clears a stopped phrase. HOME returns to sound editing while playback continues.
+Press **REC**, then play the first note to begin recording. Press REC again to finish and play the phrase in a loop. **PLAY** stops or restarts from the beginning. During playback, REC arms one overdub pass at the next loop boundary; REC can finish that pass early. **SEQ** opens/closes the looper screen; **K4** changes tempo there. **K1** sets the click to OFF, AUTO (arming/recording/overdub) or ON (also during playback). The click uses no synth voice. **K2** selects whole-loop playback quantization: OFF, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32 or 1/32T (T means triplets). OFF restores the recorded timing. Changing the grid during playback restarts the loop; finish the current recording/overdub before changing it. Quantization is saved and restored with each musical draft; older drafts recall with quantization OFF. Drafts saved by 1.0.2 require 1.0.2 or later to load. Turn **PRESET** to change the live sound while staying on the looper screen; both the live and captured voice names are shown. **SEL + SAVE** clears a stopped phrase. HOME returns to sound editing while playback continues.
 
 The first recorded note captures the current voice, including unsaved edits. That voice is used for the entire phrase and every overdub. Changing presets or editing the sound affects live playing; the loop keeps its captured FM voice. Both feed the current shared effects and output controls. The looper screen shows the captured voice name.
 
@@ -78,7 +86,7 @@ The looper has four takes of up to 512 events each. It records notes, velocity, 
 
 Open the [web installer](https://copych.github.io/FM1-RDX/install/) in desktop **Chrome or Edge**, connect your **M-VAVE FM-1** with a USB data cable, and follow the page. Allow MIDI access when asked. Keep the cable connected until installation finishes.
 
-This is **v1.0.1**, tested regularly on M-VAVE FM-1 hardware. Back up anything you want to keep using your current firmware's tools before replacing it. The installer includes a way to return to M-VAVE's stock firmware. It does not offer a bootloader replacement.
+This is **v1.0.2**, tested regularly on M-VAVE FM-1 hardware. Back up anything you want to keep using your current firmware's tools before replacing it. The installer includes a way to return to M-VAVE's stock firmware. It does not offer a bootloader replacement.
 
 **Close the installer tab before opening your DAW or MIDI app.** It can hold the MIDI port and prevent another app from opening it. If you already see an error, close the installer, reconnect the FM-1 and reopen the MIDI device in your app.
 
@@ -88,7 +96,7 @@ With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; opera
 
 To record over USB, select **FM1-RDX reface DX** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
 
-For **Soundmondo**, install version 1.0.1, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; use SAVE to keep a downloaded voice in a user slot. Soundmondo can capture the current voice without writing it to the FM-1's flash.
+For **Soundmondo**, install version 1.0.2, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; use SAVE to keep a downloaded voice in a user slot. Soundmondo can capture the current voice without writing it to the FM-1's flash.
 
 The browser emulator's **MIDI ports** control can exchange MIDI/SysEx with a selected port. It does not create an operating-system MIDI device for Soundmondo.
 
