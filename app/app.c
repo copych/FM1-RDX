@@ -515,17 +515,14 @@ static void draw_text_row(uint32_t y,uint8_t style,const char* text,uint16_t col
     if(length>20u){pixel_line(y,text,20u,15u);pixel_line(y+13u,text+20u,length-20u,15u);}
     else pixel_line(y,text,length,15u);
 }
-static void pixel_controls(const char* const labels[4],const char* const values[4]){
-    for(uint32_t band=0;band<34u;band+=8u){uint32_t h=34u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
-        for(uint32_t row=0;row<h;++row){uint32_t yy=band+row;
-            if(yy==0u||yy==33u){for(uint32_t x=0;x<240u;++x)cv_pset(x,row,C_WHITE);}
-            else{for(uint32_t x=0;x<240u;x+=60u)cv_pset(x,row,C_WHITE);cv_pset(239,row,C_WHITE);}
-        }
-        for(uint32_t k=0;k<4u;++k){uint32_t n=pixel_length(labels[k]);if(n>5u)n=5u;
-            int32_t x=(int32_t)(60u*k)+(60-(int32_t)(n*6u*15u/8u))/2;
-            pixel_text(x,(values?3:10)-(int32_t)band,labels[k],n,15u);
-            if(values&&values[k]){n=pixel_length(values[k]);if(n>5u)n=5u;x=(int32_t)(60u*k)+(60-(int32_t)(n*6u*15u/8u))/2;pixel_text(x,18-(int32_t)band,values[k],n,15u);}
-        }cv_blit(0,180u+band);
+// Button hints occupy a dedicated area; brackets distinguish physical keys
+// from their actions. Knob assignments belong beside their editable values.
+static void button_hints(const char* a,const char* b,const char* c,const char* d){
+    const char* rows[4]={a,b,c,d};
+    for(uint32_t band=0;band<58u;band+=8u){uint32_t h=58u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
+        for(uint32_t row=0;row<4u;++row)if(rows[row]){uint32_t n=pixel_length(rows[row]);if(n>20u)n=20u;
+            pixel_text(6,(int32_t)(row*15u)-(int32_t)band,rows[row],n,15u);
+        }cv_blit(0,182u+band);
     }
 }
 // Bounded UI-only formatter; target has no snprintf.
@@ -557,10 +554,9 @@ static void control_frame(void) {
         draw_text_row(82,PIXEL_LARGE,control_request.draft_mask&(1u<<draft_slot)?control_request.draft_names[draft_slot]:"EMPTY",C_WHITE);
         const char* status=draft_screen==DRAFT_SAVE_CONFIRM?"REPLACE THIS DRAFT?":draft_screen==DRAFT_LOAD_CONFIRM?"REPLACE THIS LOOP?":draft_screen==DRAFT_SAVED?"DRAFT SAVED":draft_screen==DRAFT_LOADED?"DRAFT LOADED":draft_screen==DRAFT_ERROR?(control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"EMPTY / READ ERROR"):"SELECT: CHOOSE SLOT";
         draw_text_row(126,PIXEL_BODY,status,C_HI);
-        draw_text_row(146,PIXEL_BODY,"SAVE MUTES AUDIO",C_GRAY);
+        draw_text_row(146,PIXEL_BODY,"SELECT: SLOT",C_GRAY);
         draw_text_row(164,PIXEL_BODY,"PRESS AGAIN: CONFIRM",C_WHITE);
-        static const char* draft_keys[4]={"SLOT","SAVE","PLAY","HOME"};pixel_controls(draft_keys,0);
-        draw_text_row(222,PIXEL_BODY,"ARP LOOP / HOME EXIT",C_GRAY);editor_redraw=0;return;
+        button_hints(draft_screen==DRAFT_SAVE_CONFIRM?"[SAVE] CONFIRM":"[SAVE] STORE",draft_screen==DRAFT_LOAD_CONFIRM?"[PLAY] CONFIRM":"[PLAY] LOAD","[ARP] LOOPER","[HOME] EXIT");editor_redraw=0;return;
     }
     if(store_screen!=STORE_CLOSED){
         uint32_t hash=gui_hash(store_patch,150)^((uint32_t)store_screen<<24)^((uint32_t)store_slot<<16)^((uint32_t)store_cursor<<8)^control_request.loop[0];
@@ -571,12 +567,13 @@ static void control_frame(void) {
         draw_text_row(4,PIXEL_LARGE,"STORE",C_WHITE);
         draw_text_row(46,PIXEL_LARGE,name,C_WHITE);
         control_fill(7u+store_cursor*180u/8u,74u,18u,2u,C_WHITE);
-        timing_format(row,"CHAR %lu / 10",store_cursor+1u,0,"");draw_text_row(84,PIXEL_BODY,row,C_HI);
+        draw_text_row(84,PIXEL_BODY,"K1 POS  K2 CHAR",C_WHITE);
         timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,PIXEL_LARGE,row,C_WHITE);
-        draw_text_row(140,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
+        draw_text_row(138,PIXEL_BODY,"K3 BANK  K4 SLOT",C_WHITE);
+        draw_text_row(153,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
         draw_text_row(168,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
-        static const char* store_keys[4]={"CHAR","EDIT","BANK","SLOT"};pixel_controls(store_keys,0);
-        draw_text_row(222,PIXEL_BODY,"SAVE STORE / HOME",C_WHITE);editor_redraw=0;return;
+        if(store_screen==STORE_DONE||store_screen==STORE_ERROR)button_hints("[HOME] EXIT",0,0,0);
+        else button_hints(store_screen==STORE_CONFIRM?"[SAVE] REPLACE":"[SAVE] STORE","[HOME] CANCEL",0,0);editor_redraw=0;return;
     }
     if(looper_screen&&!timing_page){
         uint32_t now=plat_ms();if(!editor_redraw&&loop_draw_time&&now-loop_draw_time<100u&&loop_draw_state==control_request.loop[0])return;
@@ -585,19 +582,21 @@ static void control_frame(void) {
         static const char* states[LOOP_STATES_COUNT]={"STOPPED","REC STANDBY","RECORDING","PLAYING","OVERDUB ARMED","OVERDUBBING"};
         if(editor_redraw)draw_text_row(4,PIXEL_LARGE,"LOOPER",C_WHITE);
         draw_text_row(46,PIXEL_BODY,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
-        timing_format(row,l[6]?"TAKE FULL":!l[2]?(l[0]==LOOP_ARMED?"PLAY FIRST NOTE":l[0]==LOOP_STOP?"REC TO BEGIN":"BEAT %lu"):"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(76,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,l[6]?"TAKE FULL":!l[2]?(l[0]==LOOP_ARMED?"PLAY FIRST NOTE":l[0]==LOOP_STOP?"REC TO BEGIN":"BEAT %lu"):"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(64,PIXEL_BODY,row,C_WHITE);
         cv_begin(240,8,C_BLACK);for(uint32_t x=6;x<234u;++x){cv_pset(x,0,C_WHITE);cv_pset(x,7,C_WHITE);}for(uint32_t yy=0;yy<8u;++yy){cv_pset(6,yy,C_WHITE);cv_pset(233,yy,C_WHITE);}
         uint32_t progress=l[2]?l[1]*224u/l[2]:0;if(progress>224u)progress=224u;for(uint32_t xx=0;xx<progress;++xx)for(uint32_t yy=2;yy<6u;++yy)cv_pset(8u+xx,yy,C_WHITE);cv_blit(0,32);
-        timing_format(row,"%lu BPM",l[3],0,"");draw_text_row(100,PIXEL_LARGE,row,C_WHITE);
-        timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(134,PIXEL_BODY,row,C_WHITE);
-        char live[11];memcpy(live,control_request.editor.patch,10);live[10]=0;
-        timing_format(row,"LIVE %s",0,0,live);draw_text_row(154,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"K4 TEMPO %lu BPM",l[3],0,"");draw_text_row(84,PIXEL_BODY,row,C_WHITE);
         static const char* guides[GUIDE_MODES_COUNT]={"OFF","AUTO","ON"};
-        timing_format(row,"K1 CLICK %s",0,0,guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO]);
-        char tempo[8];timing_format(row,"%lu",l[3],0,"");memset(tempo,0,sizeof tempo);for(uint32_t i=0;i<sizeof tempo-1u&&row[i];++i)tempo[i]=row[i];
+        timing_format(row,"K1 CLICK %s",0,0,guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO]);draw_text_row(104,PIXEL_BODY,row,C_WHITE);
         static const char* quant_labels[LOOP_QUANT_MODES_COUNT]={"OFF","1/4","1/4T","1/8","1/8T","1/16","1/16T","1/32","1/32T"};
-        static const char* loop_keys[4]={"CLICK","QUANT","PLAY","TEMPO"};const char* loop_values[4]={guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO],quant_labels[control_request.loop[7]<LOOP_QUANT_MODES_COUNT?control_request.loop[7]:LOOP_QUANT_OFF],"",tempo};pixel_controls(loop_keys,loop_values);
-        draw_text_row(222,PIXEL_BODY,"REC PLAY  ARP DRAFTS",C_WHITE);editor_redraw=0;return;
+        timing_format(row,"K2 QUANT %s",0,0,quant_labels[l[7]<LOOP_QUANT_MODES_COUNT?l[7]:LOOP_QUANT_OFF]);draw_text_row(124,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(144,PIXEL_BODY,row,C_WHITE);
+        char live[11];memcpy(live,control_request.editor.patch,10);live[10]=0;
+        timing_format(row,"LIVE %s",0,0,live);draw_text_row(162,PIXEL_BODY,row,C_WHITE);
+        const char* rec=l[0]==LOOP_RECORD||l[0]==LOOP_OVERDUB?"[REC] FINISH":l[0]==LOOP_ARMED||l[0]==LOOP_OVERDUB_ARMED?"[REC] CANCEL":l[2]?"[REC] OVERDUB":"[REC] RECORD";
+        if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_STOP)rec="[SEL+SAVE] CLEAR";
+        else if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_PLAY)rec="[SEQ] CLOSE";
+        button_hints(rec,l[0]==LOOP_STOP?l[2]?"[PLAY] START":"[SEQ] CLOSE":"[PLAY] STOP","[ARP] DRAFTS","[HOME] EDIT");editor_redraw=0;return;
     }
     if(timing_page==6){
         uint32_t now=plat_ms();if(timing_draw&&now-timing_draw<250u)return;timing_draw=now;
@@ -777,13 +776,17 @@ static void control_frame(void) {
         cv_blit(0,44u+y);
     }
     cv_begin(240,8,C_BLACK);cv_blit(0,174);
-    const char* labels[4];
-    for(uint32_t k=0;k<4u;++k){labels[k]=gui_reply.labels[k];if(!memcmp(labels[k],"ON/OFF",7))labels[k]="ON";else if(!memcmp(labels[k],"DETUNE",7))labels[k]="DTUNE";else if(!memcmp(labels[k],"SELECT",7))labels[k]="SEL";else if(!memcmp(labels[k],"FL.DEP",7))labels[k]="F.DEP";else if(!memcmp(labels[k],"FL.OFF",7))labels[k]="F.OFF";}
-    pixel_controls(labels,0);
-    char status[30]="OP 1  FX ON";status[3]=(char)('1'+editor_op);
-    if(!editor_view.fx){status[9]='O';status[10]='F';status[11]='F';status[12]=0;}
-    if(editor_view.dirty){uint32_t n=0;while(status[n])++n;status[n]='*';status[n+1]=0;}
-    draw_text_row(222,PIXEL_BODY,editor_view.error?"FX MEMORY LIMIT":status,C_GRAY);
+    if(editor_view.error){button_hints("FX MEMORY LIMIT","[FX] EDIT EFFECTS","[HOME] HOME",0);}
+    else if(editor_page==EDITOR_HOME){button_hints("[EDIT] EDIT VOICE","[ENV] ENVELOPES","[SAVE] STORE","[REC] RECORD");}
+    else{
+        // SEL selects an operator only where the page actually has operators.
+        const char* first=((editor_page>=EDITOR_OP1&&editor_page<=EDITOR_OP3)||editor_page==EDITOR_AEG_RATES||editor_page==EDITOR_AEG_LEVELS)?"[SEL] NEXT OP":
+            editor_page==EDITOR_FX1||editor_page==EDITOR_FX2?"[FX] NEXT SLOT":
+            editor_page>=EDITOR_LFO1&&editor_page<=EDITOR_LFO3?"[LFO] NEXT PAGE":
+            editor_page>=EDITOR_PEG_RATES&&editor_page<=EDITOR_PEG_ON?"[ENV] NEXT PAGE":
+            editor_page==EDITOR_VOICE||editor_page==EDITOR_MIDI?"[GLO] NEXT PAGE":"[EDIT] NEXT PAGE";
+        button_hints(first,"[SAVE] STORE",editor_view.fx?"[SEL+FX] FX OFF":"[SEL+FX] FX ON","[HOME] HOME");
+    }
 }
 #undef plat_lock
 #undef plat_unlock
