@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-const repo='copych/FM1-RDX',tag='v1.0.0-beta';
+const repo='copych/FM1-RDX',tag='v1.0.1';
 const git=(...args)=>execFileSync('git',['-c',`safe.directory=${process.cwd().replaceAll('\\','/')}`,...args],{encoding:'utf8'}).trim();
 const raw=execFileSync('git',['-c',`safe.directory=${process.cwd().replaceAll('\\','/')}`,'credential','fill'],{
  input:'protocol=https\nhost=github.com\n\n',encoding:'utf8',env:{...process.env,GIT_TERMINAL_PROMPT:'0'}});
@@ -28,10 +28,10 @@ if(mode==='inspect'||mode==='status'){
 }else if(mode==='release'){
  const head=git('rev-parse','HEAD');
  let release=await api(`/repos/${repo}/releases/tags/${tag}`);
- if(!release)release=await api(`/repos/${repo}/releases`,'POST',{tag_name:tag,target_commitish:head,name:'FM1-RDX 1.0.0 beta',
-  body:fs.readFileSync('build/release-notes.md','utf8'),draft:false,prerelease:true,make_latest:'false'});
- const assets=[['app/build/rdx.fwsc','FM1-RDX-v1.0.0-beta.fwsc','application/octet-stream'],
-  ['build/FM1-RDX-v1.0.0-beta-web.zip','FM1-RDX-v1.0.0-beta-web.zip','application/zip'],
+ if(!release)release=await api(`/repos/${repo}/releases`,'POST',{tag_name:tag,target_commitish:head,name:'FM1-RDX 1.0.1',
+  body:fs.readFileSync('build/release-notes.md','utf8'),draft:false,prerelease:false,make_latest:'true'});
+ const assets=[['app/build/rdx.fwsc','FM1-RDX-v1.0.1.fwsc','application/octet-stream'],
+  ['build/FM1-RDX-v1.0.1-web.zip','FM1-RDX-v1.0.1-web.zip','application/zip'],
   ['build/SHA256SUMS.txt','SHA256SUMS.txt','text/plain'],['build/evidence.json','build-evidence.json','application/json']];
  for(const [path,name,type] of assets){
   const bytes=fs.readFileSync(path),existing=release.assets.find(a=>a.name===name);

@@ -1,12 +1,12 @@
 # FM1-RDX
 
-A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha reface DX. Explore 33 sounds, shape each operator and envelope, and add two effects.
+A four-operator FM synthesizer for the M-VAVE FM-1, inspired by the Yamaha reface DX. Explore 32 factory sounds plus Init Voice, shape each operator and envelope, and add two effects.
 
 **[Play in your browser](https://copych.github.io/FM1-RDX/emu/)** · **[Install on your FM-1](https://copych.github.io/FM1-RDX/install/)** · **[Project home](https://copych.github.io/FM1-RDX/)**
 
 No hardware or download is needed to try the browser version.
 
-**v1.0.0-beta:** up to **seven adaptive voices**, available immediately after startup. USB MIDI, Soundmondo support, USB recording and the full editor are included. The firmware is tested regularly on an M-VAVE FM-1; the seven-voice hardware sweep completed with zero XRUNs. Polyphony adapts to the sound, effects and available processing time.
+**v1.0.1:** up to **seven adaptive voices**, available immediately after startup. USB MIDI, Soundmondo support, USB recording and the full editor are included. The firmware is tested regularly on an M-VAVE FM-1; the seven-voice hardware sweep completed with zero XRUNs. Polyphony adapts to the sound, effects and available processing time.
 
 The sounds are arranged as **four banks of eight**, starting with **1–1 DigiChord**. **Init Voice** is separate, before Bank 1 on the PRESET knob. MIDI programs 1–32 select the bank sounds; program 33 selects Init (raw program bytes 0–31 and 32).
 
@@ -50,7 +50,21 @@ Choose from distortion, touch wah, chorus, flanger, phaser, delay and reverb. Th
 
 The instrument display uses the original RDX bitmap font throughout, with a monochrome Reface-style editor, Store and Looper screens.
 
-**Saving, drafts and looping are available in the new local preview; the public installer still serves v1.0.0-beta.**
+## Features in 1.0.1
+
+- Four-operator FM synthesis, 12 algorithms and up to seven adaptive voices.
+- 32 factory sounds, Init Voice and 32 named user voice slots.
+- Full operator, envelope, LFO and dual-effects editing.
+- Phrase recording and overdubbing with one captured voice for the entire loop; live playing can use another voice with shared effects.
+- Four persistent musical draft slots containing the phrase, captured voice and tempo.
+- Audible metronome with OFF, AUTO and ON modes, plus tempo control.
+- Panel LEDs for notes, recording, beats, menus and saved drafts.
+- Consistent monochrome bitmap GUI, including Store, Looper and Draft screens.
+- Octave shifts that preserve held notes, and preset selection directly from the looper.
+- USB MIDI, Soundmondo voice exchange and lossless stereo USB recording.
+- Browser emulator with voice and draft saving in browser storage.
+
+## Save voices and record phrases
 
 Press **SAVE** to store a voice in one of **32 user slots**, separate from the factory bank. **SELECT** chooses a destination; **K1** selects one of the ten name characters and **K2** changes it. **K3/K4** choose bank/slot. Press SAVE again to store; an occupied slot asks for a second confirmation. **HOME** cancels. Saving briefly mutes audio, so stop the looper first. Stored voices survive power-off. In the emulator they stay in this browser while its site data is retained.
 
@@ -64,7 +78,7 @@ The looper has four takes of up to 512 events each. It records notes, velocity, 
 
 Open the [web installer](https://copych.github.io/FM1-RDX/install/) in desktop **Chrome or Edge**, connect your **M-VAVE FM-1** with a USB data cable, and follow the page. Allow MIDI access when asked. Keep the cable connected until installation finishes.
 
-This is **v1.0.0-beta**, tested regularly on M-VAVE FM-1 hardware. Back up anything you want to keep using your current firmware's tools before replacing it. The installer includes a way to return to M-VAVE's stock firmware. It does not offer a bootloader replacement.
+This is **v1.0.1**, tested regularly on M-VAVE FM-1 hardware. Back up anything you want to keep using your current firmware's tools before replacing it. The installer includes a way to return to M-VAVE's stock firmware. It does not offer a bootloader replacement.
 
 **Close the installer tab before opening your DAW or MIDI app.** It can hold the MIDI port and prevent another app from opening it. If you already see an error, close the installer, reconnect the FM-1 and reopen the MIDI device in your app.
 
@@ -74,7 +88,7 @@ With FM CC mode on, CC80 changes the algorithm. Operator 1 uses CC85–90; opera
 
 To record over USB, select **FM1-RDX reface DX** as your recording input and use **44.1 kHz, stereo, 16-bit PCM**. Save as WAV or FLAC. MASTER adjusts the speaker/headphones without changing the recording level; MIDI volume and expression still affect the recording. USB MIDI remains available alongside recording. Computer audio playback through the FM-1 is not enabled. If the new audio input does not appear after updating, reconnect USB and reopen your recording app.
 
-For **Soundmondo**, install the latest preview, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; use SAVE to keep a downloaded voice in a user slot. Soundmondo can capture the current voice without writing it to the FM-1's flash.
+For **Soundmondo**, install version 1.0.1, reconnect USB, close the installer and open [Soundmondo](https://soundmondo.yamahasynth.com/) in Chrome or Edge. Allow MIDI access including SysEx. The device should appear as a reface DX; try loading a voice and capturing it back. Soundmondo voice exchange has been tested on the FM-1. Downloaded voices replace the current RAM edit buffer; use SAVE to keep a downloaded voice in a user slot. Soundmondo can capture the current voice without writing it to the FM-1's flash.
 
 The browser emulator's **MIDI ports** control can exchange MIDI/SysEx with a selected port. It does not create an operating-system MIDI device for Soundmondo.
 
@@ -82,7 +96,7 @@ Built-in keys currently use a fixed velocity. Keyboard rate scaling still awaits
 
 ## Feedback
 
-Found a problem? [Open an issue](https://github.com/copych/FM1-RDX/issues) with the preset name, what you changed, and whether you were using the browser or an FM-1. For browser problems, **Copy session** can help describe what you played. Hardware feedback helps improve the beta.
+Found a problem? [Open an issue](https://github.com/copych/FM1-RDX/issues) with the preset name, what you changed, and whether you were using the browser or an FM-1. For browser problems, **Copy session** can help describe what you played. Hardware feedback helps improve the firmware.
 
 Based on the RDX ESP32 project, [fm1-base](https://github.com/charlesvestal/fm1-base) and [felucca-bsp](https://github.com/hugelton/felucca-bsp). Independent community firmware; not an official Yamaha or M-VAVE product.
 

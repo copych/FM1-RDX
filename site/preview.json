@@ -1,6 +1,9 @@
 {
-  "version": "1.0.0-beta",
+  "version": "1.0.1",
   "product": "FM-1_9900",
-  "firmwareSha256": "84b576ea7c36923d8202f12d9acda5c33ac85c5d441486621eff73b0bad8901c",
-  "wasmSha256": "ac816ac6d7b8c73b0333340fa9d445c9df2888ab0881b398d0d99d571f7f4f99"
+  "firmwareSha256": "518e5de5a28956b43d1332256862e7a7a069e071baa438420992d3fe104f99f2",
+  "wasmSha256": "3f62db37b1049a5628cb9a56e37dad73f04669c5bb91f4258645d73b66baee2a",
+  "features": true,
+  "transport": true,
+  "release": true
 }
