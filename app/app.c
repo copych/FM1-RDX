@@ -586,18 +586,26 @@ static void control_frame(void) {
         char row[40];const uint32_t* l=control_request.loop;
         static const char* states[LOOP_STATES_COUNT]={"STOPPED","REC STANDBY","RECORDING","PLAYING","OVERDUB ARMED","OVERDUBBING"};
         if(editor_redraw)draw_text_row(4,PIXEL_LARGE,"LOOPER",C_WHITE);
-        draw_text_row(46,PIXEL_BODY,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
-        timing_format(row,l[6]?"TAKE FULL":!l[2]?(l[0]==LOOP_ARMED?"PLAY FIRST NOTE":l[0]==LOOP_STOP?"REC TO BEGIN":"BEAT %lu"):"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(64,PIXEL_BODY,row,C_WHITE);
-        cv_begin(240,8,C_BLACK);for(uint32_t x=6;x<234u;++x){cv_pset(x,0,C_WHITE);cv_pset(x,7,C_WHITE);}for(uint32_t yy=0;yy<8u;++yy){cv_pset(6,yy,C_WHITE);cv_pset(233,yy,C_WHITE);}
-        uint32_t progress=l[2]?l[1]*224u/l[2]:0;if(progress>224u)progress=224u;for(uint32_t xx=0;xx<progress;++xx)for(uint32_t yy=2;yy<6u;++yy)cv_pset(8u+xx,yy,C_WHITE);cv_blit(0,32);
-        timing_format(row,"K4 TEMPO %lu BPM",l[3],0,"");draw_text_row(84,PIXEL_BODY,row,C_WHITE);
+        draw_text_row(46,PIXEL_BODY,l[6]?"TAKE FULL":states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_WHITE);
+        cv_begin(240,8,C_BLACK);for(uint32_t x=8;x<236u;++x){cv_pset(x,0,C_WHITE);cv_pset(x,7,C_WHITE);}for(uint32_t yy=0;yy<8u;++yy){cv_pset(8,yy,C_WHITE);cv_pset(235,yy,C_WHITE);}
+        uint32_t progress=l[2]?l[1]*224u/l[2]:0;if(progress>224u)progress=224u;for(uint32_t xx=0;xx<progress;++xx)for(uint32_t yy=2;yy<6u;++yy)cv_pset(10u+xx,yy,C_WHITE);cv_blit(0,32);
         static const char* guides[GUIDE_MODES_COUNT]={"OFF","AUTO","ON"};
-        timing_format(row,"K1 CLICK %s",0,0,guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO]);draw_text_row(104,PIXEL_BODY,row,C_WHITE);
         static const char* quant_labels[LOOP_QUANT_MODES_COUNT]={"OFF","1/4","1/4T","1/8","1/8T","1/16","1/16T","1/32","1/32T"};
-        timing_format(row,"K2 QUANT %s",0,0,quant_labels[l[7]<LOOP_QUANT_MODES_COUNT?l[7]:LOOP_QUANT_OFF]);draw_text_row(124,PIXEL_BODY,row,C_WHITE);
-        timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(144,PIXEL_BODY,row,C_WHITE);
+        const char* click=guides[control_request.guide<GUIDE_MODES_COUNT?control_request.guide:GUIDE_AUTO];
+        const char* quant=quant_labels[l[7]<LOOP_QUANT_MODES_COUNT?l[7]:LOOP_QUANT_OFF];
+        char tempo[8];timing_format(row,"%lu",l[3],0,"");memset(tempo,0,sizeof tempo);for(uint32_t i=0;i<sizeof tempo-1u&&row[i];++i)tempo[i]=row[i];
+        // Reface-style parameter columns occupy K1, K2 and K4 positions.
+        // Render labels, values and rules together, retaining cooperative strips.
+        const char* labels[3]={"CLICK","QUANT","TEMPO"};const char* values[3]={click,quant,tempo};const uint32_t centers[3]={33,96,205};
+        for(uint32_t band=0;band<66u;band+=8u){uint32_t h=66u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
+            for(uint32_t yy=0;yy<h;++yy){cv_pset(66,yy,C_WHITE);cv_pset(170,yy,C_WHITE);}
+            for(uint32_t k=0;k<3u;++k){uint32_t n=pixel_length(labels[k]);pixel_text((int32_t)centers[k]-(int32_t)(n*6u*15u/8u)/2,2-(int32_t)band,labels[k],n,15u);
+                n=pixel_length(values[k]);pixel_text((int32_t)centers[k]-(int32_t)(n*6u*15u/8u)/2,30-(int32_t)band,values[k],n,15u);
+            }cv_blit(0,64u+band);
+        }
+        timing_format(row,"LOOP %s",0,0,control_request.phrase_name);draw_text_row(138,PIXEL_BODY,row,C_WHITE);
         char live[11];memcpy(live,control_request.editor.patch,10);live[10]=0;
-        timing_format(row,"LIVE %s",0,0,live);draw_text_row(162,PIXEL_BODY,row,C_WHITE);
+        timing_format(row,"LIVE %s",0,0,live);draw_text_row(156,PIXEL_BODY,row,C_WHITE);
         const char* rec=l[0]==LOOP_RECORD||l[0]==LOOP_OVERDUB?"[REC] finish":l[0]==LOOP_ARMED||l[0]==LOOP_OVERDUB_ARMED?"[REC] cancel":l[2]?"[REC] overdub":"[REC] record";
         if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_STOP)rec="[SEL+SAVE] clear";
         else if(l[4]>=LOOP_TRACKS&&l[0]==LOOP_PLAY)rec="[SEQ] close";
