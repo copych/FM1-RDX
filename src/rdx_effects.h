@@ -18,7 +18,7 @@ public:
     void init(float* arena);
     bool begin(const RDX_Patch& patch);
     bool serviceClear();
-    void process(float* left,float* right);
+    void process(float* left,float* right,bool matchLevels=true);
     bool valid() const {return valid_;}
     uint32_t used() const {return used_;}
     static uint32_t required(const RDX_Patch& patch);
@@ -26,7 +26,8 @@ public:
     void adjustPhaser(uint8_t parameter,int delta);
 private:
     struct Slot {
-        uint8_t id=EFFECT_THRU;
+        uint8_t id=EFFECT_THRU,levelP1=255,levelP2=255;
+        float levelAt[4]={1.0f,1.0f,1.0f,1.0f},levelPower=0.0f,levelWetPower=0.0f,levelGain=1.0f;
         uint32_t offset=0,size=0;
         FxDistortion distortion;
         FxTouchWah wah;

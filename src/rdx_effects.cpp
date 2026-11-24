@@ -1,4 +1,6 @@
 #include "rdx_effects.h"
+#include "fx/level_calibration.h"
+#include "rdx_level_math.h"
 
 uint32_t RdxEffects::slotSize(uint8_t id,uint8_t time) {
     if(id>=EFFECTS_COUNT || time>127)return arenaFloats+1u;
@@ -74,9 +76,22 @@ bool RdxEffects::prepare() {
     }
     return true;
 }
-void RdxEffects::process(float* l,float* r) {
+void RdxEffects::process(float* l,float* r,bool matchLevels) {
     if(!prepared_||!valid_)return;
-    for(auto& s:slots_)switch(s.id) {
+    for(uint32_t slot=0;slot<2u;++slot){
+        auto& s=slots_[slot];float power=0.0f;
+        if(matchLevels&&s.id!=EFFECT_THRU){
+            const auto& p=RDX_State::getState().workingPatch.common.effects[slot];
+            if(s.levelP1!=p[1]||s.levelP2!=p[2]){
+                s.levelP1=p[1];s.levelP2=p[2];
+                const uint32_t a=p[1]<96u?p[1]/32u:3u,b=p[2]<96u?p[2]/32u:3u;
+                const float x=(float)(p[1]-a*32u)*(a==3u?1.0f/31.0f:1.0f/32.0f),y=(float)(p[2]-b*32u)*(b==3u?1.0f/31.0f:1.0f/32.0f);
+                for(uint32_t k=0;k<4u;++k){const auto& t=effectLevelGain[s.id][k];const float u=t[a][b]+(t[a][b+1]-t[a][b])*y,v=t[a+1][b]+(t[a+1][b+1]-t[a+1][b])*y;s.levelAt[k]=u+(v-u)*x;}
+            }
+            for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)power+=l[i]*l[i]+r[i]*r[i];
+            power*=1.0f/(2.0f*DMA_BUFFER_LEN);s.levelPower+=(power-s.levelPower)*0.05f;
+        }
+        switch(s.id) {
     case EFFECT_DISTORTION:s.distortion.processBlock(l,r,DMA_BUFFER_LEN);break;
     case EFFECT_TOUCH_WAH:s.wah.processBlock(l,r,DMA_BUFFER_LEN);break;
     case EFFECT_CHORUS:s.chorus.processBlock(l,r,DMA_BUFFER_LEN);break;
@@ -85,6 +100,20 @@ void RdxEffects::process(float* l,float* r) {
     case EFFECT_DELAY:s.delay.processBlock(l,r,DMA_BUFFER_LEN);break;
     case EFFECT_REVERB:s.reverb.processBlock(l,r,DMA_BUFFER_LEN);break;
     default:break;
+        }
+        if(matchLevels&&s.id!=EFFECT_THRU){
+            uint32_t k=0;while(k<2u&&s.levelPower>effectLevelPower[k+1u])++k;
+            float x=(s.levelPower-effectLevelPower[k])*effectLevelInvPowerSpan[k];if(x<0.0f)x=0.0f;if(x>1.0f)x=1.0f;
+            float target=s.levelAt[k]+(s.levelAt[k+1u]-s.levelAt[k])*x;
+            if(s.id==EFFECT_TOUCH_WAH){
+                float wetPower=0.0f;for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)wetPower+=l[i]*l[i]+r[i]*r[i];
+                wetPower*=1.0f/(2.0f*DMA_BUFFER_LEN);s.levelWetPower+=(wetPower-s.levelWetPower)*0.05f;
+                // Hold makeup during silence/tails instead of pulling them up/down.
+                if(power>1.0e-8f&&s.levelPower>1.0e-8f){float ratio=s.levelWetPower/s.levelPower;if(ratio<0.0625f)ratio=0.0625f;if(ratio>16.0f)ratio=16.0f;target=rdx_level_inverse_sqrt(ratio);}
+                else target=s.levelGain;
+            }
+            for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){s.levelGain+=(target-s.levelGain)*0.002f;l[i]*=s.levelGain;r[i]*=s.levelGain;}
+        }
     }
 }
 float RdxEffects::phaserValue(uint8_t p) const {

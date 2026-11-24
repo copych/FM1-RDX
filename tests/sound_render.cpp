@@ -81,7 +81,7 @@ int main(int argc,char** argv) {
 #if RDX_REFERENCE
                 for(int slot=0;slot<2;++slot)selected[slot]->processBlock(left,right,128);
 #else
-                effects.process(left,right);
+                effects.process(left,right,false); // Raw DSP fidelity comparison excludes calibrated makeup.
 #endif
             } else {
 #if RDX_REFERENCE

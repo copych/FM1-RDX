@@ -3,6 +3,8 @@
 #include "benchmark.h"
 #include "../src/rdx_encoder.h"
 #include "../src/gui/font_mo.h"
+#include "../src/rdx_output.h"
+static RdxOutput output_stage;
 #include "../src/rdx_looper.h"
 #include "../src/rdx_drafts.h"
 
@@ -56,7 +58,7 @@ static void performance_event(uint8_t type,uint8_t a,uint8_t b){
     else if(type==LOOP_CC){if(a==121){live_bend=8192;live_cc[0]=live_cc[3]=0;live_cc[2]=127;}if(a==1)live_cc[0]=b;else if(a==7)live_cc[1]=b;else if(a==11)live_cc[2]=b;else if(a==64)live_cc[3]=b;rdx_control_change(a,b);}
     if(type!=LOOP_CC||a==1||a==7||a==11||a==64)loop_capture(&looper,type,a,b);
 }
-static void phrase_panic(void){loop_stop(&looper);loop_release();memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);live_cc[3]=0;rdx_panic();}
+static void phrase_panic(void){rdx_output_init(&output_stage);loop_stop(&looper);loop_release();memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);live_cc[3]=0;rdx_panic();}
 enum eGuideMode { GUIDE_OFF,GUIDE_AUTO,GUIDE_ON,GUIDE_MODES_COUNT };
 static uint8_t guide_mode=GUIDE_AUTO,guide_force,guide_beat;
 static uint32_t guide_phase,click_left,click_phase,beat_pulses;
@@ -173,7 +175,7 @@ static void editor_event(uint8_t page,uint8_t op,uint8_t control,int32_t delta,u
 }
 void app_init(void) {
     event_read=event_write=panic_requested=0;keys_before=buttons_before=0;
-    octave=0;preset=1;master_gain=0.0f;rdx_boot();loop_init(&looper);looper_screen=0;live_cc[0]=live_cc[3]=0;live_cc[1]=live_cc[2]=127;live_bend=8192;memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);
+    rdx_output_init(&output_stage);octave=0;preset=1;master_gain=0.0f;rdx_boot();loop_init(&looper);looper_screen=0;live_cc[0]=live_cc[3]=0;live_cc[1]=live_cc[2]=127;live_bend=8192;memset(live_notes,0,sizeof live_notes);memset(loop_notes,0,sizeof loop_notes);
     plat_usb_audio_full(1); // Record at fixed level; MASTER controls local monitoring.
     editor_page=EDITOR_HOME;editor_op=editor_tune=selector_used=0;
     editor_redraw=1;
@@ -241,7 +243,6 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
     static const float click_wave[16]={0.0f,0.382683f,0.707107f,0.923880f,1.0f,0.923880f,0.707107f,0.382683f,0.0f,-0.382683f,-0.707107f,-0.923880f,-1.0f,-0.923880f,-0.707107f,-0.382683f};
     const float target=(float)(master_q12>4096u ? 4096u : master_q12)*(1.0f/4096.0f);
     for(i=0;i<n;++i) {
-        master_gain+=(target-master_gain)*0.004f;
         float click=0.0f;
         if(clock_on){
             if(guide_force||guide_phase>=2646000u){
@@ -252,6 +253,10 @@ void app_render(int32_t* lr,uint32_t n,uint32_t master_q12) {
             if(click_left&&audible){click=click_wave[(click_phase>>(guide_beat==1u?0u:1u))&15u]*(float)click_left*(0.18f/221.0f);++click_phase;--click_left;}
         }else{click_left=0;guide_phase=0;}
         left[i]+=click;right[i]+=click;
+    }
+    rdx_output_process(&output_stage,left,right,n);
+    for(i=0;i<n;++i){
+        master_gain+=(target-master_gain)*0.004f;
         float l=left[i]>1.0f ? 1.0f : left[i]<-1.0f ? -1.0f : left[i];
         float r=right[i]>1.0f ? 1.0f : right[i]<-1.0f ? -1.0f : right[i];
         lr[2u*i]=(int32_t)(l*master_gain*8388607.0f);

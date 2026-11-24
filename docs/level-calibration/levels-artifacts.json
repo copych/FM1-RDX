@@ -1,0 +1,26 @@
+{
+  "version": "1.0.2-dev",
+  "build": "C1F004AF",
+  "artifacts": {
+    "app/build/rdx.fwsc": {
+      "bytes": 616059,
+      "sha256": "f32557f75691117405a18cb0bac9df9ccbe7bb5364090e8a86992c1657e1dea9"
+    },
+    "app/build/rdx.bin": {
+      "bytes": 209956,
+      "sha256": "05193100f8c19ad01d819b89c092ab07b47a1f44e44fe6abffd485c2910e90be"
+    },
+    "app/build/rdx.elf": {
+      "bytes": 242744,
+      "sha256": "f1be98fd2901d95f5585603e6c97cdc078ab2339b705265b4eb9153cc62cf4af"
+    },
+    "app/build/loader/ota.bin": {
+      "bytes": 12903,
+      "sha256": "f0da7398b234c99c7916ce123d1069d71abc02242f243c0c7976636f656a50ba"
+    },
+    "app/build/emu/app.wasm": {
+      "bytes": 242015,
+      "sha256": "3367ea1d9de9b2bc5e051d9b5da72f93710a7df8d1b25db6dde77291783888a8"
+    }
+  }
+}

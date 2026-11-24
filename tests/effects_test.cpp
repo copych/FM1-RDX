@@ -40,6 +40,13 @@ int main() {
         prepare(p);
         for(int b=0;b<384;++b){for(int j=0;j<128;++j){left[j]=(j&1)?0.9f:-0.9f;right[j]=left[j];}checkBlock();}
     }
+    // Full-scale serial chains and tails, including calibrated makeup feeding slot 2.
+    for(int a=EFFECT_THRU;a<EFFECTS_COUNT;++a)for(int b=EFFECT_THRU;b<EFFECTS_COUNT;++b){
+        auto p=RdxEngine::initPatch();p.common.effects[0][0]=a;p.common.effects[1][0]=b;
+        for(int k=0;k<2;++k)p.common.effects[k][1]=p.common.effects[k][2]=64;
+        if(RdxEffects::required(p)>RdxEffects::arenaFloats){CHECK(!fx.begin(p));continue;}
+        prepare(p);for(int block=0;block<384;++block){for(int i=0;i<128;++i){left[i]=block<32?((i&1)?4.0f:-4.0f):0.0f;right[i]=left[i]*0.5f;}checkBlock();}
+    }
     auto bad=RdxEngine::initPatch();bad.common.effects[0][0]=255;CHECK(!fx.begin(bad));
     CHECK(RdxEffects::required(bad)>RdxEffects::arenaFloats);
     bad=RdxEngine::initPatch();bad.common.effects[0][0]=bad.common.effects[1][0]=EFFECT_DELAY;

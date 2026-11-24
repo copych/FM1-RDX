@@ -61,12 +61,12 @@ static bool effects_on=true;
 enum ePresetFade {PRESET_STEADY,PRESET_FADE_OUT,PRESET_FADE_IN,PRESET_FADES_COUNT};
 static ePresetFade fade;
 static uint32_t destination=1;
-// MoDemLead's source distortion drive is intentionally hot. Trim only the
-// final output (-12.04 dB), retaining its operator/FX drive and patch bytes.
+// Calibrated effect makeup replaces the old special MoDemLead trim.
+// Legacy user-store trim bits remain readable but no longer change playback.
 static float preset_gain=1.0f;
-static bool external_patch;
+
 static uint8_t system_metadata[32];
-static float output_trim(){return !external_patch&&(destination==10u||(destination>=33u&&user_store.trimmed(destination-33u)))?0.25f:1.0f;}
+static float output_trim(){return 1.0f;}
 static RDX_Patch pending_patch,edited_patch;
 static uint32_t editor_revision;
 static bool editor_pending,editor_dirty,editor_error;
@@ -104,7 +104,7 @@ extern "C" void rdx_boot(void) {
     budget.reset(0);budget_dirty=true;budget_keep_limit=false;budget_sample_valid=false;synth_ticks=0;
     synth_peak=fx_peak=0;
     preset_gain=1.0f;
-    external_patch=false;memset(system_metadata,0,32);system_metadata[6]=1;system_metadata[7]=64;system_metadata[9]=120;system_metadata[10]=20;system_metadata[11]=system_metadata[12]=system_metadata[13]=1;
+    memset(system_metadata,0,32);system_metadata[6]=1;system_metadata[7]=64;system_metadata[9]=120;system_metadata[10]=20;system_metadata[11]=system_metadata[12]=system_metadata[13]=1;
     midi_rx=1;midi_control=modulation=0;midi_volume=expression=127;bend=0;performance_gain=1.0f;
     editor_revision=1;editor_pending=editor_dirty=editor_error=false;
     engine=new(storage) RdxEngine;
@@ -164,13 +164,13 @@ extern "C" void rdx_preset_request(uint32_t i) {
     if(i>=65u)return;
     if(i>=33u){const uint8_t* p=user_store.patch(i-33u);if(p)memcpy(&pending_patch,p,150);else RdxEngine::presetPatch(0,pending_patch);}
     else RdxEngine::presetPatch(i,pending_patch);editor_pending=false;editor_dirty=editor_error=false;++editor_revision;
-    external_patch=false;destination=i;fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
+    destination=i;fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
     budget_dirty=true;budget_keep_limit=false;
 }
 extern "C" int rdx_patch_valid(const uint8_t* bytes){RDX_Patch p;memcpy(&p,bytes,150);return RdxEngine::validPatch(p)&&RdxEffects::required(p)<=RdxEffects::arenaFloats;}
 extern "C" void rdx_patch_export(uint8_t* bytes){memcpy(bytes,editor_pending?&edited_patch:fade==PRESET_FADE_OUT?&pending_patch:&RDX_State::getState().workingPatch,150);}
 extern "C" void rdx_patch_import(const uint8_t* bytes){
-    memcpy(&pending_patch,bytes,150);editor_pending=false;external_patch=true;editor_dirty=true;editor_error=false;++editor_revision;
+    memcpy(&pending_patch,bytes,150);editor_pending=false;editor_dirty=true;editor_error=false;++editor_revision;
     fade=PRESET_FADE_OUT;deferred_count=0;pedal_before=pedal_down;
     budget_dirty=true;budget_keep_limit=false;
 }

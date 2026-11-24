@@ -61,3 +61,5 @@ bash tools/test-phrase-voice.sh
 bash tools/test-isolation.sh
 bash tools/test-voice-cost.sh
 bash tools/test-dry.sh
+
+bash tools/test-output-level.sh
