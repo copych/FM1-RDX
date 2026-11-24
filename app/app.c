@@ -520,6 +520,18 @@ static void draw_text_row(uint32_t y,uint8_t style,const char* text,uint16_t col
     if(length>20u){pixel_line(y,text,20u,15u);pixel_line(y+13u,text+20u,length-20u,15u);}
     else pixel_line(y,text,length,15u);
 }
+// Shared Reface-style utility-page columns; selected >= 4 disables the marker.
+static void utility_columns(const char* const labels[4],const char* const values[4],uint32_t selected){
+    for(uint32_t band=0;band<48u;band+=8u){cv_begin(240,8,C_BLACK);
+        for(uint32_t yy=0;yy<8u;++yy){uint32_t y=band+yy;cv_pset(60,yy,C_WHITE);cv_pset(120,yy,C_WHITE);cv_pset(180,yy,C_WHITE);
+            if(selected<4u&&y>=1u&&y<=20u){uint32_t left=selected*60u+4u,right=selected*60u+55u;
+                if(y==1u||y==20u){for(uint32_t x=left;x<=right;++x)cv_pset(x,yy,C_WHITE);}else{cv_pset(left,yy,C_WHITE);cv_pset(right,yy,C_WHITE);}}
+        }
+        for(uint32_t k=0;k<4u;++k){uint32_t n=pixel_length(labels[k]);pixel_text((int32_t)(k*60u+30u)-(int32_t)(n*6u*15u/8u)/2,4-(int32_t)band,labels[k],n,15u);
+            n=pixel_length(values[k]);pixel_text((int32_t)(k*60u+30u)-(int32_t)(n*6u*15u/8u)/2,26-(int32_t)band,values[k],n,15u);}
+        cv_blit(0,92u+band);
+    }
+}
 // Button hints occupy a dedicated area; brackets distinguish physical keys
 // from their actions. Knob assignments belong beside their editable values.
 static void button_hints(const char* a,const char* b,const char* c,const char* d){
@@ -553,14 +565,14 @@ static void control_frame(void) {
     if(draft_screen!=DRAFT_CLOSED){
         uint32_t hash=gui_hash(control_request.draft_names[draft_slot],11)^((uint32_t)draft_screen<<24)^((uint32_t)draft_slot<<16)^control_request.draft_mask^control_request.loop[0];
         if(!editor_redraw&&draft_draw_valid&&hash==draft_draw_hash)return;draft_draw_valid=1;draft_draw_hash=hash;
-        char row[40];
         draw_text_row(4,PIXEL_LARGE,"DRAFTS",C_WHITE);
-        timing_format(row,"%lu / 4",draft_slot+1u,0,"");draw_text_row(46,PIXEL_LARGE,row,C_WHITE);
-        draw_text_row(82,PIXEL_LARGE,control_request.draft_mask&(1u<<draft_slot)?control_request.draft_names[draft_slot]:"EMPTY",C_WHITE);
-        const char* status=draft_screen==DRAFT_SAVE_CONFIRM?"REPLACE THIS DRAFT?":draft_screen==DRAFT_LOAD_CONFIRM?"REPLACE THIS LOOP?":draft_screen==DRAFT_SAVED?"DRAFT SAVED":draft_screen==DRAFT_LOADED?"DRAFT LOADED":draft_screen==DRAFT_ERROR?(control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"EMPTY / READ ERROR"):"SELECT: CHOOSE SLOT";
-        draw_text_row(126,PIXEL_BODY,status,C_HI);
-        draw_text_row(146,PIXEL_BODY,"SELECT: SLOT",C_GRAY);
-        draw_text_row(162,PIXEL_BODY,"PRESS AGAIN: CONFIRM",C_WHITE);
+        draw_text_row(46,PIXEL_LARGE,control_request.draft_mask&(1u<<draft_slot)?control_request.draft_names[draft_slot]:"EMPTY",C_WHITE);
+        draw_text_row(76,PIXEL_BODY,"SELECT DRAFT SLOT",C_WHITE);
+        static const char* slot_labels[4]={"1","2","3","4"};const char* slot_values[4];for(uint32_t i=0;i<4u;++i)slot_values[i]=control_request.draft_mask&(1u<<i)?"USED":"EMPTY";
+        utility_columns(slot_labels,slot_values,draft_slot);
+        const char* status=draft_screen==DRAFT_SAVE_CONFIRM?"REPLACE THIS DRAFT?":draft_screen==DRAFT_LOAD_CONFIRM?"REPLACE THIS LOOP?":draft_screen==DRAFT_SAVED?"DRAFT SAVED":draft_screen==DRAFT_LOADED?"DRAFT LOADED":draft_screen==DRAFT_ERROR?(control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"EMPTY / READ ERROR"):control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":control_request.loop[2]?"READY TO STORE / LOAD":control_request.draft_mask&(1u<<draft_slot)?"READY TO LOAD":"RECORD A PHRASE";
+        draw_text_row(146,PIXEL_BODY,status,C_WHITE);
+        draw_text_row(162,PIXEL_BODY,draft_screen==DRAFT_SAVE_CONFIRM?"OVERWRITES SLOT":draft_screen==DRAFT_LOAD_CONFIRM?"REPLACES THIS LOOP":"VOICE TEMPO QUANT",C_WHITE);
         button_hints(draft_screen==DRAFT_SAVE_CONFIRM?"[SAVE] confirm":"[SAVE] store",draft_screen==DRAFT_LOAD_CONFIRM?"[PLAY] confirm":"[PLAY] load","[ARP] looper","[HOME] exit");editor_redraw=0;return;
     }
     if(store_screen!=STORE_CLOSED){
@@ -571,12 +583,16 @@ static void control_frame(void) {
         for(uint32_t i=0;i<10u;++i)if(name[i]<32||name[i]>126)name[i]=' ';
         draw_text_row(4,PIXEL_LARGE,"STORE",C_WHITE);
         draw_text_row(46,PIXEL_LARGE,name,C_WHITE);
-        control_fill(7u+store_cursor*180u/8u,74u,18u,2u,C_WHITE);
-        draw_text_row(84,PIXEL_BODY,"K1 POS  K2 CHAR",C_WHITE);
-        timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,PIXEL_LARGE,row,C_WHITE);
-        draw_text_row(135,PIXEL_BODY,"K3 BANK  K4 SLOT",C_WHITE);
-        draw_text_row(150,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
-        draw_text_row(163,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
+        // Erase and draw the whole underline strip in one transfer, so the
+        // previous cursor position disappears without a visible blanking pass.
+        cv_begin(240,2,C_BLACK);uint32_t cursor_x=7u+store_cursor*180u/8u;for(uint32_t yy=0;yy<2u;++yy)for(uint32_t x=cursor_x;x<cursor_x+18u;++x)cv_pset(x,yy,C_WHITE);cv_blit(0,74);
+        char position[4],character[6],bank[4],slot[4];
+        timing_format(row,"%lu",store_cursor+1u,0,"");memset(position,0,sizeof position);memcpy(position,row,store_cursor==9u?2u:1u);
+        memset(character,0,sizeof character);if(name[store_cursor]==' ')memcpy(character,"SPACE",5);else character[0]=name[store_cursor];
+        memset(bank,0,sizeof bank);bank[0]=(char)('1'+store_slot/8u);memset(slot,0,sizeof slot);slot[0]=(char)('1'+store_slot%8u);
+        static const char* name_labels[4]={"POS","CHAR","BANK","SLOT"};const char* name_values[4]={position,character,bank,slot};utility_columns(name_labels,name_values,4);
+        draw_text_row(146,PIXEL_BODY,control_request.user_names[store_slot],C_WHITE);
+        draw_text_row(162,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE THIS VOICE?":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR":"SELECT DESTINATION",C_WHITE);
         if(store_screen==STORE_DONE||store_screen==STORE_ERROR)button_hints("[HOME] exit",0,0,0);
         else button_hints(store_screen==STORE_CONFIRM?"[SAVE] replace":"[SAVE] store","[HOME] cancel",0,0);editor_redraw=0;return;
     }

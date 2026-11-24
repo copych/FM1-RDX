@@ -1,0 +1,6 @@
+{
+  "build": "79B2B265",
+  "version": "1.0.2-dev",
+  "firmwareSha256": "29677a34b7af349a6008e4a2f7c29b0a44cb3b12b88fbe219f73bd7d1110cdbf",
+  "wasmSha256": "815ffc8f88ee3bc90935a811c21abf37c5871fd69e9524a6ee4ff12b86d44d80"
+}

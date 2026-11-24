@@ -134,7 +134,14 @@ assert(looped.every(Number.isFinite)&&looped.some(v=>Math.abs(v)>0.001),'Recorde
 midi(0xc0,1);emu.run(600);const switchedLoop=emu.record(600);
 assert(switchedLoop.every(Number.isFinite)&&switchedLoop.some(v=>Math.abs(v)>0.001),'Captured phrase survives switching the live preset and shared FX');
 button(1<<10);midi(0xb0,120);emu.run(100);assert.equal(emu.run(100),0,'Loop stop/panic leaves no stuck note');
-button(1<<6);button(1<<7);emu.send({type:'enc',role:4,n:1});emu.run(40);button(1<<7);
+button(1<<6);button(1<<7);
+for(const [delta,cursor] of [[0,0],[2,2],[7,9],[-8,1],[-1,0]]){
+  if(delta)emu.take('frame');emu.send({type:'enc',role:3,n:delta});emu.run(150);
+  const fb=screen(),left=7+Math.floor(cursor*180/8);
+  for(let y=74;y<76;y++)for(let x=0;x<240;x++)assert.equal(fb[y*240+x],x>=left&&x<left+18?65535:0,'Only the current name cursor is underlined');
+}
+console.log('PASS: Store name cursor erases former positions across both directions and the last character.');
+emu.send({type:'enc',role:4,n:1});emu.run(40);button(1<<7);
 assert.equal(emu.ex.web_store_len(3),2416,'Save creates the versioned user bank');
 const stored=new Uint8Array(emu.ex.memory.buffer,emu.ex.web_store(3),2416).slice();
 assert.equal(stored[8]&1,1,'User slot occupied');
@@ -164,3 +171,4 @@ assert.deepEqual(screen().slice(64*240,130*240),savedQuantColumns,'Recalled draf
 const recalled=emu.record(1200);assert(recalled.every(Number.isFinite)&&recalled.some(v=>Math.abs(v)>0.001),'Saved draft recalls and plays after emulator reload');
 button(1<<10);midi(0xb0,120);emu.run(100);
 console.log('PASS: WebAssembly metronome, menu/transport/key LEDs, musical draft save, browser persistence and audible recall.');
+
