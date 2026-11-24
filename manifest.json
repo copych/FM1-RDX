@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "product": "FM-1_9900",
   "files": {
     ".gitattributes": {
@@ -15,8 +15,8 @@
       "sha256": "9597c291397b5582b4cd573ef62e869e544f824344c889f34e5dfe0bcb2ae4c0"
     },
     "emu/app.wasm": {
-      "bytes": 236424,
-      "sha256": "3f62db37b1049a5628cb9a56e37dad73f04669c5bb91f4258645d73b66baee2a"
+      "bytes": 244780,
+      "sha256": "5acf6fcfb958080aaf7d5a9ccf719a72f9ef4dfbec449867e39061960ff92b36"
     },
     "emu/app_worklet.js": {
       "bytes": 210,
@@ -62,9 +62,9 @@
       "bytes": 1321,
       "sha256": "fd0fcdaba5ad2a9ca9b051dd7db92b71a550ce8cd88c4aaae1a8edc564a71eec"
     },
-    "firmware/fm1-rdx-1.0.1.fwsc": {
+    "firmware/fm1-rdx-1.0.2.fwsc": {
       "bytes": 616059,
-      "sha256": "518e5de5a28956b43d1332256862e7a7a069e071baa438420992d3fe104f99f2"
+      "sha256": "b513194cd264d1804b06126ea5a18b5d55f1693285e1d13a4b134fe2612c5170"
     },
     "firmware/MPL-2.0.txt": {
       "bytes": 17099,
@@ -72,11 +72,11 @@
     },
     "index.html": {
       "bytes": 7525,
-      "sha256": "44551c07597ea22a0dc871ab237960b4e4dd86c79bbbd97e4afbef3abf6ef8dd"
+      "sha256": "f0593db27df0c92afbab69465604ad0d2d2f85ac44bfc7c555f6b59c2a6de206"
     },
     "install/index.html": {
       "bytes": 86225,
-      "sha256": "fb89bbb5e3f3b1b22547e5ec93eb51b3a7cdbbc42da68cbd169a413603f9cd9a"
+      "sha256": "d27f8d9e8ff1e580345b1f4311ed34ba5e68b8632742deac47df6d48941d4084"
     },
     "words/5a2ec875ad.json": {
       "bytes": 977,
