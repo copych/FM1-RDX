@@ -61,7 +61,7 @@
 <body>
 <main>
   <button type="button" class="lang" id="lang" lang="ja">日本語</button>
-  <nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>FM1-RDX · 1.0.0-beta</strong><br>Tested on M-VAVE FM-1 hardware. Up to seven adaptive voices, USB MIDI, Soundmondo support and USB recording. Patch edits are not saved permanently yet. This installer does not replace the bootloader.</p><p><strong>After installation, close this tab before opening a DAW or MIDI app.</strong> This releases the USB MIDI port for the other app.</p><p><a href="../firmware/fm1-rdx-1.0.0-beta.fwsc" download>Download this firmware</a></p>
+  <nav aria-label="Project navigation" style="display:flex;gap:18px;margin-bottom:24px"><a href="../">Home</a><a href="../emu/">Play in browser</a></nav><h1>Install FM1-RDX</h1><p class="backup"><strong>FM1-RDX · 1.0.1</strong><br>Firmware tested regularly on M-VAVE FM-1 hardware. Up to seven adaptive voices, USB MIDI, Soundmondo support and USB recording. 32 user slots and a MIDI phrase looper. Saving briefly mutes audio. Four recallable musical drafts, metronome and LED feedback. This installer does not replace the bootloader.</p><p><strong>After installation, close this tab before opening a DAW or MIDI app.</strong> This releases the USB MIDI port for the other app.</p><p><a href="../firmware/fm1-rdx-1.0.1.fwsc" download>Download this firmware</a></p>
   <p data-t="intro">Connect the FM-1 by USB, then press Install. It works in Chrome or Edge; the browser asks once to allow MIDI: allow it.</p>
   <p data-t="warn">Do not unplug the USB cable while writing. After installation, close this tab before opening a DAW or MIDI app so it can access the MIDI port.</p>
   <p class="small" data-t="direct"></p>
@@ -971,7 +971,7 @@ const TEXT = {
     badpkg: "インストールするファイルが壊れています。ページを再読み込みしてください。",
     foreign: "FM-1 は M-VAVE 純正ファームウェアのアップデートモードで待機しています。そのアップデータはイメージの配置が異なる可能性があるため、何も書き込んでいません。M-VAVE のアップデータでその更新を終えるか、先に「純正ファームウェアに戻す」を実行してください。FM-1 の応答: ",
     leave: "書き込み中です。ページを閉じないでください。",
-    license: "Preview; component licences apply、無保証。ソース:",
+    license: "Component licences apply、無保証。ソース:",
     reporth: "不具合を報告する",
     reportwhy: "FM-1 がクラッシュしたら、電源を切らずに USB で接続し、下のボタンを押してください。クラッシュの記録は再起動では残りますが、電源を切ると消えます。表示された内容をコピーして、何をしていたかと一緒に送ってください。",
     reportread: "クラッシュの記録を読む", reportcopy: "コピー", reportlabel: "クラッシュの記録",
@@ -1038,7 +1038,7 @@ const TEXT = {
     badpkg: "The file to install is damaged. Reload the page.",
     foreign: "The FM-1 is waiting in the update mode of M-VAVE's own firmware, which may lay the image out differently, so nothing was written. Finish that update with M-VAVE's updater, or put the stock firmware back first (\"Back to the stock firmware\"). The FM-1 reports: ",
     leave: "Writing. Do not close the page.",
-    license: "Preview; component licences apply, no warranty. Source:",
+    license: "Component licences apply, no warranty. Source:",
     reporth: "Report a problem",
     reportwhy: "If the FM-1 crashed, don't switch it off: connect it by USB and press the button below. The crash record survives a restart, but not switching off. Copy what appears and send it, with what you were doing at the time.",
     reportread: "Read the crash report", reportcopy: "Copy", reportlabel: "Crash report",
@@ -1113,7 +1113,7 @@ const log = (t) => {
   if (atEnd) el.scrollTop = el.scrollHeight;
 };
 let image = null, boot = null, res = null;
-const meta = {"version":"1.0.0-beta","product":"FM-1_9900","pkg":"../firmware/fm1-rdx-1.0.0-beta.fwsc","sha256":"84b576ea7c36923d8202f12d9acda5c33ac85c5d441486621eff73b0bad8901c","backup":false,"res":null,"boot":null};
+const meta = {"version":"1.0.1","product":"FM-1_9900","pkg":"../firmware/fm1-rdx-1.0.1.fwsc","sha256":"518e5de5a28956b43d1332256862e7a7a069e071baa438420992d3fe104f99f2","backup":false,"res":null,"boot":null};
 /* the firmware's own steps around an install (its site's install_app script, or none): before(midi, ui) runs before
    anything is written, may ask (ui.ask) and returns its state, or false to stop there; after(midi, ui, state) once
    the new firmware has started (it waits for it itself). A failure in after is said, the install stays done */

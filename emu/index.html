@@ -85,7 +85,7 @@ main, body > header { max-width:1280px; }
 </head>
 <body><nav aria-label="Project navigation" style="padding:16px;font:16px system-ui;display:flex;gap:20px;flex-wrap:wrap"><a href="../">FM1-RDX home</a><a href="../install/">Install on FM-1</a><a href="https://github.com/copych/FM1-RDX/issues">Report a problem</a></nav>
 <header>
-  <h1>FM1-RDX Emulator</h1><p>Up to 8 adaptive voices · 33 presets · source effects</p>
+  <h1>FM1-RDX Emulator</h1><p>Up to 8 adaptive voices · 33 factory/init voices + 32 user slots · source effects</p>
 </header>
 <main>
 <h2 class="sr">The FM-1</h2>
@@ -122,10 +122,16 @@ main, body > header { max-width:1280px; }
   <p>Turn parameter knobs slowly for small steps or quickly for accelerated movement. Hold <strong>SEL</strong> for precise steps. Presets, pages, switches and type selectors remain stepwise.</p>
   <p><strong>EDIT</strong>, <strong>ENV</strong>, <strong>LFO</strong> and <strong>FX</strong> cycle their pages.
   <strong>GLO</strong> cycles voice and MIDI settings. On MIDI, K1 selects the receive channel and K2 enables FM control CCs.
-  <strong>ENV</strong> also reaches per-operator pitch-EG switches. <strong>REC</strong> opens Phaser Lab.
+  <strong>ENV</strong> also reaches per-operator pitch-EG switches. <strong>SEL + GLO</strong> opens Phaser Lab.
   <strong>SEL + FX</strong> toggles the effects chain. <strong>HOME</strong> returns home.
-  Edits remain in RAM; <strong>SAVE</strong> does not write a patch yet.</p>
-  <p>Explore the sounds and editor without connecting an instrument. Edits are temporary and are lost when you load another preset or restart.</p>
+  <strong>SAVE</strong> opens Store: SELECT chooses a user slot, K1 selects a name character and K2 changes it.
+  SAVE stores; occupied slots ask for confirmation. HOME cancels. Saving briefly mutes audio; stop the looper first.</p>
+  <p><strong>SEQ</strong> opens the phrase looper. <strong>REC</strong> arms first-note recording;
+  REC again finishes and loops the phrase. <strong>PLAY</strong> stops or restarts.
+  REC during playback arms one overdub pass at the next loop; K4 adjusts tempo.
+  <strong>SEL + SAVE</strong> clears a stopped phrase. Four takes of up to 512 MIDI events each;
+  unsaved phrases are lost when switched off. ARP opens four draft slots: SELECT chooses, SAVE stores and PLAY recalls; press again to confirm. K1 selects click OFF/AUTO/ON. PRESET changes the live sound while the looper stays visible. Octave changes preserve held notes. The first note captures one voice for the entire phrase and all overdubs; live presets can change while the loop keeps that voice. Effects stay shared and live. HOME returns to editing while playback continues.</p>
+  <p>Explore the sounds and editor without connecting an instrument. Use SAVE to keep a voice in a user slot. Browser saves stay in this browser. Use ARP to save a phrase in one of four draft slots.</p>
 </aside>
 <div class="bar">
   <span id="status" role="status">Off. Sound starts when you switch it on.</span>

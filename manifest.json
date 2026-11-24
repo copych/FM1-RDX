@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-beta",
+  "version": "1.0.1",
   "product": "FM-1_9900",
   "files": {
     ".gitattributes": {
@@ -15,16 +15,16 @@
       "sha256": "9597c291397b5582b4cd573ef62e869e544f824344c889f34e5dfe0bcb2ae4c0"
     },
     "emu/app.wasm": {
-      "bytes": 225729,
-      "sha256": "ac816ac6d7b8c73b0333340fa9d445c9df2888ab0881b398d0d99d571f7f4f99"
+      "bytes": 236424,
+      "sha256": "3f62db37b1049a5628cb9a56e37dad73f04669c5bb91f4258645d73b66baee2a"
     },
     "emu/app_worklet.js": {
       "bytes": 210,
       "sha256": "9bfc501df0336e45a25ee43e2f1f54b9126c95197a1c253346cf3a8fce55082e"
     },
     "emu/index.html": {
-      "bytes": 46903,
-      "sha256": "6879fc8f50dc7f034342543229d82e14249c62091db785f979b800f6a44964f1"
+      "bytes": 47996,
+      "sha256": "645eab0f51557769dbf7829a1b66eced508e3c34fe44bb25e53908fb40019998"
     },
     "emu/parts/midi.js": {
       "bytes": 4527,
@@ -62,21 +62,21 @@
       "bytes": 1321,
       "sha256": "fd0fcdaba5ad2a9ca9b051dd7db92b71a550ce8cd88c4aaae1a8edc564a71eec"
     },
-    "firmware/fm1-rdx-1.0.0-beta.fwsc": {
+    "firmware/fm1-rdx-1.0.1.fwsc": {
       "bytes": 616059,
-      "sha256": "84b576ea7c36923d8202f12d9acda5c33ac85c5d441486621eff73b0bad8901c"
+      "sha256": "518e5de5a28956b43d1332256862e7a7a069e071baa438420992d3fe104f99f2"
     },
     "firmware/MPL-2.0.txt": {
       "bytes": 17099,
       "sha256": "cde215e5b42363eb28ca2462c4558ff4807b38f383c537624c31e44657ac58f4"
     },
     "index.html": {
-      "bytes": 7401,
-      "sha256": "3d0bf5c7e6b1cc09368c5c83ddf875ad2766f587648a9156a0664e0477bf88f1"
+      "bytes": 7525,
+      "sha256": "44551c07597ea22a0dc871ab237960b4e4dd86c79bbbd97e4afbef3abf6ef8dd"
     },
     "install/index.html": {
-      "bytes": 86159,
-      "sha256": "f221f54b2fe3a097161ba4c958b81fd0969ff514d6340f2c097c531693fd5e20"
+      "bytes": 86225,
+      "sha256": "fb89bbb5e3f3b1b22547e5ec93eb51b3a7cdbbc42da68cbd169a413603f9cd9a"
     },
     "words/5a2ec875ad.json": {
       "bytes": 977,
