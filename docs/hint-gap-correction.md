@@ -1,0 +1,5 @@
+# Wider hint-line spacing correction
+
+Corrects the interpretation in hint-spacing.md: the user requested one additional pixel relative to the original two-pixel gap. Bitmap glyph height is 13 pixels; line pitch is now 16 pixels, giving three blank pixels between rows. Footer starts at y179 so all four lines fit through y239. Store status moves to y166 to avoid overlap.
+
+Compliance: target/build/ABI PASS (build/hint-gap-target.log); audio/numerics, execution ownership, memory/storage/I/O, dependencies/licenses and compatibility/package/recovery PASS within unchanged-source/static/package scope (only footer coordinates/pitch changed; existing bounded canvas and checks retained). Host functional validation PASS: final native quantization/looper and Store control scenarios and site package checks, logs build/hint-gap-controls.log and hint-gap-store.log. Hardware readability/timing UNVERIFIED: inspect all four rows and Store status on the FM-1. Full DSP/host and unrelated BSP suites were not repeated for this layout-only correction; no device flashing or hardware soak performed. Exact build/hash pin: hint-gap-artifacts.json.

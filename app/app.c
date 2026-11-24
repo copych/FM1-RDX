@@ -519,10 +519,10 @@ static void draw_text_row(uint32_t y,uint8_t style,const char* text,uint16_t col
 // from their actions. Knob assignments belong beside their editable values.
 static void button_hints(const char* a,const char* b,const char* c,const char* d){
     const char* rows[4]={a,b,c,d};
-    for(uint32_t band=0;band<60u;band+=8u){uint32_t h=60u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
+    for(uint32_t band=0;band<61u;band+=8u){uint32_t h=61u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
         for(uint32_t row=0;row<4u;++row)if(rows[row]){uint32_t n=pixel_length(rows[row]);if(n>20u)n=20u;
-            pixel_text(6,(int32_t)(row*14u)-(int32_t)band,rows[row],n,15u);
-        }cv_blit(0,180u+band);
+            pixel_text(6,(int32_t)(row*16u)-(int32_t)band,rows[row],n,15u);
+        }cv_blit(0,179u+band);
     }
 }
 // Bounded UI-only formatter; target has no snprintf.
@@ -571,7 +571,7 @@ static void control_frame(void) {
         timing_format(row,"USER %lu-%lu",store_slot/8+1,store_slot%8+1,"");draw_text_row(108,PIXEL_LARGE,row,C_WHITE);
         draw_text_row(138,PIXEL_BODY,"K3 BANK  K4 SLOT",C_WHITE);
         draw_text_row(153,PIXEL_BODY,control_request.user_names[store_slot],C_GRAY);
-        draw_text_row(167,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
+        draw_text_row(166,PIXEL_BODY,store_screen==STORE_CONFIRM?"REPLACE? SAVE YES":store_screen==STORE_DONE?"SAVED":store_screen==STORE_ERROR?control_request.loop[0]!=LOOP_STOP?"STOP LOOP FIRST":"SAVE ERROR / HOME":"SELECT DESTINATION",C_HI);
         if(store_screen==STORE_DONE||store_screen==STORE_ERROR)button_hints("[HOME] EXIT",0,0,0);
         else button_hints(store_screen==STORE_CONFIRM?"[SAVE] REPLACE":"[SAVE] STORE","[HOME] CANCEL",0,0);editor_redraw=0;return;
     }
