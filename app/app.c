@@ -503,7 +503,11 @@ static void pixel_line(uint32_t y,const char* text,uint32_t length,uint32_t nume
 }
 static void draw_text_row(uint32_t y,uint8_t style,const char* text,uint16_t color){
     (void)color;uint32_t length=pixel_length(text);
-    if(y==4u){for(uint32_t band=0;band<24u;band+=8u){cv_begin(240,8,C_BLACK);cv_blit(0,band);}pixel_line(4,text,length,15u);
+    if(y==4u){
+        // Compose the background and glyphs before submitting each strip. A separate
+        // erase pass makes the title visibly disappear during cooperative LCD waits.
+        const int32_t x=(240-(int32_t)(length*6u*15u/8u))/2;
+        for(uint32_t band=0;band<24u;band+=8u){cv_begin(240,8,C_BLACK);pixel_text(x,4-(int32_t)band,text,length,15u);cv_blit(0,band);}
         cv_begin(240,1,C_WHITE);cv_blit(0,28);return;}
     if(style==PIXEL_LARGE&&length<=10u){pixel_line(y,text,length,30u);return;}
     // Diagnostic rows may use two lines. User-facing copy stays within 20 cells.
@@ -578,7 +582,7 @@ static void control_frame(void) {
         loop_draw_time=now;loop_draw_state=control_request.loop[0];
         char row[40];const uint32_t* l=control_request.loop;
         static const char* states[LOOP_STATES_COUNT]={"STOPPED","REC STANDBY","RECORDING","PLAYING","OVERDUB ARMED","OVERDUBBING"};
-        draw_text_row(4,PIXEL_LARGE,"LOOPER",C_WHITE);
+        if(editor_redraw)draw_text_row(4,PIXEL_LARGE,"LOOPER",C_WHITE);
         draw_text_row(46,PIXEL_BODY,states[l[0]<LOOP_STATES_COUNT?l[0]:0],C_HI);
         timing_format(row,l[6]?"TAKE FULL":!l[2]?(l[0]==LOOP_ARMED?"PLAY FIRST NOTE":l[0]==LOOP_STOP?"REC TO BEGIN":"BEAT %lu"):"BEAT %lu / %lu",l[1]/96u+1u,(l[2]+95u)/96u,"");draw_text_row(76,PIXEL_BODY,row,C_WHITE);
         cv_begin(240,8,C_BLACK);for(uint32_t x=6;x<234u;++x){cv_pset(x,0,C_WHITE);cv_pset(x,7,C_WHITE);}for(uint32_t yy=0;yy<8u;++yy){cv_pset(6,yy,C_WHITE);cv_pset(233,yy,C_WHITE);}
