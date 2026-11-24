@@ -1,0 +1,20 @@
+# Tighter looper columns and quantization stored in drafts
+
+Baseline 15513f1; local build 93A1B8BE (1.0.2-dev). CLICK/QUANT/TEMPO now align to four equal 60-pixel columns, with vertical rules at x60,120,180. The third column is intentionally unused. Original bitmap glyphs, state/title, voice names, bracketed-button hints and bottom margin remain. OFF and longest 1/32T screens were visually inspected.
+
+Draft payload RDLP version 2 adds one stable quantization byte at header offset 23, formerly reserved. Explicit encode/decode switches map OFF, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T to wire bytes 0..8; compiler enum layout is not stored. Other reserved bytes remain zero. Version 1 is still accepted only with its original zero reserved byte and restores quantization OFF. Unsupported versions/quantization values are rejected in the first validation pass before changing the phrase. Raw note/controller timestamps remain unmodified; quantization stays reversible after recall.
+
+Manifest RDM1/chunks RDC1, payload lengths, four-slot object map and commit-last two-generation writes are unchanged. Draft load continues under stopped playback/maintenance ownership after worker retirement. New payloads intentionally are not accepted by older firmware that supports only RDLP v1. Existing v1 drafts remain loadable without a migration write; saving explicitly writes v2. README updated.
+
+| Compliance category | Status / evidence |
+| --- | --- |
+| Target/build/ABI | PASS: existing matched AC79 SDK/pi32v2 O2/Os build and integrity checks; build/draft-quant-target.log. |
+| Audio hot path/numerics | PASS (source/target): no renderer, calibration, clock or audio math changes. Enum-byte mapping and version checks execute only in stopped main-thread storage work; bounded strip UI remains outside renderer. No-soft-double and RAM closure checks retained. |
+| Execution ownership/synchronization | PASS (source/host): existing serialized UI/snapshots, bounded queues, worker retirement, main-thread maintenance and two-pass phrase publication retained. Quantization restores with other phrase metadata before maintenance ends. |
+| Memory/storage/I/O | PASS (static/sanitizer): image 209924 B; RAM code 22656/32768, data+BSS 92716/98304, pool 333572/344064. No object-size/map/pool/flash-region change. Commit-last failure tests preserve the old quantization as well as phrase/tempo. |
+| Dependencies/includes/licenses | PASS: no new dependency, runtime asset or font; existing notices retained. |
+| Compatibility/package/recovery | PASS (format/package scope): full-capacity v2 quantization roundtrips, v1 OFF migration, reserved-byte/invalid-ID/future-version rejection, no mutation on failed validation. Existing loader/product, SHA pins, corruption checks and bootloader policy retained. Downgrading firmware cannot read newly saved v2 payloads; original v1 slots still work. |
+| Host functional validation | PASS: ASAN/UBSAN tests/drafts.cpp exercises all nine modes, four slots, full 2048 events and every commit failure boundary; full tools/test-app.sh including 1188 normal/dry exact cases; native save/reboot/recall triplet expectation; tests/emu-test.mjs checks v2/stable mode byte and identical recalled parameter-column pixels after actual browser-store handoff/reload; site integrity checks. Logs build/draft-quant-host.log, draft-quant-emu.log and draft-quant-layout.log. |
+| Hardware real-time validation | UNVERIFIED for this UI/storage revision: check column readability under seven voices, save/recall straight/triplet drafts across reboot and confirm old drafts recall OFF. Check XRUN/LATE/LCD counters; no new device timing/stack/soak measurement performed. |
+
+Full unrelated BSP suite, deliberate flash power interruption and physical device flashing were not performed. Previous output-calibration validation remains applicable to unchanged DSP; existing compiler warnings/optional screen-reader voice omission remain. Artifacts: draft-quant-artifacts.json. Screenshots: build/looper-tight-shots/looper-stopped.png and looper-32t.png. Public release unchanged.

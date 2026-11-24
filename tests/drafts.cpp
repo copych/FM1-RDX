@@ -11,16 +11,17 @@ static int size(uint32_t o){return o<28?sizes[o]:-1;}
 static int valid(const uint8_t* p){for(unsigned i=0;i<150;++i)if(p[i]>127)return 0;return 1;}
 static DraftIO io={0,load,save,valid,size};
 static RdxLooper l,restored;
+static void rehash(unsigned slot){auto* m=objects[slot*7];uint32_t hash=2166136261u;for(unsigned c=0;c<3;++c){auto* p=objects[slot*7+1+m[6]*3+c];hash=draft_hash(hash,p+16,draft_u32(p+12));}draft_w32(m+12,hash);}
 int main(){
- loop_init(&l);l.tracks=4;l.length=57600;l.tempo=137;
+ loop_init(&l);l.tracks=4;l.length=57600;l.tempo=137;l.quantize=LOOP_QUANT_16T;
  for(unsigned t=0;t<4;++t){l.count[t]=512;for(unsigned i=0;i<512;++i)l.events[t][i]={(uint16_t)(i*96),LOOP_NOTE,(uint8_t)(50+t),(uint8_t)((i&1)?0:100),0};}
  patch[0]='A';assert(draft_save(&io,3,&l,patch,perf,buf));assert(writes==4);
- assert(draft_load(&io,3,&restored,header,buf));assert(restored.state==LOOP_STOP&&restored.tempo==137&&restored.length==57600&&restored.tracks==4);
+ assert(draft_load(&io,3,&restored,header,buf));assert(restored.state==LOOP_STOP&&restored.tempo==137&&restored.length==57600&&restored.tracks==4&&restored.quantize==LOOP_QUANT_16T);
  assert(!memcmp(restored.events,l.events,sizeof l.events)&&!memcmp(header+32,patch,150)&&!memcmp(header+20,perf,3));
  // Every failure boundary during replacement preserves the committed generation.
- patch[0]='B';l.tempo=201;
- for(unsigned fault=1;fault<=4;++fault){fail_at=writes+(int)fault;assert(!draft_save(&io,3,&l,patch,perf,buf));fail_at=0;assert(draft_load(&io,3,&restored,header,buf));assert(header[32]=='A'&&restored.tempo==137);}
- assert(draft_save(&io,3,&l,patch,perf,buf));assert(draft_load(&io,3,&restored,header,buf)&&header[32]=='B'&&restored.tempo==201);
+ patch[0]='B';l.tempo=201;l.quantize=LOOP_QUANT_8T;
+ for(unsigned fault=1;fault<=4;++fault){fail_at=writes+(int)fault;assert(!draft_save(&io,3,&l,patch,perf,buf));fail_at=0;assert(draft_load(&io,3,&restored,header,buf));assert(header[32]=='A'&&restored.tempo==137&&restored.quantize==LOOP_QUANT_16T);}
+ assert(draft_save(&io,3,&l,patch,perf,buf));assert(draft_load(&io,3,&restored,header,buf)&&header[32]=='B'&&restored.tempo==201&&restored.quantize==LOOP_QUANT_8T);
  // Separate slot, exact object lengths, corrupt chunk, generation mismatch.
  assert(draft_save(&io,0,&l,patch,perf,buf));unsigned obj=1;uint8_t old=objects[obj][30];objects[obj][30]^=1;
  restored.tempo=77;assert(!draft_load(&io,0,&restored,header,buf)&&restored.tempo==77);objects[obj][30]=old;
@@ -32,5 +33,16 @@ int main(){
  l.events[0][3].type=LOOP_EVENT_TYPES_COUNT;assert(!draft_save(&io,0,&l,patch,perf,buf)&&writes==before);l.events[0][3].type=LOOP_NOTE;
  patch[12]=255;assert(!draft_save(&io,0,&l,patch,perf,buf)&&writes==before);patch[12]=0;
  assert(!draft_load(&io,4,&restored,header,buf));
+ // Every straight/triplet choice survives a draft round trip.
+ for(unsigned q=0;q<LOOP_QUANT_MODES_COUNT;++q){l.quantize=(uint8_t)q;assert(draft_save(&io,0,&l,patch,perf,buf));assert(draft_load(&io,0,&restored,header,buf)&&restored.quantize==q);}
+ l.quantize=LOOP_QUANT_MODES_COUNT;before=writes;assert(!draft_save(&io,0,&l,patch,perf,buf)&&writes==before);
+ l.quantize=LOOP_QUANT_OFF;assert(draft_save(&io,0,&l,patch,perf,buf));
+ auto* payload=objects[1+objects[0][6]*3]+16;
+ // Genuine v1 header fixture has no quantization; new reader restores OFF.
+ payload[4]=DRAFT_LEGACY;payload[23]=0;rehash(0);restored.quantize=LOOP_QUANT_32T;assert(draft_load(&io,0,&restored,header,buf)&&restored.quantize==LOOP_QUANT_OFF);
+ restored.quantize=LOOP_QUANT_8T;payload[23]=1;rehash(0);assert(!draft_load(&io,0,&restored,header,buf)&&restored.quantize==LOOP_QUANT_8T);
+ payload[4]=DRAFT_QUANTIZED;payload[23]=255;rehash(0);assert(!draft_load(&io,0,&restored,header,buf)&&restored.quantize==LOOP_QUANT_8T);
+ payload[4]=DRAFT_VERSIONS_COUNT;payload[23]=0;rehash(0);assert(!draft_load(&io,0,&restored,header,buf)&&restored.quantize==LOOP_QUANT_8T);
+ puts("PASS all nine saved quantization modes, legacy v1 OFF migration, invalid IDs/versions and transactional quantization preservation");
  puts("PASS full-capacity draft roundtrip, four slots, commit-last failures, length/corruption/generation rejection, unchanged current phrase on validation failure and invalid-save bounds");
 }

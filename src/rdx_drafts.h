@@ -21,10 +21,21 @@ static int draft_manifest(const DraftIO* io,uint32_t slot,uint8_t* m){
     return 1;
 }
 static uint32_t draft_chunk_length(uint32_t chunk){uint32_t n=DRAFT_BLOB-chunk*DRAFT_CHUNK_DATA;return n>DRAFT_CHUNK_DATA?DRAFT_CHUNK_DATA:n;}
+// Stable byte IDs are deliberately mapped rather than serializing enum layout.
+static uint8_t draft_quant_encode(uint8_t q){switch(q){
+case LOOP_QUANT_OFF:return 0;case LOOP_QUANT_4:return 1;case LOOP_QUANT_4T:return 2;
+case LOOP_QUANT_8:return 3;case LOOP_QUANT_8T:return 4;case LOOP_QUANT_16:return 5;
+case LOOP_QUANT_16T:return 6;case LOOP_QUANT_32:return 7;case LOOP_QUANT_32T:return 8;default:return 255;}}
+static uint8_t draft_quant_decode(uint8_t q){switch(q){
+case 0:return LOOP_QUANT_OFF;case 1:return LOOP_QUANT_4;case 2:return LOOP_QUANT_4T;
+case 3:return LOOP_QUANT_8;case 4:return LOOP_QUANT_8T;case 5:return LOOP_QUANT_16;
+case 6:return LOOP_QUANT_16T;case 7:return LOOP_QUANT_32;case 8:return LOOP_QUANT_32T;default:return LOOP_QUANT_MODES_COUNT;}}
+enum eDraftVersion { DRAFT_LEGACY=1,DRAFT_QUANTIZED=2,DRAFT_VERSIONS_COUNT };
 static int draft_header_valid(const DraftIO* io,const uint8_t* h){
-    if(memcmp(h,"RDLP",4)||h[4]!=1||!h[5]||h[5]>LOOP_TRACKS||draft_u16(h+6)<30||draft_u16(h+6)>300||!draft_u16(h+8)||draft_u16(h+8)>LOOP_MAX_TICKS||draft_u16(h+20)>16383||h[22]>127)return 0;
+    if(memcmp(h,"RDLP",4)||(h[4]!=DRAFT_LEGACY&&h[4]!=DRAFT_QUANTIZED)||!h[5]||h[5]>LOOP_TRACKS||draft_u16(h+6)<30||draft_u16(h+6)>300||!draft_u16(h+8)||draft_u16(h+8)>LOOP_MAX_TICKS||draft_u16(h+20)>16383||h[22]>127)return 0;
     for(uint32_t i=0;i<LOOP_TRACKS;++i)if(draft_u16(h+12+2*i)>LOOP_EVENTS||(i>=h[5]&&draft_u16(h+12+2*i)))return 0;
-    if(h[10]||h[11])return 0;for(uint32_t i=23;i<32u;++i)if(h[i])return 0;for(uint32_t i=182;i<DRAFT_HEADER;++i)if(h[i])return 0;
+    if(h[10]||h[11])return 0;if(h[4]==DRAFT_LEGACY?h[23]!=0:draft_quant_decode(h[23])==LOOP_QUANT_MODES_COUNT)return 0;
+    for(uint32_t i=24;i<32u;++i)if(h[i])return 0;for(uint32_t i=182;i<DRAFT_HEADER;++i)if(h[i])return 0;
     return io->valid(h+32);
 }
 static uint8_t draft_byte(const RdxLooper* l,const uint8_t* h,uint32_t at){
@@ -38,7 +49,7 @@ static int draft_save(const DraftIO* io,uint32_t slot,const RdxLooper* l,const u
     if(slot>=DRAFT_SLOTS||l->state!=LOOP_STOP||!l->length||!l->tracks||l->tracks>LOOP_TRACKS)return 0;
     uint8_t m[DRAFT_MANIFEST],h[DRAFT_HEADER];uint32_t seq=1,bank=0;
     if(draft_manifest(io,slot,m)){seq=draft_u32(m+8);if(seq==0xffffffffu)return 0;++seq;bank=1u-m[6];}
-    memset(h,0,sizeof h);memcpy(h,"RDLP",4);h[4]=1;h[5]=l->tracks;draft_w16(h+6,l->tempo);draft_w16(h+8,l->length);
+    memset(h,0,sizeof h);memcpy(h,"RDLP",4);h[4]=DRAFT_QUANTIZED;h[23]=draft_quant_encode(l->quantize);h[5]=l->tracks;draft_w16(h+6,l->tempo);draft_w16(h+8,l->length);
     for(uint32_t t=0;t<l->tracks;++t)draft_w16(h+12+2*t,l->count[t]);memcpy(h+20,performance,3);memcpy(h+32,patch,150);
     if(!draft_header_valid(io,h))return 0;
     for(uint32_t t=0;t<l->tracks;++t){uint16_t before=0;for(uint32_t i=0;i<l->count[t];++i){const LoopEvent* e=&l->events[t][i];
@@ -78,6 +89,6 @@ static int draft_read_pass(const DraftIO* io,uint32_t slot,const uint8_t* m,uint
 static int draft_load(const DraftIO* io,uint32_t slot,RdxLooper* l,uint8_t* h,uint8_t* buf){
     uint8_t m[DRAFT_MANIFEST];if(!draft_manifest(io,slot,m)||!draft_read_pass(io,slot,m,h,buf,0))return 0;
     loop_init(l);if(!draft_read_pass(io,slot,m,h,buf,l)){loop_init(l);return 0;}
-    l->tracks=h[5];l->tempo=draft_u16(h+6);l->length=draft_u16(h+8);for(uint32_t t=0;t<LOOP_TRACKS;++t)l->count[t]=draft_u16(h+12+2*t);
+    l->quantize=h[4]==DRAFT_LEGACY?LOOP_QUANT_OFF:draft_quant_decode(h[23]);l->tracks=h[5];l->tempo=draft_u16(h+6);l->length=draft_u16(h+8);for(uint32_t t=0;t<LOOP_TRACKS;++t)l->count[t]=draft_u16(h+12+2*t);
     return 1;
 }

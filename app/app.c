@@ -596,9 +596,9 @@ static void control_frame(void) {
         char tempo[8];timing_format(row,"%lu",l[3],0,"");memset(tempo,0,sizeof tempo);for(uint32_t i=0;i<sizeof tempo-1u&&row[i];++i)tempo[i]=row[i];
         // Reface-style parameter columns occupy K1, K2 and K4 positions.
         // Render labels, values and rules together, retaining cooperative strips.
-        const char* labels[3]={"CLICK","QUANT","TEMPO"};const char* values[3]={click,quant,tempo};const uint32_t centers[3]={33,96,205};
+        const char* labels[3]={"CLICK","QUANT","TEMPO"};const char* values[3]={click,quant,tempo};const uint32_t centers[3]={30,90,210};
         for(uint32_t band=0;band<66u;band+=8u){uint32_t h=66u-band;if(h>8u)h=8u;cv_begin(240,h,C_BLACK);
-            for(uint32_t yy=0;yy<h;++yy){cv_pset(66,yy,C_WHITE);cv_pset(170,yy,C_WHITE);}
+            for(uint32_t yy=0;yy<h;++yy){cv_pset(60,yy,C_WHITE);cv_pset(120,yy,C_WHITE);cv_pset(180,yy,C_WHITE);}
             for(uint32_t k=0;k<3u;++k){uint32_t n=pixel_length(labels[k]);pixel_text((int32_t)centers[k]-(int32_t)(n*6u*15u/8u)/2,2-(int32_t)band,labels[k],n,15u);
                 n=pixel_length(values[k]);pixel_text((int32_t)centers[k]-(int32_t)(n*6u*15u/8u)/2,30-(int32_t)band,values[k],n,15u);
             }cv_blit(0,64u+band);

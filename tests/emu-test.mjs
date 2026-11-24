@@ -152,12 +152,15 @@ emu.send({type:'keys',mask:1});emu.run(50);
 assert(emu.ex.web_lit_keys()&1,'Held panel key LED is lit');
 emu.send({type:'keys',mask:0});midi(0xb0,120);emu.run(100);
 button(1<<11);midi(0x90,60,100);emu.run(200);midi(0x80,60);emu.run(100);button(1<<11);emu.run(100);button(1<<10);
+emu.send({type:'enc',role:4,n:6});emu.run(150);const savedQuantColumns=screen().slice(64*240,130*240);
 button(1<<8);button(1<<7);button(1<<7);emu.run(100);
 assert.equal(emu.ex.web_store_len(5),40,'Draft manifest committed');
 const draftStore={};for(let o=0;o<emu.ex.web_nobj();o++){const n=emu.ex.web_store_len(o);if(n>0)draftStore[o]=new Uint8Array(emu.ex.memory.buffer,emu.ex.web_store(o),n).slice();}
+assert.equal(draftStore[6][20],2,'Draft payload uses version 2');assert.equal(draftStore[6][39],6,'Draft persists 1/16T with stable wire ID');
 assert(emu.take('frame').some(f=>f.store?.[5]?.length===40),'Browser receives musical draft for persistence');
 await emu.send({type:'load',wasm:wasmReload.buffer.slice(wasmReload.byteOffset,wasmReload.byteOffset+wasmReload.byteLength),store:draftStore,master:4096});
-emu.run(700);button(1<<8);button(1<<10);button(1<<10);button(1<<8);button(1<<10);
+emu.run(700);button(1<<8);button(1<<10);button(1<<10);button(1<<8);emu.run(150);
+assert.deepEqual(screen().slice(64*240,130*240),savedQuantColumns,'Recalled draft restores the displayed quantization and parameter columns');button(1<<10);
 const recalled=emu.record(1200);assert(recalled.every(Number.isFinite)&&recalled.some(v=>Math.abs(v)>0.001),'Saved draft recalls and plays after emulator reload');
 button(1<<10);midi(0xb0,120);emu.run(100);
 console.log('PASS: WebAssembly metronome, menu/transport/key LEDs, musical draft save, browser persistence and audible recall.');

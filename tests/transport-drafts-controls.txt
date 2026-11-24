@@ -67,6 +67,9 @@ expect octave 1
 tap PLAY
 wait 50
 expect loop 0
+turn K2 6
+wait 150
+expect quantize 6
 tap ARP
 expect draft 1
 shot drafts-empty.png
@@ -94,6 +97,7 @@ tap PLAY
 expect draft 5
 expect loop_length 96
 expect loop_tempo 120
+expect quantize 6
 expect loop 0
 shot draft-loaded.png
 tap ARP
