@@ -1,0 +1,20 @@
+wait 600
+tap ENV
+expect page 15
+expect operator 0
+shot aeg-op1.png
+turn SELECT 3
+expect operator 3
+shot aeg-op4.png
+tap HOME
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+expect page 6
+shot frequency-op4.png
+tap EDIT
+tap EDIT
+expect page 8
+shot scaling-op4.png

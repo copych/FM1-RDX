@@ -172,3 +172,15 @@ const recalled=emu.record(1200);assert(recalled.every(Number.isFinite)&&recalled
 button(1<<10);midi(0xb0,120);emu.run(100);
 console.log('PASS: WebAssembly metronome, menu/transport/key LEDs, musical draft save, browser persistence and audible recall.');
 
+
+// Every per-operator page identifies all four selections, and replaces old text.
+midi(0xb0,120);midi(0xc0,32);emu.run(150);button(1<<6);
+function checkOperatorHeaders(label){
+ const headers=[];emu.run(100);headers.push(screen().slice(0,32*240));
+ for(let i=0;i<4;i++){emu.send({type:'enc',role:0,n:1});emu.run(150);headers.push(screen().slice(0,32*240));}
+ for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)assert.notDeepEqual(headers[i],headers[j],label+' shows different OP numbers');
+ assert.deepEqual(headers[4],headers[0],label+' restores the header exactly after wrapping');
+}
+button(1<<2);checkOperatorHeaders('AEG rates');button(1<<2);checkOperatorHeaders('AEG levels');button(1<<6);
+for(let i=0;i<5;i++)button(1<<4);checkOperatorHeaders('OP frequency');button(1<<4);checkOperatorHeaders('OP level/feedback');button(1<<4);checkOperatorHeaders('OP key scaling');
+console.log('PASS: All five per-operator pages show four distinct operator headers and erase old selections on wrap.');

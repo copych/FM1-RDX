@@ -793,7 +793,12 @@ static void control_frame(void) {
     last_revision=editor_view.revision;last_fx=editor_view.fx;last_page=editor_page;last_op=editor_op;last_tune=editor_tune;
     // Each strip below includes its background. Never blank the whole LCD
     // before drawing: the physical panel exposes that intermediate black frame.
-    char context[11];memcpy(context,editor_view.patch,10);context[10]=0;
+    char context[40];memcpy(context,editor_view.patch,10);context[10]=0;
+    const uint8_t per_operator=(editor_page>=EDITOR_OP1&&editor_page<=EDITOR_OP3)||editor_page==EDITOR_AEG_RATES||editor_page==EDITOR_AEG_LEVELS;
+    if(per_operator){
+        const char* title=editor_page==EDITOR_OP1?"FREQUENCY":editor_page==EDITOR_OP2?"LEVEL / FB":rdx_editor_title(editor_page);
+        timing_format(context,"OP %lu  %s",(uint32_t)gui_request.op+1u,0,title);
+    }
     draw_text_row(4,PIXEL_BODY,editor_page==EDITOR_HOME?"VOICE":context,C_WHITE);
     const uint8_t* pixels=gui_reply.pixels;
     for(uint32_t y=0;y<120;y+=8) {

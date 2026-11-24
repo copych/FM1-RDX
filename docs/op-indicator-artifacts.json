@@ -1,0 +1,6 @@
+{
+  "build": "41009A7B",
+  "version": "1.0.2-dev",
+  "firmwareSha256": "d5b1b72012d4fa063c7569223067faa46146e4116b23779b5fdd3977d5752ed7",
+  "wasmSha256": "03f5f4706dfc11859df3e855f5c442d18bddfb187fad838c297c913b7a90d2f4"
+}
