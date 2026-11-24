@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import {startEmu} from '../platform/fm1-base/tests/emu_harness.mjs';
-const emu=await startEmu('app/build/emu');emu.run(700);
+const captureScale=Number(process.argv[3]||1);if(![1,10].includes(captureScale))throw Error("Capture scale must be 1 or 10");
+const emu=await startEmu(process.argv[2]||'app/build/emu');emu.run(700);
 const midi=(s,a,b=0)=>emu.ex.web_midi_in(0,(s>>4)|(s<<8)|(a<<16)|(b<<24));
 const sx=(hi,mid,lo,...data)=>emu.send({type:'app',part:'midi',data:Uint8Array.from([240,67,16,127,28,5,hi,mid,lo,...data,247])});
 const set=(lo,...d)=>sx(48,0,lo,...d);
 function readCommon(){emu.take('midi');emu.send({type:'app',part:'midi',data:Uint8Array.from([240,67,32,127,28,5,48,0,0,247])});emu.run(40);const frames=emu.take('midi').flatMap(x=>x.msgs);const frame=frames.find(x=>x[8]===48&&x.length===51);if(!frame)throw Error('No common patch readback');return frame.slice(11,49);}
-function stats(ms){let peak=0,sum=0,n=0,rails=0;for(let b=0;b<Math.ceil(ms*44.1/128);b++){emu.quantum();for(const ch of emu.out)for(const x of ch){peak=Math.max(peak,Math.abs(x));sum+=x*x;n++;if(Math.abs(x)>.999)rails++;}}emu.take('frame');return {peak,rms:Math.sqrt(sum/n),rails,dbPeak:20*Math.log10(Math.max(peak,1e-12)),dbRms:10*Math.log10(Math.max(sum/n,1e-24))};}
+function stats(ms){let peak=0,sum=0,n=0,rails=0;const mean=[0,0];for(let b=0;b<Math.ceil(ms*44.1/128);b++){emu.quantum();for(let c=0;c<2;c++)for(const raw of emu.out[c]){const x=raw*captureScale;peak=Math.max(peak,Math.abs(x));sum+=x*x;mean[c]+=x;n++;if(Math.abs(raw)>.999)rails++;}}emu.take('frame');const dc=mean.map(v=>v/(n/2)),totalPower=sum/n,acPower=Math.max(0,totalPower-(dc[0]*dc[0]+dc[1]*dc[1])*0.5);return {captureScale,peak,totalRms:Math.sqrt(totalPower),dc,rms:Math.sqrt(acPower),rails,dbPeak:20*Math.log10(Math.max(peak,1e-12)),dbRms:10*Math.log10(Math.max(acPower,1e-24))};}
 function preset(p){midi(176,120);midi(192,p);emu.run(120);}
 function play(notes,velocity=127){for(const note of notes)midi(144,note,velocity);}
 const rows=[];

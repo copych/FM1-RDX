@@ -1,0 +1,14 @@
+{
+  "version": "1.0.2-dev",
+  "firmwareSha256": "0cd1c31143525723d93fbb508de1dd022447785575d0edd50cb65ace54cbf7bc",
+  "wasmSha256": "0623305f617d0ad57651224acb94de744a5c322a70d98d169aa1b9e7bae99d0b",
+  "tableSha256": "b79107f1debf2c8324964ec40f7ca17d45bdfd813fd1ae6b9c65f41383b9fd40",
+  "factoryPresetSha256": "00c62d258f477d7e3830808e80243d16b49219660d0c2abd68024f604175ac6c",
+  "captureWasmSha256": "32718abc0a09387b7150f758e1108586aba9aef0aed52f19387e861f7fdd8f01",
+  "validationCases": 244,
+  "independentFxCases": 156,
+  "acRmsDeltaDb": [
+    -1.3669585189087883,
+    1.8782002879246669
+  ]
+}

@@ -246,7 +246,14 @@ extern "C" void rdx_render(float* l,float* r) {
         const uint32_t fx_ticks=budget_ticks()-fx_start;fx_last=fx_ticks;if(fx_ticks>fx_peak)fx_peak=fx_ticks;
     } else for(uint32_t i=0;i<DMA_BUFFER_LEN;++i)l[i]=r[i]=0.0f;
     for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){performance_gain+=(performance_target-performance_gain)*0.004f;
-        const float gain=preset_gain*performance_gain;l[i]*=gain;r[i]*=gain;}
+        const float gain=preset_gain*performance_gain;
+#ifdef RDX_CALIBRATION_CAPTURE
+        // Offline headroom after FX; capture tools restore the factor of ten.
+        l[i]*=gain*0.1f;r[i]*=gain*0.1f;
+#else
+        l[i]*=gain;r[i]*=gain;
+#endif
+    }
     // A pending change can replace an arena still being prepared. Keep new
     // notes frozen until the new effect state is ready, then fade in.
     if(!ready && fade!=PRESET_FADE_OUT)return;

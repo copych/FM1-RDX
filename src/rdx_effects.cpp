@@ -1,6 +1,9 @@
 #include "rdx_effects.h"
 #include "fx/level_calibration.h"
 #include "rdx_level_math.h"
+#if defined(RDX_CALIBRATION_CAPTURE) && !defined(__EMSCRIPTEN__)
+#error "FX calibration capture is only for the offline WebAssembly build"
+#endif
 
 uint32_t RdxEffects::slotSize(uint8_t id,uint8_t time) {
     if(id>=EFFECTS_COUNT || time>127)return arenaFloats+1u;
@@ -113,7 +116,10 @@ void RdxEffects::process(float* l,float* r,bool matchLevels) {
                 if(power>1.0e-8f&&s.levelPower>1.0e-8f){float ratio=s.levelWetPower/s.levelPower;if(ratio<0.0625f)ratio=0.0625f;if(ratio>16.0f)ratio=16.0f;target=rdx_level_inverse_sqrt(ratio);}
                 else target=s.levelGain;
             }
+// The offline capture build keeps DC removal but measures uncorrected FX.
+#ifndef RDX_CALIBRATION_CAPTURE
             for(uint32_t i=0;i<DMA_BUFFER_LEN;++i){s.levelGain+=(target-s.levelGain)*0.002f;l[i]*=s.levelGain;r[i]*=s.levelGain;}
+#endif
         }
     }
 }
